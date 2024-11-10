@@ -1,0 +1,102 @@
+{
+  "name": "@homebridge-plugins/homebridge-smarthq",
+  "displayName": "SmartHQ",
+  "type": "module",
+  "version": "0.1.0",
+  "description": "The SmartHQ plugin allows you to interact with SmartHQ Devices in HomeKit and with Siri.",
+  "author": {
+    "name": "donavanbecker",
+    "url": "https://github.com/donavanbecker"
+  },
+  "maintainers": [
+    "donavanbecker"
+  ],
+  "license": "ISC",
+  "funding": [
+    {
+      "type": "Paypal",
+      "url": "https://www.paypal.me/donavanbecker"
+    },
+    {
+      "type": "GitHub",
+      "url": "https://github.com/sponsors/donavanbecker"
+    }
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/homebridge-plugins/homebridge-smarthq.git"
+  },
+  "bugs": {
+    "url": "https://github.com/homebridge-plugins/homebridge-smarthq/issues"
+  },
+  "keywords": [
+    "homebridge-plugin",
+    "oven",
+    "SmartHQ",
+    "homebridge"
+  ],
+  "main": "dist/index.js",
+  "engines": {
+    "homebridge": "^1.8.5 || ^2.0.0 || ^2.0.0-beta.23 || ^2.0.0-alpha.37",
+    "node": "^20 || ^22"
+  },
+  "scripts": {
+    "check": "npm install && npm outdated",
+    "lint": "eslint src/**/*.ts",
+    "lint:fix": "eslint src/**/*.ts --fix",
+    "watch": "npm run build && npm run plugin-ui && npm link && nodemon",
+    "plugin-ui": "rsync ./src/homebridge-ui/public/index.html ./dist/homebridge-ui/public/",
+    "build": "npm run clean && tsc && npm run plugin-ui",
+    "prepublishOnly": "npm run lint && npm run build && npm run plugin-ui ",
+    "postpublish": "npm run clean",
+    "clean": "shx rm -rf ./dist",
+    "test": "npm run lint",
+    "docs": "typedoc",
+    "lint-docs": "typedoc --emit none --treatWarningsAsErrors"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@homebridge/plugin-ui-utils": "^1.0.3",
+    "axios": "^1.7.7",
+    "axios-cookiejar-support": "^5.0.3",
+    "axios-form-data": "^1.1.1",
+    "cheerio": "^1.0.0-rc.12",
+    "lodash": "^4.17.21",
+    "openid-client": "^ 5.7.0",
+    "rxjs": "^7.8.1",
+    "tough-cookie": "^5.0.0",
+    "undici": "^6.20.1",
+    "ws": "^8.18.0"
+  },
+  "optionalDependencies": {
+    "bufferutil": "^4.0.6",
+    "utf-8-validat": "*"
+  },
+  "devDependencies": {
+    "@antfu/eslint-config": "^3.8.0",
+    "@types/aes-js": "^3.1.4",
+    "@types/debug": "^4.1.12",
+    "@types/fs-extra": "^11.0.4",
+    "@types/lodash": "^4.14.186",
+    "@types/mdast": "^4.0.4",
+    "@types/node": "^22.9.0",
+    "@types/semver": "^7.5.8",
+    "@types/source-map-support": "^0.5.10",
+    "@types/ws": "^8.5.3",
+    "@vitest/coverage-v8": "^2.1.4",
+    "eslint": "^9.14.0",
+    "eslint-plugin-format": "^0.1.2",
+    "homebridge": "^1.8.5",
+    "homebridge-config-ui-x": "4.62.0",
+    "nodemon": "^3.1.7",
+    "rimraf": "^6.0.1",
+    "shx": "^0.3.4",
+    "ts-node": "^10.9.2",
+    "ts-node-dev": "^2.0.0",
+    "typedoc": "^0.26.11",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.4"
+  }
+}
