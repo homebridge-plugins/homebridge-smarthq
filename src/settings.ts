@@ -3,7 +3,9 @@
  * settings.ts: @homebridge-plugins/homebridge-smarthq.
  */
 import { Characteristic, type PlatformConfig } from 'homebridge'
-import { invert } from 'lodash'
+import pkg from 'lodash'
+
+const { invert } = pkg
 
 /**
  * This is the name of the platform that users will use to register the plugin in the Homebridge config.json
