@@ -1,11 +1,13 @@
 import axios from 'axios'
 import { wrapper } from 'axios-cookiejar-support'
 import * as cheerio from 'cheerio'
-import { keyBy, mapValues } from 'lodash'
+import pkg from 'lodash'
 import { Issuer } from 'openid-client'
 import { CookieJar } from 'tough-cookie'
 
 import { OAUTH2_CLIENT_ID, OAUTH2_CLIENT_SECRET, OAUTH2_REDIRECT_URI } from './settings.js'
+
+const { keyBy, mapValues } = pkg
 
 const oidcClient = Issuer.discover('https://accounts.brillion.geappliances.com/').then(
   geData =>
