@@ -1,0 +1,193 @@
+{
+  "pluginAlias": "SmartHQ",
+  "pluginType": "platform",
+  "singular": true,
+  "customUi": true,
+  "customUiPath": "./dist/homebridge-ui",
+  "headerDisplay": "<p align='center'><img width='250px' src='https://raw.githubusercontent.com/homebridge-plugins/homebridge-smarthq/latest/branding/Homebridge_x_Air.svg'></p>\n\nThe **Homebridge SmartHQ** plugin allows you monitor the current AirQuality for your Zip Code from HomeKit and Siri.",
+  "footerDisplay": "Your SmartHQ apiKey was linked. Please raise any issues on our [project page](https://github.com/homebridge-plugins/homebridge-smarthq/issues).\n\nIf you would like to have other features, fill out [Feature Request Form](https://github.com/homebridge-plugins/homebridge-smarthq/issues/new?assignees=&labels=&template=feature_request.md).",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "title": "Name",
+        "default": "SmartHQ",
+        "required": true
+      },
+      "credentials": {
+        "type": "object",
+        "items": {
+          "username": {
+            "title": "Username",
+            "type": "string",
+            "required": true,
+            "default": ""
+          },
+          "password": {
+            "title": "Password",
+            "type": "string",
+            "required": true,
+            "default": ""
+          }
+        }
+      },
+      "devices": {
+        "type": "array",
+        "items": {
+          "title": "Devices",
+          "type": "object",
+          "properties": {
+            "firmware": {
+              "title": "Firmware Override",
+              "type": "string",
+              "placeholder": "1.2.8",
+              "condition": {
+                "functionBody": "return (model.devices && model.devices[arrayIndices].city && model.devices[arrayIndices].zipCode);"
+              }
+            },
+            "refreshRate": {
+              "title": "Device Refresh Rate",
+              "type": "number",
+              "minimum": 1800,
+              "placeholder": 1800,
+              "description": "Indicates the number of seconds between polls of the SmartHQ service.",
+              "condition": {
+                "functionBody": "return (model.devices && model.devices[arrayIndices].city && model.devices[arrayIndices].zipCode);"
+              }
+            },
+            "logging": {
+              "title": "Device Logging Override Setting",
+              "type": "string",
+              "required": true,
+              "default": "",
+              "condition": {
+                "functionBody": "return (model.devices && model.devices[arrayIndices].city && model.devices[arrayIndices].zipCode);"
+              },
+              "oneOf": [
+                {
+                  "title": "Default Logging",
+                  "enum": [
+                    ""
+                  ]
+                },
+                {
+                  "title": "Standard Logging",
+                  "enum": [
+                    "standard"
+                  ]
+                },
+                {
+                  "title": "No Logging",
+                  "enum": [
+                    "none"
+                  ]
+                },
+                {
+                  "title": "Debug Logging",
+                  "enum": [
+                    "debug"
+                  ]
+                }
+              ]
+            },
+            "hide_device": {
+              "title": "Delete Device",
+              "type": "boolean",
+              "description": "Delete this device from the plugin cache.",
+              "condition": {
+                "functionBody": "return (model.devices && model.devices[arrayIndices].city && model.devices[arrayIndices].zipCode);"
+              }
+            }
+          }
+        }
+      },
+      "options": {
+        "type": "object",
+        "items": {
+          "refreshRate": {
+            "title": "Device Refresh Rate",
+            "type": "number",
+            "minimum": 1800,
+            "placeholder": 1800,
+            "description": "Indicates the number of seconds between polls of the SmartHQ service.",
+            "condition": {
+              "functionBody": "return (model.devices && model.devices[arrayIndices].city && model.devices[arrayIndices].zipCode);"
+            }
+          },
+          "logging": {
+            "title": "Device Logging Override Setting",
+            "type": "string",
+            "required": true,
+            "default": "",
+            "condition": {
+              "functionBody": "return (model.devices && model.devices[arrayIndices].city && model.devices[arrayIndices].zipCode);"
+            },
+            "oneOf": [
+              {
+                "title": "Default Logging",
+                "enum": [
+                  ""
+                ]
+              },
+              {
+                "title": "Standard Logging",
+                "enum": [
+                  "standard"
+                ]
+              },
+              {
+                "title": "No Logging",
+                "enum": [
+                  "none"
+                ]
+              },
+              {
+                "title": "Debug Logging",
+                "enum": [
+                  "debug"
+                ]
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  "layout": [
+    "credentials.username",
+    "credentials.password",
+    {
+      "key": "devices",
+      "notitle": false,
+      "type": "tabarray",
+      "title": "{{ value || 'New SmartHQ Device' }}",
+      "expandable": true,
+      "expanded": false,
+      "orderable": false,
+      "items": [
+        "devices[].firmware",
+        "devices[].refreshRate",
+        "devices[].logging",
+        "devices[].hide_device"
+      ]
+    },
+    {
+      "type": "fieldset",
+      "title": "Advanced Settings",
+      "expandable": true,
+      "expanded": false,
+      "items": [
+        {
+          "type": "help",
+          "helpvalue": "<h5>Refresh Rate</h5><em class='primary-text'>Refresh Rate indicates the number of seconds between polls of the SmartHQ service.</em>"
+        },
+        {
+          "key": "options.refreshRate",
+          "notitle": true
+        },
+        "options.logging"
+      ]
+    }
+  ]
+}
