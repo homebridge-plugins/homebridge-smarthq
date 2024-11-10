@@ -230,7 +230,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
           axios.get(`/appliance/${device.applianceId}/feature`),
         ])
         switch (device.type) {
-          case 'dishwasher':
+          case 'Dishwasher':
             await this.createSmartHQDishWasher(userId, device, details, features)
             break
           case 'oven':
