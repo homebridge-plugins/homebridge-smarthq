@@ -5,13 +5,13 @@
 import type { API, DynamicPlatformPlugin, HAP, Logging, PlatformAccessory } from 'homebridge'
 import type { TokenSet } from 'openid-client'
 
-import type { credentials, devicesConfig, options, SmartHQPlatformConfig } from './settings.js'
+import type { credentials, devicesConfig, options, SmartHqContext, SmartHQPlatformConfig } from './settings.js'
 
 import { readFileSync } from 'node:fs'
 import process, { argv } from 'node:process'
 
 import axios from 'axios'
-import { find } from 'lodash'
+import pkg from 'lodash'
 import ws from 'ws'
 
 import { SmartHQDishWasher } from './devices/dishwashers.js'
@@ -19,19 +19,10 @@ import { SmartHQOven } from './devices/oven.js'
 import getAccessToken, { refreshAccessToken } from './getAccessToken.js'
 import { API_URL, ERD_CODES, ERD_TYPES, KEEPALIVE_TIMEOUT, PLATFORM_NAME, PLUGIN_NAME } from './settings.js'
 
+const { find } = pkg
+
 axios.defaults.baseURL = API_URL
 
-export interface SmartHqContext {
-  userId: string
-  device: {
-    brand: string
-    model: string
-    serial: string
-    nickname: string
-    applianceId: string
-    features: string[]
-  }
-}
 /**
  * HomebridgePlatform
  * This class is the main constructor for your plugin, this is where you should
@@ -167,7 +158,11 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
    */
   async discoverDevices() {
     try {
-      this.tokenSet = await getAccessToken(this.config.username, this.config.password)
+      const { username, password } = this.config.credentials ?? {}
+      if (!username || !password) {
+        throw new Error('Username or password is undefined')
+      }
+      this.tokenSet = await getAccessToken(username, password)
       await this.startRefreshTokenLogic()
 
       const wssData = await axios.get('/websocket')
@@ -192,7 +187,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
             if (obj.item.erd === ERD_TYPES.UPPER_OVEN_LIGHT) {
               const service = accessory.getService('Upper Oven Light')
               if (service) {
-                // service.updateCharacteristic(this.Characteristic.On, obj.item.value === '01')
+                service.updateCharacteristic(this.Characteristic.On, obj.item.value === '01')
               }
             }
           }
@@ -265,7 +260,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
         existingAccessory.context.device = device
         existingAccessory.context = { device: { ...details, ...features }, userId }
         existingAccessory.displayName = await this.validateAndCleanDisplayName(device.nickname, 'nickname', device.nickname)
-        // existingAccessory.context.FirmwareRevision = device.firmware ?? await this.getVersion()
+        // existingAccessory.context.FirmwareRevision = device.firmware ?? await this.getVersion();
         this.api.updatePlatformAccessories([existingAccessory])
         // Restore accessory
         await this.infoLog(`Restoring existing accessory from cache: ${existingAccessory.displayName}`)
@@ -285,7 +280,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       accessory.context.device = device
       accessory.context = { device: { ...details, ...features }, userId }
       accessory.displayName = await this.validateAndCleanDisplayName(device.nickname, 'nickname', device.nickname)
-      // accessory.context.FirmwareRevision = device.firmware ?? await this.getVersion()
+      // accessory.context.FirmwareRevision = device.firmware ?? await this.getVersion();
       // the accessory does not yet exist, so we need to create it
       await this.infoLog(`Adding new accessory: ${device.nickname}`)
       // create the accessory handler for the newly create accessory
@@ -315,7 +310,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
         existingAccessory.context.device = device
         existingAccessory.context = { device: { ...details, ...features }, userId }
         existingAccessory.displayName = await this.validateAndCleanDisplayName(device.nickname, 'nickname', device.nickname)
-        // existingAccessory.context.FirmwareRevision = device.firmware ?? await this.getVersion()
+        // existingAccessory.context.FirmwareRevision = device.firmware ?? await this.getVersion();
         this.api.updatePlatformAccessories([existingAccessory])
         // Restore accessory
         await this.infoLog(`Restoring existing accessory from cache: ${existingAccessory.displayName}`)
@@ -335,7 +330,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       accessory.context.device = device
       accessory.context = { device: { ...details, ...features }, userId }
       accessory.displayName = await this.validateAndCleanDisplayName(device.nickname, 'nickname', device.nickname)
-      // accessory.context.FirmwareRevision = device.firmware ?? await this.getVersion()
+      // accessory.context.FirmwareRevision = device.firmware ?? await this.getVersion();
       // the accessory does not yet exist, so we need to create it
       await this.infoLog(`Adding new accessory: ${device.nickname}`)
       // create the accessory handler for the newly create accessory

@@ -1,7 +1,7 @@
 import type { PlatformAccessory } from 'homebridge'
 
-import type { SmartHqContext, SmartHQPlatform } from '../platform.js'
-import type { devicesConfig } from '../settings.js'
+import type { SmartHQPlatform } from '../platform.js'
+import type { devicesConfig, SmartHqContext } from '../settings.js'
 
 import { Buffer } from 'node:buffer'
 

@@ -4,8 +4,8 @@
  */
 import type { CharacteristicValue, PlatformAccessory, Service } from 'homebridge'
 
-import type { SmartHqContext, SmartHQPlatform } from '../platform.js'
-import type { devicesConfig } from '../settings.js'
+import type { SmartHQPlatform } from '../platform.js'
+import type { devicesConfig, SmartHqContext } from '../settings.js'
 
 import { interval } from 'rxjs'
 import { skipWhile } from 'rxjs/operators'

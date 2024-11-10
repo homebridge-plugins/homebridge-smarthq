@@ -47,6 +47,18 @@ export interface options {
   logging?: string
 }
 
+export interface SmartHqContext {
+  userId: string
+  device: {
+    brand: string
+    model: string
+    serial: string
+    nickname: string
+    applianceId: string
+    features: string[]
+  }
+}
+
 // Constants
 export const OAUTH2_CLIENT_ID = '564c31616c4f7474434b307435412b4d2f6e7672'
 export const OAUTH2_CLIENT_SECRET = '6476512b5246446d452f697154444941387052645938466e5671746e5847593d'
