@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file. This projec
 
 ### What's Changes
 
-- Release of [@homebridge-plugins/homebridge-smarthq](https://github.com/homebridge-plugins/homebridge-smarthq) which allows you to update your see the air qualiry from SmartHQ Web API.
+- Release of [@homebridge-plugins/homebridge-smarthq](https://github.com/homebridge-plugins/homebridge-smarthq) which allows to interact with SmartHQ API.
 
 **Full Changelog**: https://github.com/homebridge-plugins/homebridge-smarthq/compare/v0.1.0...v1.0.0
 
