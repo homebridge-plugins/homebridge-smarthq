@@ -141,6 +141,6 @@ export class SmartHQRefrigerator extends deviceBase {
   }
 
   public async apiError(e: any): Promise<void> {
-    this.Refrigerator.Service.updateCharacteristic(this.hap.Characteristic.On, e)
+    this.Refrigerator.Service.updateCharacteristic(this.hap.Characteristic.ContactSensorState, e)
   }
 }
