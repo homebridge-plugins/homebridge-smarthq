@@ -1,3 +1,7 @@
+/* Copyright(C) 2021-2024, donavanbecker (https://github.com/donavanbecker). All rights reserved.
+ *
+ * oven.ts: @homebridge-plugins/homebridge-smarthq.
+ */
 import type { PlatformAccessory } from 'homebridge'
 
 import type { SmartHQPlatform } from '../platform.js'
@@ -30,8 +34,8 @@ export class SmartHQOven extends deviceBase {
       switch (feature) {
         case 'COOKING_V1_UPPER_OVEN_FOUNDATION': {
           const ovenLight
-            = this.accessory.getService('Upper Oven Light')
-            || this.accessory.addService(this.platform.Service.Lightbulb, 'Upper Oven Light', 'Oven')
+            = this.accessory.getService(accessory.context.device.nickname)
+            || this.accessory.addService(this.platform.Service.Lightbulb, accessory.context.device.nickname, 'Oven')
 
           ovenLight
             .getCharacteristic(this.platform.Characteristic.On)
@@ -40,9 +44,9 @@ export class SmartHQOven extends deviceBase {
           break
         }
         case 'COOKING_V1_EXTENDED_COOKTOP_FOUNDATION': {
-          this.accessory.getService('Upper Oven Mode')
+          this.accessory.getService(accessory.context.device.nickname)
           || this.accessory
-            .addService(this.platform.Service.StatefulProgrammableSwitch, 'Upper Oven Mode', 'Oven')
+            .addService(this.platform.Service.StatefulProgrammableSwitch, accessory.context.device.nickname, 'Oven')
             .getCharacteristic(this.platform.Characteristic.TargetTemperature)
             .onGet(async () => {
               const erdVal = await this.readErd(ERD_TYPES.UPPER_OVEN_COOK_MODE)
