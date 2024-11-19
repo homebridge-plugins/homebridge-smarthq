@@ -1,3 +1,7 @@
+/* Copyright(C) 2021-2024, donavanbecker (https://github.com/donavanbecker). All rights reserved.
+ *
+ * oven.ts: @homebridge-plugins/homebridge-smarthq.
+ */
 import type { PlatformAccessory } from 'homebridge'
 
 import type { SmartHQPlatform } from '../platform.js'
@@ -17,21 +21,12 @@ export class SmartHQOven extends deviceBase {
     readonly device: SmartHqContext['device'] & devicesConfig,
   ) {
     super(platform, accessory, device)
-    accessory.context.device.features.forEach((feature) => {
-      /* [
-      'COOKING_V1_ACCENT_LIGHTING',
-      'COOKING_V1_EXTENDED_COOKTOP_FOUNDATION',
-      'COOKING_V1_MENU_TREE',
-      'COOKING_V1_UPPER_OVEN_FOUNDATION',
-      'COOKING_V2_CLOCK_DISPLAY',
-      'COOKING_V2_UPPER_CAVITY_REMOTE_PRECISION_COOK',
-      ]; */
 
+    this.debugLog(`Oven Features: ${JSON.stringify(accessory.context.device.features)}`)
+    accessory.context.device.features.forEach((feature) => {
       switch (feature) {
         case 'COOKING_V1_UPPER_OVEN_FOUNDATION': {
-          const ovenLight
-            = this.accessory.getService('Upper Oven Light')
-            || this.accessory.addService(this.platform.Service.Lightbulb, 'Upper Oven Light', 'Oven')
+          const ovenLight = this.accessory.getService(accessory.displayName) || this.accessory.addService(this.platform.Service.Lightbulb, accessory.displayName, 'Oven')
 
           ovenLight
             .getCharacteristic(this.platform.Characteristic.On)
@@ -40,9 +35,9 @@ export class SmartHQOven extends deviceBase {
           break
         }
         case 'COOKING_V1_EXTENDED_COOKTOP_FOUNDATION': {
-          this.accessory.getService('Upper Oven Mode')
+          this.accessory.getService(accessory.displayName)
           || this.accessory
-            .addService(this.platform.Service.StatefulProgrammableSwitch, 'Upper Oven Mode', 'Oven')
+            .addService(this.platform.Service.StatefulProgrammableSwitch, accessory.displayName, 'Oven')
             .getCharacteristic(this.platform.Characteristic.TargetTemperature)
             .onGet(async () => {
               const erdVal = await this.readErd(ERD_TYPES.UPPER_OVEN_COOK_MODE)

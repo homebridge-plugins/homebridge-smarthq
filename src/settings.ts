@@ -2,7 +2,8 @@
  *
  * settings.ts: @homebridge-plugins/homebridge-smarthq.
  */
-import { Characteristic, type PlatformConfig } from 'homebridge'
+import type { PlatformConfig } from 'homebridge'
+
 import pkg from 'lodash'
 
 const { invert } = pkg
@@ -16,6 +17,16 @@ export const PLATFORM_NAME = 'SmartHQ'
  * This must match the name of your plugin as defined the package.json
  */
 export const PLUGIN_NAME = '@homebridge-plugins/homebridge-smarthq'
+
+/**
+ * This is the Login URL for the SmartHQ API
+ */
+export const LOGIN_URL = 'https://accounts.brillion.geappliances.com/'
+
+/**
+ * This is the Secure URL for the SmartHQ API
+ */
+export const SECURE_URL = 'https://secure.brillion.geappliances.com'
 
 // Config
 export interface SmartHQPlatformConfig extends PlatformConfig {
@@ -50,11 +61,13 @@ export interface options {
 export interface SmartHqContext {
   userId: string
   device: {
+    jid: string
     brand: string
     model: string
     serial: string
     nickname: string
     applianceId: string
+    firmware: string
     features: string[]
   }
 }
@@ -177,6 +190,32 @@ export const ERD_TYPES = {
   PRECISION_COOKING_PROBE_BATTERY_STATUS: '0x5678' as const,
 
   CLOSED_LOOP_COOKING_CONFIGURATION: '0x5770' as const,
+
+  DISHWASHER_CYCLE: '0x6000' as const,
+  DISHWASHER_CYCLE_PHASE: '0x6001' as const,
+  DISHWASHER_CYCLE_PHASE_DESCRIPTION: '0x6002' as const,
+  DISHWASHER_CYCLE_PHASE_TIME_REMAINING: '0x6003' as const,
+  DISHWASHER_CYCLE_PHASE_STATUS: '0x6004' as const,
+  DISHWASHER_CYCLE_PHASE_STATUS_DESCRIPTION: '0x6005' as const,
+  DISHWASHER_CYCLE_PHASE_STATUS_TIME_REMAINING: '0x6006' as const,
+  DISHWASHER_CYCLE_PHASE_STATUS_TIME_TOTAL: '0x6007' as const,
+  COMMON_V1_CONTROL_LOCK: '0x7000' as const,
+  COMMON_V1_SABBATH: '0x7001' as const,
+  COMMON_V1_SOUND_LEVEL: '0x7002' as const,
+  DISHWASHER_V1_CYCLE_DEFINITIONS: '0x7003' as const,
+  DISHWASHER_V1_CYCLE_SETTINGS_BOTTLE_BLAST_OPTION: '0x7004' as const,
+  DISHWASHER_V1_CYCLE_SETTINGS_DELAY_START: '0x7005' as const,
+  DISHWASHER_V1_CYCLE_SETTINGS_DRY_TEMP_SELECTION: '0x7006' as const,
+  DISHWASHER_V1_CYCLE_SETTINGS_SELECTED_CYCLE: '0x7007' as const,
+  DISHWASHER_V1_CYCLE_SETTINGS_STEAM_OPTION: '0x7008' as const,
+  DISHWASHER_V1_CYCLE_SETTINGS_WASH_TEMP_SELECTION: '0x7009' as const,
+  DISHWASHER_V1_CYCLE_SETTINGS_WASH_ZONE_SELECTION: '0x700a' as const,
+  DISHWASHER_V1_FOUNDATION: '0x700b' as const,
+  DISHWASHER_V1_REMAINING_DELAY_START_TIME: '0x700c' as const,
+  DISHWASHER_V1_REMOTE_CYCLE_CONTROL: '0x700d' as const,
+  DISHWASHER_V1_SERVICE: '0x700e' as const,
+  DISHWASHER_V2_SMART_ASSIST: '0x700f' as const,
+  RESOURCE_MANAGEMENT_V1_ELECTRICAL_ENERGY_USAGE_V2: '0x7010' as const,
 }
 
 export const ERD_CODES = invert(ERD_TYPES)
