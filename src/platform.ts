@@ -171,7 +171,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
 
       connection.on('message', (data) => {
         const obj = JSON.parse(data.toString())
-        this.debugLog(obj)
+        this.debugLog(`data: ${JSON.stringify(obj)}`)
 
         if (obj.kind === 'publish#erd') {
           const accessory = find(this.accessories, a => a.context.device.applianceId === obj.item.applianceId)
@@ -182,8 +182,8 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
           }
 
           if (ERD_CODES[obj.item.erd]) {
-            this.debugLog(ERD_CODES[obj.item.erd])
-            this.debugLog(obj.item.value)
+            this.debugLog(`ERD_CODES: ${ERD_CODES[obj.item.erd]}`)
+            this.debugLog(`obj>item>value: ${obj.item.value}`)
 
             if (obj.item.erd === ERD_TYPES.UPPER_OVEN_LIGHT) {
               const service = accessory.getService('Upper Oven Light')
@@ -197,7 +197,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
 
       connection.on('close', (_, reason) => {
         this.debugLog('Connection closed')
-        this.debugLog(reason.toString())
+        this.debugLog(`reason: ${reason.toString()}`)
       })
 
       connection.on('open', () => {

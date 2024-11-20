@@ -5,7 +5,7 @@
 import type { API, CharacteristicValue, HAP, Logging, PlatformAccessory, Service } from 'homebridge'
 
 import type { SmartHQPlatform } from '../platform.js'
-import type { devicesConfig, SmartHQPlatformConfig } from '../settings.js'
+import type { devicesConfig, SmartHqContext, SmartHQPlatformConfig } from '../settings.js'
 
 export abstract class deviceBase {
   public readonly api: API
@@ -22,7 +22,7 @@ export abstract class deviceBase {
 
   constructor(
     protected readonly platform: SmartHQPlatform,
-    protected accessory: PlatformAccessory,
+    protected accessory: PlatformAccessory<SmartHqContext>,
     protected device: devicesConfig,
   ) {
     this.api = this.platform.api
@@ -38,7 +38,7 @@ export abstract class deviceBase {
     // Set accessory information
     accessory
       .getService(this.hap.Service.AccessoryInformation)!
-      .setCharacteristic(this.hap.Characteristic.Manufacturer, accessory.context.device.brand)
+      .setCharacteristic(this.hap.Characteristic.Manufacturer, accessory.context.device.brand ?? 'GE')
       .setCharacteristic(this.hap.Characteristic.Name, accessory.context.device.nickname)
       .setCharacteristic(this.hap.Characteristic.ConfiguredName, accessory.context.device.nickname)
       .setCharacteristic(this.hap.Characteristic.Model, accessory.context.device.model)
