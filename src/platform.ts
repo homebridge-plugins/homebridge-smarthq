@@ -321,7 +321,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
         // create the accessory handler for the restored accessory
         // this is imported from `platformAccessory.ts`
         new SmartHQOven(this, existingAccessory, device)
-        await this.debugLog(`${device.nickname} uuid: ${device.device_id}`)
+        await this.debugLog(`${device.nickname} uuid: ${device.jid}`)
       } else {
         this.unregisterPlatformAccessories(existingAccessory)
       }
@@ -339,7 +339,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       // create the accessory handler for the newly create accessory
       // this is imported from `platformAccessory.ts`
       new SmartHQOven(this, accessory, device)
-      this.debugLog(`${device.nickname} uuid: ${device.device_id}`)
+      this.debugLog(`${device.nickname} uuid: ${device.jid}`)
 
       // link the accessory to your platform
       this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
@@ -370,7 +370,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
         // create the accessory handler for the restored accessory
         // this is imported from `platformAccessory.ts`
         new SmartHQRefrigerator(this, existingAccessory, device)
-        await this.debugLog(`${device.nickname} uuid: ${device.device_id}`)
+        await this.debugLog(`${device.nickname} uuid: ${device.jid}`)
       } else {
         this.unregisterPlatformAccessories(existingAccessory)
       }
@@ -388,7 +388,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       // create the accessory handler for the newly create accessory
       // this is imported from `platformAccessory.ts`
       new SmartHQRefrigerator(this, accessory, device)
-      this.debugLog(`${device.nickname} uuid: ${device.device_id}`)
+      this.debugLog(`${device.nickname} uuid: ${device.jid}`)
 
       // link the accessory to your platform
       this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
