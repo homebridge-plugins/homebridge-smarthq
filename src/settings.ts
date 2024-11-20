@@ -2,7 +2,8 @@
  *
  * settings.ts: @homebridge-plugins/homebridge-smarthq.
  */
-import { Characteristic, type PlatformConfig } from 'homebridge'
+import type { PlatformConfig } from 'homebridge'
+
 import pkg from 'lodash'
 
 const { invert } = pkg

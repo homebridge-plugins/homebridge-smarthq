@@ -14,13 +14,6 @@ import { ERD_TYPES } from '../settings.js'
 import { deviceBase } from './device.js'
 
 export class SmartHQRefrigerator extends deviceBase {
-  // Service
-  private Refrigerator!: {
-    Service: Service
-    Name: CharacteristicValue
-    ContactSensorState: CharacteristicValue
-  }
-
   // Updates
   SensorUpdateInProgress!: boolean
   deviceStatus: any
@@ -32,7 +25,7 @@ export class SmartHQRefrigerator extends deviceBase {
   ) {
     super(platform, accessory, device)
 
-    this.debugLog(`Dishwasher Features: ${JSON.stringify(accessory.context.device.features)}`)
+    this.debugLog(`Refrigerator Features: ${JSON.stringify(accessory.context.device.features)}`)
     accessory.context.device.features.forEach((feature) => {
       /* [
       "DOOR_STATUS"
@@ -56,13 +49,13 @@ export class SmartHQRefrigerator extends deviceBase {
     this.SensorUpdateInProgress = false
 
     // Retrieve initial values and updateHomekit
-    this.refreshStatus()
+    // this.refreshStatus()
 
     // Start an update interval
     interval(this.deviceRefreshRate * 10000)
       .pipe(skipWhile(() => this.SensorUpdateInProgress))
       .subscribe(async () => {
-        await this.refreshStatus()
+        // await this.refreshStatus()
       })
   }
 
@@ -82,65 +75,5 @@ export class SmartHQRefrigerator extends deviceBase {
         value: typeof value === 'boolean' ? (value ? '01' : '00') : value,
       })
     return undefined
-  }
-
-  /**
-   * Parse the device status from the SmartHQ api
-   */
-  async parseStatus() {
-    try {
-      // On
-      // this.Refrigerator.On = this.deviceStatus.is_on
-    } catch (e: any) {
-      await this.errorLog(`failed to parseStatus, Error Message: ${JSON.stringify(e.message ?? e)}`)
-      await this.apiError(e)
-    }
-  }
-
-  /**
-   * Asks the SmartHQ API for the latest device information
-   */
-  async refreshStatus() {
-    try {
-      // const status = await this.platform.client.getDeviceStatus(this.device.device_id)
-      // this.deviceStatus = status
-      await this.parseStatus()
-      await this.updateHomeKitCharacteristics()
-    } catch (e: any) {
-      await this.errorLog(`failed to update status, Error Message: ${JSON.stringify(e.message ?? e)}`)
-      await this.apiError(e)
-    }
-  }
-
-  async setContactSensorState(ContactSensorState: CharacteristicValue) {
-    try {
-      // await this.platform.client.setDeviceOn(this.device.device_id, On as boolean)
-      this.Refrigerator.ContactSensorState = ContactSensorState as boolean
-    } catch (e: any) {
-      await this.errorLog(`failed to setOn, Error Message: ${JSON.stringify(e.message ?? e)}`)
-    }
-  }
-
-  async getContactSensorState(): Promise<CharacteristicValue> {
-    try {
-      // const status = await this.platform.client.getDeviceStatus(this.device.device_id)
-      // this.Refrigerator.On = status.is_on
-      return this.Refrigerator.ContactSensorState
-    } catch (e: any) {
-      await this.errorLog(`failed to getOn, Error Message: ${JSON.stringify(e.message ?? e)}`)
-      throw new this.platform.api.hap.HapStatusError(this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE)
-    }
-  }
-
-  /**
-   * Updates the status for each of the HomeKit Characteristics
-   */
-  async updateHomeKitCharacteristics(): Promise<void> {
-    // AirQuality
-    await this.updateCharacteristic(this.Refrigerator.Service, this.hap.Characteristic.ContactSensorState, this.Refrigerator.ContactSensorState, 'ContactSensorState')
-  }
-
-  public async apiError(e: any): Promise<void> {
-    this.Refrigerator.Service.updateCharacteristic(this.hap.Characteristic.ContactSensorState, e)
   }
 }

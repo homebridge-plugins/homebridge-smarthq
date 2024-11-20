@@ -21,16 +21,9 @@ export class SmartHQOven extends deviceBase {
     readonly device: SmartHqContext['device'] & devicesConfig,
   ) {
     super(platform, accessory, device)
-    accessory.context.device.features.forEach((feature) => {
-      /* [
-      'COOKING_V1_ACCENT_LIGHTING',
-      'COOKING_V1_EXTENDED_COOKTOP_FOUNDATION',
-      'COOKING_V1_MENU_TREE',
-      'COOKING_V1_UPPER_OVEN_FOUNDATION',
-      'COOKING_V2_CLOCK_DISPLAY',
-      'COOKING_V2_UPPER_CAVITY_REMOTE_PRECISION_COOK',
-      ]; */
 
+    this.debugLog(`Oven Features: ${JSON.stringify(accessory.context.device.features)}`)
+    accessory.context.device.features.forEach((feature) => {
       switch (feature) {
         case 'COOKING_V1_UPPER_OVEN_FOUNDATION': {
           const ovenLight
