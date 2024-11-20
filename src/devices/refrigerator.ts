@@ -2,7 +2,7 @@
  *
  * oven.ts: @homebridge-plugins/homebridge-smarthq.
  */
-import type { CharacteristicValue, PlatformAccessory, Service } from 'homebridge'
+import type { PlatformAccessory } from 'homebridge'
 
 import type { SmartHQPlatform } from '../platform.js'
 import type { devicesConfig, SmartHqContext } from '../settings.js'
