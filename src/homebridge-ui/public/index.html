@@ -57,7 +57,7 @@
         </tr>
         <tr>
           <th scope="row">Firmware Version</th>
-          <td id="FirmwareRevision"></td>
+          <td id="firmware"></td>
         </tr>
       </tbody>
     </table>
@@ -153,7 +153,7 @@
           document.getElementById('model').innerHTML = context.device.model;
           document.getElementById('serial').innerHTML = context.device.serial;
           document.getElementById('applianceId').innerHTML = context.device.applianceId;
-          document.getElementById('FirmwareRevision').innerHTML = context.device.firmware;
+          document.getElementById('firmware').innerHTML = context.device.firmware;
           document.getElementById('deviceTable').style.display = 'inline-table';
           homebridge.hideSpinner();
         };

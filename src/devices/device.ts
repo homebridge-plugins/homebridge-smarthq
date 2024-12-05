@@ -44,6 +44,7 @@ export abstract class deviceBase {
       .setCharacteristic(this.hap.Characteristic.Model, accessory.context.device.model)
       .setCharacteristic(this.hap.Characteristic.SerialNumber, accessory.context.device.serial)
       .setCharacteristic(this.hap.Characteristic.HardwareRevision, this.deviceFirmwareVersion)
+      .setCharacteristic(this.hap.Characteristic.SoftwareRevision, this.deviceFirmwareVersion)
       .setCharacteristic(this.hap.Characteristic.FirmwareRevision, this.deviceFirmwareVersion)
       .getCharacteristic(this.hap.Characteristic.FirmwareRevision)
       .updateValue(this.deviceFirmwareVersion)
@@ -101,6 +102,7 @@ export abstract class deviceBase {
     } else {
       this.deviceFirmwareVersion = version.replace(/^V|-.*$/g, '') ?? '0.0.0'
     }
+    accessory.context.device.firmware = this.deviceFirmwareVersion
     accessory
       .getService(this.hap.Service.AccessoryInformation)!
       .setCharacteristic(this.hap.Characteristic.HardwareRevision, this.deviceFirmwareVersion)
@@ -109,7 +111,6 @@ export abstract class deviceBase {
       .getCharacteristic(this.hap.Characteristic.FirmwareRevision)
       .updateValue(this.deviceFirmwareVersion)
     this.debugSuccessLog(`deviceFirmwareVersion: ${this.deviceFirmwareVersion}`)
-    accessory.context.device.firmware = this.deviceFirmwareVersion
   }
 
   /**
