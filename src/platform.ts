@@ -246,8 +246,8 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
             break
         }
       }
-    } catch {
-      await this.errorLog('discoverDevices, No Device Config')
+    } catch (e: any) {
+      await this.errorLog(`discoverDevices, No Device Config, Error Message: ${e.message ?? e}, Submit Bugs Here: https://bit.ly/smarthq-bug-report`)
     }
   }
 
