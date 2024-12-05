@@ -252,7 +252,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
   }
 
   private async createSmartHQDishWasher(userId: any, device: any, details: any, features: any) {
-    const uuid = this.api.hap.uuid.generate(device.jid)
+    const uuid = this.api.hap.uuid.generate(device.applianceId)
 
     // see if an accessory with the same uuid has already been registered and restored from
     // the cached devices we stored in the `configureAccessory` method above
@@ -265,14 +265,14 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
         existingAccessory.context.device = device
         existingAccessory.context = { device: { ...details, ...features }, userId }
         existingAccessory.displayName = await this.validateAndCleanDisplayName(device.nickname, 'nickname', device.nickname)
-        // existingAccessory.context.FirmwareRevision = device.firmware ?? await this.getVersion();
+        existingAccessory.context.device.firmware = device.firmware ?? await this.getVersion()
         this.api.updatePlatformAccessories([existingAccessory])
         // Restore accessory
         this.infoLog(`Restoring existing accessory from cache: ${existingAccessory.displayName}`)
         // create the accessory handler for the restored accessory
         // this is imported from `platformAccessory.ts`
         new SmartHQDishWasher(this, existingAccessory, device)
-        this.debugLog(`${device.nickname} uuid: ${device.jid}`)
+        this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
       } else {
         this.unregisterPlatformAccessories(existingAccessory)
       }
@@ -285,12 +285,12 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       accessory.context.device = device
       accessory.context = { device: { ...details, ...features }, userId }
       accessory.displayName = await this.validateAndCleanDisplayName(device.nickname, 'nickname', device.nickname)
-      // accessory.context.FirmwareRevision = device.firmware ?? await this.getVersion();
+      accessory.context.device.firmware = device.firmware ?? await this.getVersion()
       // the accessory does not yet exist, so we need to create it
       // create the accessory handler for the newly create accessory
       // this is imported from `platformAccessory.ts`
       new SmartHQDishWasher(this, accessory, device)
-      this.debugLog(`${device.nickname} uuid: ${device.jid}`)
+      this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
 
       // link the accessory to your platform
       this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
@@ -301,7 +301,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
   }
 
   private async createSmartHQOven(userId: any, device: any, details: any, features: any) {
-    const uuid = this.api.hap.uuid.generate(device.jid)
+    const uuid = this.api.hap.uuid.generate(device.applianceId)
 
     // see if an accessory with the same uuid has already been registered and restored from
     // the cached devices we stored in the `configureAccessory` method above
@@ -314,14 +314,14 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
         existingAccessory.context.device = device
         existingAccessory.context = { device: { ...details, ...features }, userId }
         existingAccessory.displayName = await this.validateAndCleanDisplayName(device.nickname, 'nickname', device.nickname)
-        // existingAccessory.context.FirmwareRevision = device.firmware ?? await this.getVersion();
+        existingAccessory.context.device.firmware = device.firmware ?? await this.getVersion()
         this.api.updatePlatformAccessories([existingAccessory])
         // Restore accessory
         this.infoLog(`Restoring existing accessory from cache: ${existingAccessory.displayName}`)
         // create the accessory handler for the restored accessory
         // this is imported from `platformAccessory.ts`
         new SmartHQOven(this, existingAccessory, device)
-        await this.debugLog(`${device.nickname} uuid: ${device.jid}`)
+        await this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
       } else {
         this.unregisterPlatformAccessories(existingAccessory)
       }
@@ -334,12 +334,12 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       accessory.context.device = device
       accessory.context = { device: { ...details, ...features }, userId }
       accessory.displayName = await this.validateAndCleanDisplayName(device.nickname, 'nickname', device.nickname)
-      // accessory.context.FirmwareRevision = device.firmware ?? await this.getVersion();
+      accessory.context.device.firmware = device.firmware ?? await this.getVersion()
       // the accessory does not yet exist, so we need to create it
       // create the accessory handler for the newly create accessory
       // this is imported from `platformAccessory.ts`
       new SmartHQOven(this, accessory, device)
-      this.debugLog(`${device.nickname} uuid: ${device.jid}`)
+      this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
 
       // link the accessory to your platform
       this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
@@ -350,7 +350,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
   }
 
   private async createSmartHQRefrigerator(userId: any, device: any, details: any, features: any) {
-    const uuid = this.api.hap.uuid.generate(device.jid)
+    const uuid = this.api.hap.uuid.generate(device.applianceId)
 
     // see if an accessory with the same uuid has already been registered and restored from
     // the cached devices we stored in the `configureAccessory` method above
@@ -363,14 +363,14 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
         existingAccessory.context.device = device
         existingAccessory.context = { device: { ...details, ...features }, userId }
         existingAccessory.displayName = await this.validateAndCleanDisplayName(device.nickname, 'nickname', device.nickname)
-        // existingAccessory.context.FirmwareRevision = device.firmware ?? await this.getVersion();
+        existingAccessory.context.device.firmware = device.firmware ?? await this.getVersion()
         this.api.updatePlatformAccessories([existingAccessory])
         // Restore accessory
         this.infoLog(`Restoring existing accessory from cache: ${existingAccessory.displayName}`)
         // create the accessory handler for the restored accessory
         // this is imported from `platformAccessory.ts`
         new SmartHQRefrigerator(this, existingAccessory, device)
-        await this.debugLog(`${device.nickname} uuid: ${device.jid}`)
+        await this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
       } else {
         this.unregisterPlatformAccessories(existingAccessory)
       }
@@ -383,12 +383,12 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       accessory.context.device = device
       accessory.context = { device: { ...details, ...features }, userId }
       accessory.displayName = await this.validateAndCleanDisplayName(device.nickname, 'nickname', device.nickname)
-      // accessory.context.FirmwareRevision = device.firmware ?? await this.getVersion();
+      accessory.context.device.firmware = device.firmware ?? await this.getVersion()
       // the accessory does not yet exist, so we need to create it
       // create the accessory handler for the newly create accessory
       // this is imported from `platformAccessory.ts`
       new SmartHQRefrigerator(this, accessory, device)
-      this.debugLog(`${device.nickname} uuid: ${device.jid}`)
+      this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
 
       // link the accessory to your platform
       this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])

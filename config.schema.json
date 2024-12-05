@@ -47,12 +47,42 @@
           "title": "Devices",
           "type": "object",
           "properties": {
+            "configDeviceName": {
+              "title": "Device Name",
+              "type": "string",
+              "placeholder": "Dishwasher",
+              "description": "This is the name that will be used to identify the device in HomeKit."
+            },
+            "applianceId": {
+              "title": "Device ID",
+              "type": "string",
+              "placeholder": "FCB97E120A84",
+              "description": "This is devices unique id."
+            },
+            "hide_device": {
+              "title": "Hide Device",
+              "type": "boolean",
+              "default": false,
+              "description": "If enabled, the device will not be added to HomeKit.",
+              "condition": {
+                "functionBody": "return (model.devices && model.devices[arrayIndices].id);"
+              }
+            },
             "firmware": {
               "title": "Firmware Override",
               "type": "string",
               "placeholder": "1.2.8",
               "condition": {
-                "functionBody": "return (model.devices && model.devices[arrayIndices].city && model.devices[arrayIndices].zipCode);"
+                "functionBody": "return (model.devices && model.devices[arrayIndices].id && !model.options.devices[arrayIndices].hide_device);"
+              }
+            },
+            "external": {
+              "title": "External Device",
+              "type": "boolean",
+              "default": false,
+              "description": "If enabled, the device will be exposed to HomeKit as an external device.",
+              "condition": {
+                "functionBody": "return (model.devices && model.devices[arrayIndices].id && !model.options.devices[arrayIndices].hide_device);"
               }
             },
             "refreshRate": {
@@ -62,7 +92,7 @@
               "placeholder": 1800,
               "description": "Indicates the number of seconds between polls of the SmartHQ service.",
               "condition": {
-                "functionBody": "return (model.devices && model.devices[arrayIndices].city && model.devices[arrayIndices].zipCode);"
+                "functionBody": "return (model.devices && model.devices[arrayIndices].id && !model.options.devices[arrayIndices].hide_device);"
               }
             },
             "logging": {
@@ -89,7 +119,7 @@
                 }
               ],
               "condition": {
-                "functionBody": "return (model.options && model.options.devices && model.options.devices[arrayIndices].id && !model.options.devices[arrayIndices].hide_device && (model.options.devices[arrayIndices].deviceClass === 'Thermostat' || model.options.devices[arrayIndices].deviceClass === 'LeakDetector'));"
+                "functionBody": "return (model.options && model.options.devices && model.options.devices[arrayIndices].id && !model.options.devices[arrayIndices].hide_device);"
               }
             }
           },
@@ -166,6 +196,7 @@
           "orderable": false,
           "items": [
             "devices[].configDeviceName",
+            "devices[].applianceId",
             "devices[].hide_device",
             "devices[].firmware",
             "devices[].external",

@@ -40,8 +40,20 @@
       </thead>
       <tbody>
         <tr>
-          <th scope="row">Device ID</th>
-          <td id="ID"></td>
+          <th scope="row">Brand</th>
+          <td id="brand"></td>
+        </tr>
+        <tr>
+          <th scope="row">Model</th>
+          <td id="model"></td>
+        </tr>
+        <tr>
+          <th scope="row">Serial</th>
+          <td id="serial"></td>
+        </tr>
+        <tr>
+          <th scope="row">Appliance ID</th>
+          <td id="applianceId"></td>
         </tr>
         <tr>
           <th scope="row">Firmware Version</th>
@@ -137,8 +149,11 @@
           const thisAcc = cachedAccessories.find((x) => x.UUID === UUID);
           const context = thisAcc.context;
           document.getElementById('displayName').innerHTML = thisAcc.displayName;
-          document.getElementById('ID').innerHTML = context.device.id;
-          document.getElementById('FirmwareRevision').innerHTML = context.FirmwareRevision || 'N/A';
+          document.getElementById('brand').innerHTML = context.device.brand;
+          document.getElementById('model').innerHTML = context.device.model;
+          document.getElementById('serial').innerHTML = context.device.serial;
+          document.getElementById('applianceId').innerHTML = context.device.applianceId;
+          document.getElementById('FirmwareRevision').innerHTML = context.device.firmware;
           document.getElementById('deviceTable').style.display = 'inline-table';
           homebridge.hideSpinner();
         };

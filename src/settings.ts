@@ -51,11 +51,13 @@ export interface options {
 export interface SmartHqContext {
   userId: string
   device: {
+    jid: string
     brand: string
     model: string
     serial: string
     nickname: string
     applianceId: string
+    firmware: string
     features: string[]
   }
 }
