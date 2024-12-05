@@ -123,25 +123,29 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
    * Verify the config passed to the plugin is valid
    */
   async verifyConfig() {
-    /**
-     * Hidden Device Discovery Option
-     * This will disable adding any device and will just output info.
-     */
-    this.config.logging = this.config.logging || 'standard'
-
-    if (!this.config.refreshRate) {
-      // default 3600 seconds (1 hour)
-      this.config.refreshRate! = 3600
-      await this.infoLog('Using Default Refresh Rate of 1 hour')
+    if (!this.config.credentials) {
+      throw new Error('No Credentials Found')
+    } else {
+      if (!this.config.credentials.username) {
+        throw new Error('No Username Found')
+      }
+      if (!this.config.credentials.password) {
+        throw new Error('No Password Found')
+      }
     }
   }
 
   async startRefreshTokenLogic() {
     if (this.tokenSet.refresh_token) {
-      this.tokenSet = await refreshAccessToken(this.tokenSet.refresh_token)
+      try {
+        this.tokenSet = await refreshAccessToken(this.tokenSet.refresh_token)
+      } catch (e: any) {
+        await this.errorLog(`Failed to refresh Access Token, Error Message: ${e.message ?? e}, Submit Bugs Here: https://bit.ly/smarthq-bug-report`)
+      }
     } else {
       throw new Error('Refresh token is undefined')
     }
+
     axios.defaults.headers.common = {
       Authorization: `Bearer ${this.tokenSet.access_token}`,
     }
@@ -167,101 +171,102 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
         this.tokenSet = await getAccessToken(username, password)
       } catch (e: any) {
         await this.errorLog(`discoverDevices, Failed to get Access Token, Error Message: ${e.message ?? e}, Submit Bugs Here: https://bit.ly/smarthq-bug-report`)
-      }
-      try {
-        await this.startRefreshTokenLogic()
-      } catch (e: any) {
-        await this.errorLog(`discoverDevices, Failed to start Refresh Token Logic, Error Message: ${e.message ?? e}, Submit Bugs Here: https://bit.ly/smarthq-bug-report`)
-      }
+      } finally {
+        try {
+          await this.startRefreshTokenLogic()
+        } catch (e: any) {
+          await this.errorLog(`discoverDevices, Failed to start Refresh Token Logic, Error Message: ${e.message ?? e}, Submit Bugs Here: https://bit.ly/smarthq-bug-report`)
+        } finally {
+          try {
+            const wssData = await axios.get('/websocket')
 
-      try {
-        const wssData = await axios.get('/websocket')
+            const connection = new ws(wssData.data.endpoint)
 
-        const connection = new ws(wssData.data.endpoint)
+            connection.on('message', (data) => {
+              const obj = JSON.parse(data.toString())
+              this.debugLog(`data: ${JSON.stringify(obj)}`)
 
-        connection.on('message', (data) => {
-          const obj = JSON.parse(data.toString())
-          this.debugLog(`data: ${JSON.stringify(obj)}`)
+              if (obj.kind === 'publish#erd') {
+                const accessory = find(this.accessories, a => a.context.device.applianceId === obj.item.applianceId)
 
-          if (obj.kind === 'publish#erd') {
-            const accessory = find(this.accessories, a => a.context.device.applianceId === obj.item.applianceId)
+                if (!accessory) {
+                  this.infoLog('Device not found in my list. Maybe we should rerun this plugin?')
+                  return
+                }
 
-            if (!accessory) {
-              this.infoLog('Device not found in my list. Maybe we should rerun this plugin?')
-              return
-            }
+                if (ERD_CODES[obj.item.erd]) {
+                  this.debugLog(`ERD_CODES: ${ERD_CODES[obj.item.erd]}`)
+                  this.debugLog(`obj>item>value: ${obj.item.value}`)
 
-            if (ERD_CODES[obj.item.erd]) {
-              this.debugLog(`ERD_CODES: ${ERD_CODES[obj.item.erd]}`)
-              this.debugLog(`obj>item>value: ${obj.item.value}`)
-
-              if (obj.item.erd === ERD_TYPES.UPPER_OVEN_LIGHT) {
-                const service = accessory.getService('Upper Oven Light')
-                if (service) {
-                  service.updateCharacteristic(this.Characteristic.On, obj.item.value === '01')
+                  if (obj.item.erd === ERD_TYPES.UPPER_OVEN_LIGHT) {
+                    const service = accessory.getService('Upper Oven Light')
+                    if (service) {
+                      service.updateCharacteristic(this.Characteristic.On, obj.item.value === '01')
+                    }
+                  }
                 }
               }
-            }
-          }
-        })
+            })
 
-        connection.on('close', (_, reason) => {
-          this.debugLog('Connection closed')
-          this.debugLog(`reason: ${reason.toString()}`)
-        })
+            connection.on('close', (_, reason) => {
+              this.debugLog('Connection closed')
+              this.debugLog(`reason: ${reason.toString()}`)
+            })
 
-        connection.on('open', () => {
-          connection.send(
-            JSON.stringify({
-              kind: 'websocket#subscribe',
-              action: 'subscribe',
-              resources: ['/appliance/*/erd/*'],
-            }),
-          )
-
-          setInterval(
-            () =>
+            connection.on('open', () => {
               connection.send(
                 JSON.stringify({
-                  kind: 'websocket#ping',
-                  id: 'keepalive-ping',
-                  action: 'ping',
+                  kind: 'websocket#subscribe',
+                  action: 'subscribe',
+                  resources: ['/appliance/*/erd/*'],
                 }),
-              ),
-            KEEPALIVE_TIMEOUT,
-          )
-        })
-      } catch (e: any) {
-        await this.errorLog(`discoverDevices, Failed to get Websocket Data, Error Message: ${e.message ?? e}, Submit Bugs Here: https://bit.ly/smarthq-bug-report`)
-      }
+              )
 
-      try {
-        const devices = await axios.get('/appliance')
+              setInterval(
+                () =>
+                  connection.send(
+                    JSON.stringify({
+                      kind: 'websocket#ping',
+                      id: 'keepalive-ping',
+                      action: 'ping',
+                    }),
+                  ),
+                KEEPALIVE_TIMEOUT,
+              )
+            })
+          } catch (e: any) {
+            await this.errorLog(`discoverDevices, Failed to get Websocket Data, Error Message: ${e.message ?? e}, Submit Bugs Here: https://bit.ly/smarthq-bug-report`)
+          } finally {
+            try {
+              const devices = await axios.get('/appliance')
 
-        const userId = devices.data.userId
-        for (const device of devices.data.items) {
-          const [{ data: details }, { data: features }] = await Promise.all([
-            axios.get(`/appliance/${device.applianceId}`),
-            axios.get(`/appliance/${device.applianceId}/feature`),
-          ])
-          this.debugLog(`Device: ${JSON.stringify(device)}`)
-          switch (device.type) {
-            case 'Dishwasher':
-              await this.createSmartHQDishWasher(userId, device, details, features)
-              break
-            case 'Oven':
-              await this.createSmartHQOven(userId, device, details, features)
-              break
-            case 'Refrigerator':
-              await this.createSmartHQRefrigerator(userId, device, details, features)
-              break
-            default:
-              await this.warnLog(`Device Type Not Supported: ${device.type}`)
-              break
+              const userId = devices.data.userId
+              for (const device of devices.data.items) {
+                const [{ data: details }, { data: features }] = await Promise.all([
+                  axios.get(`/appliance/${device.applianceId}`),
+                  axios.get(`/appliance/${device.applianceId}/feature`),
+                ])
+                this.debugLog(`Device: ${JSON.stringify(device)}`)
+                switch (device.type) {
+                  case 'Dishwasher':
+                    await this.createSmartHQDishWasher(userId, device, details, features)
+                    break
+                  case 'Oven':
+                    await this.createSmartHQOven(userId, device, details, features)
+                    break
+                  case 'Refrigerator':
+                    await this.createSmartHQRefrigerator(userId, device, details, features)
+                    break
+                  default:
+                    await this.warnLog(`Device Type Not Supported: ${device.type}`)
+                    break
+                }
+              }
+            } catch (e: any) {
+              await this.errorLog(`discoverDevices, Failed to get Devices Data, Error Message: ${e.message ?? e}, Submit Bugs Here: https://bit.ly/smarthq-bug-report`)
+            }
           }
         }
-      } catch (e: any) {
-        await this.errorLog(`discoverDevices, Failed to get Devices Data, Error Message: ${e.message ?? e}, Submit Bugs Here: https://bit.ly/smarthq-bug-report`)
       }
     } catch (e: any) {
       await this.errorLog(`discoverDevices, No Device Config, Error Message: ${e.message ?? e}, Submit Bugs Here: https://bit.ly/smarthq-bug-report`)

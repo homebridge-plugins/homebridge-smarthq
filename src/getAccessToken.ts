@@ -5,11 +5,11 @@ import pkg from 'lodash'
 import { Issuer } from 'openid-client'
 import { CookieJar } from 'tough-cookie'
 
-import { OAUTH2_CLIENT_ID, OAUTH2_CLIENT_SECRET, OAUTH2_REDIRECT_URI } from './settings.js'
+import { LOGIN_URL, OAUTH2_CLIENT_ID, OAUTH2_CLIENT_SECRET, OAUTH2_REDIRECT_URI } from './settings.js'
 
 const { keyBy, mapValues } = pkg
 
-const oidcClient = Issuer.discover('https://accounts.brillion.geappliances.com/').then(
+const oidcClient = Issuer.discover(LOGIN_URL).then(
   geData =>
     new geData.Client({
       client_id: OAUTH2_CLIENT_ID,

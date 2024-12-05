@@ -18,6 +18,16 @@ export const PLATFORM_NAME = 'SmartHQ'
  */
 export const PLUGIN_NAME = '@homebridge-plugins/homebridge-smarthq'
 
+/**
+ * This is the Login URL for the SmartHQ API
+ */
+export const LOGIN_URL = 'https://accounts.brillion.geappliances.com/'
+
+/**
+ * This is the Secure URL for the SmartHQ API
+ */
+export const SECURE_URL = 'https://secure.brillion.geappliances.com'
+
 // Config
 export interface SmartHQPlatformConfig extends PlatformConfig {
   name?: string
