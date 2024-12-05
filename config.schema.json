@@ -54,10 +54,10 @@
               "description": "This is the name that will be used to identify the device in HomeKit."
             },
             "applianceId": {
-              "title": "Device ID",
+              "title": "Application ID",
               "type": "string",
               "placeholder": "FCB97E120A84",
-              "description": "This is devices unique id."
+              "description": "This is devices unique applicationId."
             },
             "hide_device": {
               "title": "Hide Device",
@@ -65,7 +65,7 @@
               "default": false,
               "description": "If enabled, the device will not be added to HomeKit.",
               "condition": {
-                "functionBody": "return (model.devices && model.devices[arrayIndices].id);"
+                "functionBody": "return (model.devices && model.devices[arrayIndices].applianceId);"
               }
             },
             "firmware": {
@@ -73,7 +73,7 @@
               "type": "string",
               "placeholder": "1.2.8",
               "condition": {
-                "functionBody": "return (model.devices && model.devices[arrayIndices].id && !model.options.devices[arrayIndices].hide_device);"
+                "functionBody": "return (model.devices && model.devices[arrayIndices].applianceId && !model.options.devices[arrayIndices].hide_device);"
               }
             },
             "external": {
@@ -82,7 +82,7 @@
               "default": false,
               "description": "If enabled, the device will be exposed to HomeKit as an external device.",
               "condition": {
-                "functionBody": "return (model.devices && model.devices[arrayIndices].id && !model.options.devices[arrayIndices].hide_device);"
+                "functionBody": "return (model.devices && model.devices[arrayIndices].applianceId && !model.options.devices[arrayIndices].hide_device);"
               }
             },
             "refreshRate": {
@@ -92,7 +92,7 @@
               "placeholder": 1800,
               "description": "Indicates the number of seconds between polls of the SmartHQ service.",
               "condition": {
-                "functionBody": "return (model.devices && model.devices[arrayIndices].id && !model.options.devices[arrayIndices].hide_device);"
+                "functionBody": "return (model.devices && model.devices[arrayIndices].applianceId && !model.options.devices[arrayIndices].hide_device);"
               }
             },
             "logging": {
@@ -119,7 +119,7 @@
                 }
               ],
               "condition": {
-                "functionBody": "return (model.options && model.options.devices && model.options.devices[arrayIndices].id && !model.options.devices[arrayIndices].hide_device);"
+                "functionBody": "return (model.options && model.options.devices && model.options.devices[arrayIndices].applianceId && !model.options.devices[arrayIndices].hide_device);"
               }
             }
           },
@@ -190,7 +190,7 @@
           "key": "devices",
           "notitle": true,
           "type": "tabarray",
-          "title": "{{ value.configDeviceName || value.id || 'New SmartHQ Device' }}",
+          "title": "{{ value.configDeviceName || value.applianceId || 'New SmartHQ Device' }}",
           "expandable": true,
           "expanded": false,
           "orderable": false,
