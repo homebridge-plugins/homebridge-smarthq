@@ -233,7 +233,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
           case 'Dishwasher':
             await this.createSmartHQDishWasher(userId, device, details, features)
             break
-          case 'oven':
+          case 'Oven':
             await this.createSmartHQOven(userId, device, details, features)
             break
           default:
