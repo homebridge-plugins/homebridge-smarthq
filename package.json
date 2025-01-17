@@ -2,7 +2,7 @@
   "name": "@homebridge-plugins/homebridge-smarthq",
   "displayName": "SmartHQ",
   "type": "module",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "The SmartHQ plugin allows you to interact with SmartHQ Devices in HomeKit and with Siri.",
   "author": {
     "name": "donavanbecker",

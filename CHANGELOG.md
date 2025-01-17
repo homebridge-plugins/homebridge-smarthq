@@ -11,6 +11,7 @@ All notable changes to this project will be documented in this file. This projec
 **Full Changelog**: https://github.com/homebridge-plugins/homebridge-smarthq/compare/v0.1.0...v1.0.0
 
 ## [0.1.0](https://github.com/homebridge-plugins/homebridge-smarthq/releases/tag/v0.1.0) (2024-09-07)
+## 0.1.1: Change "oven" to "Oven"
 
 ### What's Changes
 
