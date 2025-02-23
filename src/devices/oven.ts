@@ -26,7 +26,9 @@ export class SmartHQOven extends deviceBase {
     accessory.context.device.features.forEach((feature) => {
       switch (feature) {
         case 'COOKING_V1_UPPER_OVEN_FOUNDATION': {
-          const ovenLight = this.accessory.getService(accessory.displayName) || this.accessory.addService(this.platform.Service.Lightbulb, accessory.displayName, 'Oven')
+          const ovenLight
+            = this.accessory.getService(accessory.displayName)
+            || this.accessory.addService(this.platform.Service.Lightbulb, accessory.displayName, 'Oven')
 
           ovenLight
             .getCharacteristic(this.platform.Characteristic.On)

@@ -36,7 +36,9 @@ export class SmartHQDishWasher extends deviceBase {
     accessory.context.device.features.forEach((feature) => {
       switch (feature) {
         case 'DISHWASHER_V1_FOUNDATION': {
-          const dishwasher = this.accessory.getService(accessory.displayName) || this.accessory.addService(this.platform.Service.Lightbulb, accessory.displayName, 'Dishwasher')
+          const dishwasher
+            = this.accessory.getService(accessory.displayName)
+            || this.accessory.addService(this.platform.Service.Lightbulb, accessory.displayName, 'Dishwasher')
 
           dishwasher
             .getCharacteristic(this.platform.Characteristic.On)

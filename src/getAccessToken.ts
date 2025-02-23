@@ -9,10 +9,14 @@ import { LOGIN_URL, OAUTH2_CLIENT_ID, OAUTH2_CLIENT_SECRET, OAUTH2_REDIRECT_URI 
 
 const { keyBy, mapValues } = pkg
 
-const oidcClient = discovery(new URL(LOGIN_URL), OAUTH2_CLIENT_ID, {
-  client_secret: OAUTH2_CLIENT_SECRET,
-  token_endpoint_auth_method: 'client_secret_post', // Added for openid-client 6.1.7
-}).then(config => new Configuration(config.serverMetadata(), OAUTH2_CLIENT_ID, { client_secret: OAUTH2_CLIENT_SECRET }))
+const oidcClient = Issuer.discover(LOGIN_URL).then(
+  geData =>
+    new geData.Client({
+      client_id: OAUTH2_CLIENT_ID,
+      client_secret: OAUTH2_CLIENT_SECRET,
+      response_types: ['code'],
+    }),
+)
 
 export async function refreshAccessToken(refresh_token: string) {
   const client = await oidcClient
