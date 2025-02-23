@@ -164,7 +164,6 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
    */
   async discoverDevices() {
     try {
-      console.info(this.config)
       const { username, password } = this.config.credentials ?? {}
       if (!username || !password) {
         throw new Error('Username or password is undefined')
