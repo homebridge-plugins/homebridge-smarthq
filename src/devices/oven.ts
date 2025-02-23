@@ -26,9 +26,7 @@ export class SmartHQOven extends deviceBase {
     accessory.context.device.features.forEach((feature) => {
       switch (feature) {
         case 'COOKING_V1_UPPER_OVEN_FOUNDATION': {
-          const ovenLight
-            = this.accessory.getService(accessory.displayName)
-            || this.accessory.addService(this.platform.Service.Lightbulb, accessory.displayName, 'Oven')
+          const ovenLight = this.accessory.getService(accessory.displayName) ?? this.accessory.addService(this.platform.Service.Lightbulb, accessory.displayName, 'Oven')
 
           ovenLight
             .getCharacteristic(this.platform.Characteristic.On)
@@ -37,9 +35,7 @@ export class SmartHQOven extends deviceBase {
           break
         }
         case 'COOKING_V1_EXTENDED_COOKTOP_FOUNDATION': {
-          this.accessory.getService(accessory.displayName)
-          || this.accessory
-            .addService(this.platform.Service.StatefulProgrammableSwitch, accessory.displayName, 'Oven')
+          this.accessory.getService(accessory.displayName) ?? this.accessory.addService(this.platform.Service.StatefulProgrammableSwitch, accessory.displayName, 'Oven')
             .getCharacteristic(this.platform.Characteristic.TargetTemperature)
             .onGet(async () => {
               const erdVal = await this.readErd(ERD_TYPES.UPPER_OVEN_COOK_MODE)

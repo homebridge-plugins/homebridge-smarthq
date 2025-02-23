@@ -32,9 +32,7 @@ export class SmartHQRefrigerator extends deviceBase {
       ] */
       switch (feature) {
         case 'DOOR_STATUS': {
-          const refrigerator
-            = this.accessory.getService(accessory.displayName)
-            || this.accessory.addService(this.platform.Service.ContactSensor, accessory.displayName, 'Refrigerator')
+          const refrigerator = this.accessory.getService(accessory.displayName) ?? this.accessory.addService(this.platform.Service.ContactSensor, accessory.displayName, 'Refrigerator')
 
           refrigerator
             .getCharacteristic(this.platform.Characteristic.ContactSensorState)
