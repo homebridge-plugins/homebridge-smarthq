@@ -3,6 +3,6 @@ contact_links:
   - name: Homebridge Discord Channel for SmartHQ
     url: https://discord.gg/8fpZA4S
     about: Please ask and answer questions here.
-  - name: Homebridge-air - Pull Requests
+  - name: Homebridge-smarthq - Pull Requests
     url: https://github.com/homebridge-plugins/homebridge-smarthq/pulls
     about: Please report security vulnerabilities here.

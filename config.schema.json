@@ -4,8 +4,8 @@
   "singular": true,
   "customUi": true,
   "customUiPath": "./dist/homebridge-ui",
-  "headerDisplay": "<p align='center'><img width='250px' src='https://raw.githubusercontent.com/homebridge-plugins/homebridge-smarthq/latest/branding/Homebridge_x_Air.svg'></p>\n\nThe **Homebridge SmartHQ** plugin allows you monitor the current AirQuality for your Zip Code from HomeKit and Siri.",
-  "footerDisplay": "Your SmartHQ apiKey was linked. Please raise any issues on our [project page](https://github.com/homebridge-plugins/homebridge-smarthq/issues).\n\nIf you would like to have other features, fill out [Feature Request Form](https://github.com/homebridge-plugins/homebridge-smarthq/issues/new?assignees=&labels=&template=feature_request.md).",
+  "headerDisplay": "<p align='center'><img width='250px' src='https://raw.githubusercontent.com/homebridge-plugins/homebridge-smarthq/latest/branding/Homebridge_x_SmartHQ.svg'></p>\n\nThe **Homebridge SmartHQ** plugin allows you to interact with SmartHQ devices from HomeKit and Siri.",
+  "footerDisplay": "Your SmartHQ accont was linked. Please raise any issues on our [project page](https://github.com/homebridge-plugins/homebridge-smarthq/issues).\n\nIf you would like to have other features, fill out [Feature Request Form](https://github.com/homebridge-plugins/homebridge-smarthq/issues/new?assignees=&labels=&template=feature_request.md).",
   "schema": {
     "type": "object",
     "properties": {
@@ -17,20 +17,29 @@
       },
       "credentials": {
         "type": "object",
-        "items": {
+        "properties": {
           "username": {
-            "title": "Username",
             "type": "string",
-            "required": true,
-            "default": ""
+            "title": "Username",
+            "placeholder": "apple@icloud.com",
+            "format": "email"
           },
           "password": {
-            "title": "Password",
             "type": "string",
-            "required": true,
-            "default": ""
+            "title": "Password",
+            "format": "password",
+            "placeholder": "***************",
+            "x-schema-form": {
+              "type": "password"
+            }
+          },
+          "notice": {
+            "title": "Notice",
+            "type": "string",
+            "default": "Keep your username and password a secret!"
           }
-        }
+        },
+        "required": ["email", "password"]
       },
       "devices": {
         "type": "array",
@@ -38,12 +47,42 @@
           "title": "Devices",
           "type": "object",
           "properties": {
+            "configDeviceName": {
+              "title": "Device Name",
+              "type": "string",
+              "placeholder": "Dishwasher",
+              "description": "This is the name that will be used to identify the device in HomeKit."
+            },
+            "applianceId": {
+              "title": "Application ID",
+              "type": "string",
+              "placeholder": "FCB97E120A84",
+              "description": "This is devices unique applicationId."
+            },
+            "hide_device": {
+              "title": "Hide Device",
+              "type": "boolean",
+              "default": false,
+              "description": "If enabled, the device will not be added to HomeKit.",
+              "condition": {
+                "functionBody": "return (model.devices && model.devices[arrayIndices].applianceId);"
+              }
+            },
             "firmware": {
               "title": "Firmware Override",
               "type": "string",
               "placeholder": "1.2.8",
               "condition": {
-                "functionBody": "return (model.devices && model.devices[arrayIndices].city && model.devices[arrayIndices].zipCode);"
+                "functionBody": "return (model.devices && model.devices[arrayIndices].applianceId && !model.options.devices[arrayIndices].hide_device);"
+              }
+            },
+            "external": {
+              "title": "External Device",
+              "type": "boolean",
+              "default": false,
+              "description": "If enabled, the device will be exposed to HomeKit as an external device.",
+              "condition": {
+                "functionBody": "return (model.devices && model.devices[arrayIndices].applianceId && !model.options.devices[arrayIndices].hide_device);"
               }
             },
             "refreshRate": {
@@ -53,7 +92,7 @@
               "placeholder": 1800,
               "description": "Indicates the number of seconds between polls of the SmartHQ service.",
               "condition": {
-                "functionBody": "return (model.devices && model.devices[arrayIndices].city && model.devices[arrayIndices].zipCode);"
+                "functionBody": "return (model.devices && model.devices[arrayIndices].applianceId && !model.options.devices[arrayIndices].hide_device);"
               }
             },
             "logging": {
@@ -61,115 +100,110 @@
               "type": "string",
               "required": true,
               "default": "",
-              "condition": {
-                "functionBody": "return (model.devices && model.devices[arrayIndices].city && model.devices[arrayIndices].zipCode);"
-              },
               "oneOf": [
                 {
                   "title": "Default Logging",
-                  "enum": [
-                    ""
-                  ]
+                  "enum": [""]
                 },
                 {
                   "title": "Standard Logging",
-                  "enum": [
-                    "standard"
-                  ]
+                  "enum": ["standard"]
                 },
                 {
                   "title": "No Logging",
-                  "enum": [
-                    "none"
-                  ]
+                  "enum": ["none"]
                 },
                 {
                   "title": "Debug Logging",
-                  "enum": [
-                    "debug"
-                  ]
+                  "enum": ["debug"]
                 }
-              ]
-            },
-            "hide_device": {
-              "title": "Delete Device",
-              "type": "boolean",
-              "description": "Delete this device from the plugin cache.",
+              ],
               "condition": {
-                "functionBody": "return (model.devices && model.devices[arrayIndices].city && model.devices[arrayIndices].zipCode);"
+                "functionBody": "return (model.options && model.options.devices && model.options.devices[arrayIndices].applianceId && !model.options.devices[arrayIndices].hide_device);"
               }
             }
-          }
+          },
+          "required": ["id", "configDeviceName", "logging"]
         }
       },
       "options": {
         "type": "object",
-        "items": {
+        "properties": {
           "refreshRate": {
-            "title": "Device Refresh Rate",
+            "title": "Refresh Rate",
             "type": "number",
-            "minimum": 1800,
-            "placeholder": 1800,
-            "description": "Indicates the number of seconds between polls of the SmartHQ service.",
-            "condition": {
-              "functionBody": "return (model.devices && model.devices[arrayIndices].city && model.devices[arrayIndices].zipCode);"
-            }
+            "minimum": 30,
+            "placeholder": 120,
+            "description": "Indicates the number of seconds between polls of the Meater service."
           },
           "logging": {
-            "title": "Device Logging Override Setting",
+            "title": "Logging Setting",
             "type": "string",
             "required": true,
             "default": "",
-            "condition": {
-              "functionBody": "return (model.devices && model.devices[arrayIndices].city && model.devices[arrayIndices].zipCode);"
-            },
             "oneOf": [
               {
                 "title": "Default Logging",
-                "enum": [
-                  ""
-                ]
+                "enum": [""]
               },
               {
                 "title": "Standard Logging",
-                "enum": [
-                  "standard"
-                ]
+                "enum": ["standard"]
               },
               {
                 "title": "No Logging",
-                "enum": [
-                  "none"
-                ]
+                "enum": ["none"]
               },
               {
                 "title": "Debug Logging",
-                "enum": [
-                  "debug"
-                ]
+                "enum": ["debug"]
               }
             ]
           }
-        }
+        },
+        "required": ["logging"]
       }
     }
   },
   "layout": [
-    "credentials.username",
-    "credentials.password",
     {
-      "key": "devices",
-      "notitle": false,
-      "type": "tabarray",
-      "title": "{{ value || 'New SmartHQ Device' }}",
+      "type": "fieldset",
+      "title": "SmartHQ Account Info",
       "expandable": true,
       "expanded": false,
-      "orderable": false,
       "items": [
-        "devices[].firmware",
-        "devices[].refreshRate",
-        "devices[].logging",
-        "devices[].hide_device"
+        {
+          "type": "help",
+          "helpvalue": "<h5></h5><em class='primary-text'>This is for Manual Setup Only.</em>"
+        },
+        "credentials.username",
+        "credentials.password"
+      ]
+    },
+    {
+      "type": "fieldset",
+      "title": "SmartHQ Device Settings",
+      "expandable": true,
+      "expanded": false,
+      "items": [
+        {
+          "key": "devices",
+          "notitle": true,
+          "type": "tabarray",
+          "title": "{{ value.configDeviceName || value.applianceId || 'New SmartHQ Device' }}",
+          "expandable": true,
+          "expanded": false,
+          "orderable": false,
+          "items": [
+            "devices[].configDeviceName",
+            "devices[].applianceId",
+            "devices[].hide_device",
+            "devices[].firmware",
+            "devices[].external",
+            "devices[].refreshRate",
+            "devices[].logging"
+          ]
+        }
       ]
     },
     {
