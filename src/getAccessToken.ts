@@ -2,7 +2,7 @@ import axios from 'axios'
 import { wrapper } from 'axios-cookiejar-support'
 import * as cheerio from 'cheerio'
 import pkg from 'lodash'
-import { Issuer } from 'openid-client'
+import { clientCredentialsGrant, Configuration, discovery } from 'openid-client' // Import discovery and Configuration
 import { CookieJar } from 'tough-cookie'
 
 import { LOGIN_URL, OAUTH2_CLIENT_ID, OAUTH2_CLIENT_SECRET, OAUTH2_REDIRECT_URI } from './settings.js'
@@ -20,17 +20,21 @@ const oidcClient = Issuer.discover(LOGIN_URL).then(
 
 export async function refreshAccessToken(refresh_token: string) {
   const client = await oidcClient
-  return client.grant({ refresh_token, grant_type: 'refresh_token' })
+  return client.refresh(refresh_token) // Updated method for openid-client 6.1.7
 }
 
 export default async function getAccessToken(username: string, password: string) {
   const client = await oidcClient
 
-  const oauthUrl = client.authorizationUrl()
+  const oauthUrl = client.clientCredentialsGrant({
+    redirect_uri: OAUTH2_REDIRECT_URI,
+    response_type: 'code',
+    scope: 'openid',
+  })
 
   const jar = new CookieJar()
   const aclient = wrapper(axios.create({ jar }))
-  const htmlPageResponse = await aclient.get(oauthUrl)
+  const htmlPageResponse = await aclient.get(oauthUrl.toString())
 
   const page = cheerio.load(htmlPageResponse.data)
   const carryInputs = mapValues(
@@ -53,5 +57,10 @@ export default async function getAccessToken(username: string, password: string)
   })
 
   const code = new URL(res.headers.location).searchParams.get('code')
-  return client.grant({ grant_type: 'authorization_code', code, redirect_uri: OAUTH2_REDIRECT_URI })
+  const params = {
+    grant_type: 'authorization_code',
+    code,
+    redirect_uri: OAUTH2_REDIRECT_URI,
+  }
+  return client.authorizationCallback(OAUTH2_REDIRECT_URI, params) // Updated method for openid-client 6.1.7
 }
