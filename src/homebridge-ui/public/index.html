@@ -38,7 +38,7 @@
           <th scope="col" style="width: 60%" id="displayName"></th>
         </tr>
       </thead>
-      <tbody>
+      <tbody id="deviceTableBody">
         <tr>
           <th scope="row">Brand</th>
           <td id="brand"></td>
@@ -60,6 +60,7 @@
           <td id="firmware"></td>
         </tr>
       </tbody>
+      <tbody id="deviceAdvancedOptions"></tbody>
     </table>
     <p class="text-center">External Accessories Will Not Display Here.</p>
   </div>
@@ -155,6 +156,44 @@
           document.getElementById('applianceId').innerHTML = context.device.applianceId;
           document.getElementById('firmware').innerHTML = context.device.firmware;
           document.getElementById('deviceTable').style.display = 'inline-table';
+
+          document.getElementById('deviceAdvancedOptions').innerHTML = ''
+
+          const advancedOptions = thisAcc.services.filter((svc) => !!svc.characteristics.find((char) => char.displayName === 'Product Data'))
+          console.info(thisAcc)
+
+          if (advancedOptions.length) {
+
+            const tr = document.createElement('tr')
+
+            const raw = advancedOptions[0].characteristics.find((char) => char.displayName === 'Product Data').value
+            const params = new URLSearchParams(raw);
+            const metadata = Object.fromEntries(params)
+
+            console.info(metadata)
+
+            const th = document.createElement('th')
+            th.scope = 'row'
+            th.innerHTML = metadata.l.replace('_', ' ')
+
+            tr.appendChild(th)
+
+            const td = document.createElement('td')
+
+            const input = document.createElement('input')
+            input.type = metadata.t
+            const existingDefaultValue = currentConfig[0].options[metadata.i]
+            input.defaultValue = existingDefaultValue || metadata.d
+            input.addEventListener('change', async () => {
+              currentConfig[0].options = {...currentConfig[0].options, [metadata.i]: event.target.value }
+              await homebridge.updatePluginConfig([...currentConfig])
+              await homebridge.savePluginConfig();
+            })
+
+            tr.appendChild(input)
+
+            document.getElementById('deviceAdvancedOptions').appendChild(tr)
+          }
           homebridge.hideSpinner();
         };
         deviceSelect.addEventListener('change', (event) => showDeviceInfo(event.target.value));

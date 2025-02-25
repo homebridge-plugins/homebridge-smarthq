@@ -8,10 +8,11 @@ import axios from 'axios'
 import { ERD_TYPES } from '../settings.js'
 import { deviceBase } from './device.js'
 
-import { Formats, Perms } from 'hap-nodejs'
+import { Formats, Perms, Service, Units } from 'hap-nodejs'
 
 export class SmartHQIceMaker extends deviceBase {
   private productionUpdateInterval: NodeJS.Timeout | null = null;
+  private opalProductionLimit: number = 100
 
   constructor(
     readonly platform: SmartHQPlatform,
@@ -19,13 +20,16 @@ export class SmartHQIceMaker extends deviceBase {
     readonly device: SmartHqContext['device'] & devicesConfig,
   ) {
     super(platform, accessory, device)
-
+    if (this.platform.config.options?.OPL) {
+      this.opalProductionLimit = this.platform.config.options.OPL
+    }
     this.infoLog(`Opal IceMaker Features: ${JSON.stringify(accessory.context.device.features)}`)
     accessory.context.device.features.forEach((feature) => {
       switch (feature) {
         case 'OPAL_NUGGET_ICE_MAKER_V1_FOUNDATION': {
-          const opalIceMaker = this.accessory.getService(`${accessory.displayName} Power`) ?? this.accessory.addService(this.platform.Service.Switch, `${accessory.displayName} Power`, 'opal-power')
-          opalIceMaker
+          const opalIceMakerPowerService = this.accessory.getService(`${accessory.displayName} Power`) ?? this.accessory.addService(this.platform.Service.Switch, `${accessory.displayName} Power`, 'opal-power')
+
+          opalIceMakerPowerService
             .getCharacteristic(this.platform.Characteristic.On)
             .onGet(() => this.readErd(ERD_TYPES.OIM_POWER).then(r => Number.parseInt(r) !== 0))
             .onSet(value => this.writeErd(ERD_TYPES.OIM_POWER, value as boolean))
@@ -89,43 +93,60 @@ export class SmartHQIceMaker extends deviceBase {
               this.debugLog(`Light brightness changed to: ${newState}`)
             })
           // Ice Production
-          const iceServiceName = 'Icemaker Progress Service';
-          const iceService = this.accessory.getService(iceServiceName)
-            || this.accessory.addService(this.platform.Service.Fanv2, iceServiceName);
+          const iceProgressServiceName = 'Icemaker Progress Service';
+          const iceProgressService = this.accessory.getService(iceProgressServiceName)
+            || this.accessory.addService(this.platform.Service.Fanv2, iceProgressServiceName);
+          iceProgressService.getCharacteristic(this.platform.Characteristic.Active)
+            .setProps({
+              perms: [Perms.PAIRED_READ, Perms.TIMED_WRITE]
+            })
 
-          iceService.getCharacteristic(this.platform.Characteristic.RotationSpeed).setProps(
-            {
-              format: Formats.INT,
-              unit: '%',
-              minValue: 0,
-              maxValue: 100,
-              minStep: 1,
-              perms: [Perms.PAIRED_READ],
-            }
-          )
+          iceProgressService.getCharacteristic(this.platform.Characteristic.RotationSpeed)
+            .setProps(
+              {
+                format: Formats.INT,
+                unit: Units.PERCENTAGE,
+                minValue: 0,
+                maxValue: 100,
+                minStep: 100 / (this.opalProductionLimit || 100),
+                perms: [Perms.PAIRED_READ, Perms.TIMED_WRITE],
+              }
+            )
             .onGet(async () => {
-              return await this.getProductionValue(iceService);
+              return await this.getProductionValue(iceProgressService);
             }).onSet(() => { })
 
           this.productionUpdateInterval = setInterval(async () => {
-            await this.getProductionValue(iceService);
+            const currentProductionValue = await this.getProductionValue(iceProgressService);
+            if (currentProductionValue >= this.opalProductionLimit) {
+              opalIceMakerPowerService.setCharacteristic(this.platform.Characteristic.On, false)
+            }
             // 30000ms = 30 seconds
-          }, 30 * 1000);
+          }, 10 * 1000);
+
+          // // // Get default accessory information service
+          const opalIceMakerMetadataService = this.accessory.getService('')
+          // Metadata for Device Form, Opal Production Limit
+          opalIceMakerMetadataService
+            ?.getCharacteristic(this.platform.Characteristic.ProductData)
+            .onGet(() => 'l=Production_Limit&i=OPL&t=number&d=100')
+
+
           break
         }
       }
     })
   }
 
-  private async getProductionValue(iceService: any): Promise<number> {
+  private async getProductionValue(iceService: Service): Promise<number> {
     try {
       const erdVal = await this.readErd(ERD_TYPES.OIM_PRODUCTION);
-      const productionValue = Math.min(Buffer.from(erdVal, 'hex').readUInt8(0), 100);
-      if (productionValue > 0) {
-        iceService.setCharacteristic(this.platform.Characteristic.Active, 1);
-      }
-      iceService.updateCharacteristic(this.platform.Characteristic.RotationSpeed, productionValue);
-      this.infoLog(productionValue)
+      const productionValue = Math.min(Buffer.from(erdVal, 'hex').readUInt8(0), 100)
+
+      iceService.setCharacteristic(this.platform.Characteristic.Active, productionValue > 0 ? 1 : 0);
+
+      iceService.updateCharacteristic(this.platform.Characteristic.RotationSpeed, productionValue)
+      this.infoLog(`productionValue: ${productionValue}, opl: ${this.opalProductionLimit}, minStep: ${100 / (this.opalProductionLimit || 100)}`)
       return productionValue;
     } catch (error) {
       const typedErr = error as { message: string }
