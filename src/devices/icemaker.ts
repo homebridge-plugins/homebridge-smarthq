@@ -8,14 +8,19 @@ import axios from 'axios'
 import { ERD_TYPES } from '../settings.js'
 import { deviceBase } from './device.js'
 
+import { Formats, Perms } from 'hap-nodejs'
+
 export class SmartHQIceMaker extends deviceBase {
+  private productionUpdateInterval: NodeJS.Timeout | null = null;
+
   constructor(
     readonly platform: SmartHQPlatform,
     accessory: PlatformAccessory<SmartHqContext>,
     readonly device: SmartHqContext['device'] & devicesConfig,
   ) {
     super(platform, accessory, device)
-    this.debugLog(`Opal IceMaker Features: ${JSON.stringify(accessory.context.device.features)}`)
+
+    this.infoLog(`Opal IceMaker Features: ${JSON.stringify(accessory.context.device.features)}`)
     accessory.context.device.features.forEach((feature) => {
       switch (feature) {
         case 'OPAL_NUGGET_ICE_MAKER_V1_FOUNDATION': {
@@ -34,7 +39,7 @@ export class SmartHQIceMaker extends deviceBase {
               return currentLevel !== '00' // If the level is not OFF (00), return true (ON)
             })
             .onSet(async (value) => {
-              let newState
+              let newState: any
               const currentLevel = await this.readErd(ERD_TYPES.OIM_LIGHT_LEVEL)
 
               if (value) {
@@ -83,11 +88,50 @@ export class SmartHQIceMaker extends deviceBase {
               await this.writeErd(ERD_TYPES.OIM_LIGHT_LEVEL, newState)
               this.debugLog(`Light brightness changed to: ${newState}`)
             })
+          // Ice Production
+          const iceServiceName = 'Icemaker Progress Service';
+          const iceService = this.accessory.getService(iceServiceName)
+            || this.accessory.addService(this.platform.Service.Fanv2, iceServiceName);
 
+          iceService.getCharacteristic(this.platform.Characteristic.RotationSpeed).setProps(
+            {
+              format: Formats.INT,
+              unit: '%',
+              minValue: 0,
+              maxValue: 100,
+              minStep: 1,
+              perms: [Perms.PAIRED_READ],
+            }
+          )
+            .onGet(async () => {
+              return await this.getProductionValue(iceService);
+            }).onSet(() => { })
+
+          this.productionUpdateInterval = setInterval(async () => {
+            await this.getProductionValue(iceService);
+            // 30000ms = 30 seconds
+          }, 30 * 1000);
           break
         }
       }
     })
+  }
+
+  private async getProductionValue(iceService: any): Promise<number> {
+    try {
+      const erdVal = await this.readErd(ERD_TYPES.OIM_PRODUCTION);
+      const productionValue = Math.min(Buffer.from(erdVal, 'hex').readUInt8(0), 100);
+      if (productionValue > 0) {
+        iceService.setCharacteristic(this.platform.Characteristic.Active, 1);
+      }
+      iceService.updateCharacteristic(this.platform.Characteristic.RotationSpeed, productionValue);
+      this.infoLog(productionValue)
+      return productionValue;
+    } catch (error) {
+      const typedErr = error as { message: string }
+      this.errorLog(`Failed to read production value: ${typedErr.message}`);
+      return 0; // Default to 0 if there's an error
+    }
   }
 
   async readErd(erd: string): Promise<string> {
@@ -107,4 +151,13 @@ export class SmartHQIceMaker extends deviceBase {
       })
     return undefined
   }
+
+  stopProductionUpdates() {
+    if (this.productionUpdateInterval) {
+      clearInterval(this.productionUpdateInterval);
+      this.productionUpdateInterval = null;
+    }
+  }
 }
+
+
