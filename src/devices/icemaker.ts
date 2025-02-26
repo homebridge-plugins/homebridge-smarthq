@@ -1,15 +1,15 @@
+import axios from 'axios'
 import type { PlatformAccessory } from 'homebridge'
+import { Perms, Formats, Units } from 'hap-nodejs'
+import { interval, skipWhile } from 'rxjs'
 
 import type { SmartHQPlatform } from '../platform.js'
 import type { devicesConfig, SmartHqContext } from '../settings.js'
 
-import axios from 'axios'
 
 import { ERD_TYPES } from '../settings.js'
 import { deviceBase } from './device.js'
-import { interval, skipWhile } from 'rxjs'
 
-import { Perms, Units, Formats } from 'hap-nodejs'
 
 export class SmartHQIceMaker extends deviceBase {
   private opalProductionLimit: number = 100
@@ -94,13 +94,12 @@ export class SmartHQIceMaker extends deviceBase {
       })
     // Opal Progress service
     const opalProgressSvc = this.accessory.getService(this.oimProgressSvcName)
-      || this.accessory.addService(this.platform.Service.Fanv2, this.oimProgressSvcName);
-
+      || this.accessory.addService(this.platform.Service.Fanv2, this.oimProgressSvcName)
 
     opalProgressSvc.getCharacteristic(this.platform.Characteristic.Active)
       .setProps({
         // Omit PAIRED_WRITE to prevent user from setting Active to False, is read only.
-        perms: [Perms.EVENTS, Perms.PAIRED_READ]
+        perms: [Perms.EVENTS, Perms.PAIRED_READ],
       })
 
     opalProgressSvc.getCharacteristic(this.platform.Characteristic.RotationSpeed)
@@ -112,7 +111,7 @@ export class SmartHQIceMaker extends deviceBase {
           minValue: 0,
           maxValue: 100,
           perms: [Perms.EVENTS, Perms.PAIRED_READ],
-        }
+        },
       )
       .removeOnGet()
       .removeOnSet()
@@ -126,12 +125,12 @@ export class SmartHQIceMaker extends deviceBase {
 
     // Start an update interval
     interval(this.deviceRefreshRate * 1000)
-      .pipe(skipWhile(() => !this.accessory.services.find((svc) => svc.displayName === this.oimProgressSvcName)))
+      .pipe(skipWhile(() => !this.accessory.services.find(svc => svc.displayName === this.oimProgressSvcName)))
       .subscribe(async () => {
         const currentProductionValue = await this.getProductionValue()
 
-        const oimPowerSvc = this.accessory.services.find((accSvc) => accSvc.displayName === this.oimPowerSvcName);
-        const oimProgressSvc = this.accessory.services.find((accSvc) => accSvc.displayName === this.oimProgressSvcName)
+        const oimPowerSvc = this.accessory.services.find(accSvc => accSvc.displayName === this.oimPowerSvcName)
+        const oimProgressSvc = this.accessory.services.find(accSvc => accSvc.displayName === this.oimProgressSvcName)
 
         const progressBarProductionValue = Math.floor((100 / this.opalProductionLimit) * currentProductionValue)
 
