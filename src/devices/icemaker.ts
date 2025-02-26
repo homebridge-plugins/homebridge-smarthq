@@ -1,8 +1,10 @@
 import type { PlatformAccessory } from 'homebridge'
-import { Buffer } from 'buffer'
+
+import { Buffer } from 'node:buffer'
+
 import axios from 'axios'
-import { Formats, Perms, Units } from 'hap-nodejs'
 import type { SmartHQPlatform } from '../platform.js'
+import { Formats, Perms, Units } from 'hap-nodejs'
 import type { devicesConfig, SmartHqContext } from '../settings.js'
 
 import { interval, skipWhile } from 'rxjs'
