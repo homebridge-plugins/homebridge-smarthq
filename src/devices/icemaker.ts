@@ -1,15 +1,14 @@
-import axios from 'axios'
 import type { PlatformAccessory } from 'homebridge'
-import { Perms, Formats, Units } from 'hap-nodejs'
+import axios from 'axios'
+
+import { Formats, Perms, Units } from 'hap-nodejs'
 import { interval, skipWhile } from 'rxjs'
 
 import type { SmartHQPlatform } from '../platform.js'
 import type { devicesConfig, SmartHqContext } from '../settings.js'
-
-
 import { ERD_TYPES } from '../settings.js'
-import { deviceBase } from './device.js'
 
+import { deviceBase } from './device.js'
 
 export class SmartHQIceMaker extends deviceBase {
   private opalProductionLimit: number = 100
