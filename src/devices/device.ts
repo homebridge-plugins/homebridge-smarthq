@@ -64,7 +64,7 @@ export abstract class deviceBase {
     // updateRate
     this.deviceUpdateRate = device.updateRate ?? this.platform.platformUpdateRate ?? 5
     const updateRate = device.updateRate ? 'Device Config' : this.platform.platformUpdateRate ? 'Platform Config' : 'Default'
-    await this.debugLog(`Using ${updateRate} updateRate: ${this.deviceUpdateRate}`)
+    this.debugSuccessLog(`Using ${updateRate} updateRate: ${this.deviceUpdateRate}`)
     // pushRate
     this.devicePushRate = device.pushRate ?? this.platform.platformPushRate ?? 1
     const pushRate = device.pushRate ? 'Device Config' : this.platform.platformPushRate ? 'Platform Config' : 'Default'

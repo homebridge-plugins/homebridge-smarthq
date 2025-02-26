@@ -13,7 +13,7 @@ import { ERD_TYPES } from '../settings.js'
 import { deviceBase } from './device.js'
 
 export class SmartHQIceMaker extends deviceBase {
-  private opalProductionLimit: number = 100
+  private opalProductionLimit: number = Infinity
   private oimPowerSvcName = 'Opal Power'
   private oimProgressSvcName = 'Opal Progress'
   private oimNightlightSvcName = 'Opal Nightlight'
@@ -26,7 +26,7 @@ export class SmartHQIceMaker extends deviceBase {
     if (this.platform.config.options?.OPL) {
       this.opalProductionLimit = this.platform.config.options.OPL
     }
-    this.infoLog(`Opal IceMaker Features: ${JSON.stringify(accessory.context.device.features)}`)
+    this.debugLog(`Opal IceMaker Features: ${JSON.stringify(accessory.context.device.features)}`)
 
     const opalIceMakerPowerService = this.accessory.getService(this.oimPowerSvcName) ?? this.accessory.addService(this.platform.Service.Switch, this.oimPowerSvcName, 'opal-power')
 
@@ -122,7 +122,7 @@ export class SmartHQIceMaker extends deviceBase {
     // Metadata for Device Form, Opal Production Limit
     opalIceMakerMetadataService
       ?.getCharacteristic(this.platform.Characteristic.ProductData)
-      .onGet(() => 'l=Production_Limit&i=OPL&t=number&d=100')
+      .onGet(() => 'l=Production_Limit&i=OPL&t=number&d=0&p=1-100,_0_to_unset')
 
     // Start an update interval
     interval(this.deviceRefreshRate * 1000)
@@ -133,11 +133,12 @@ export class SmartHQIceMaker extends deviceBase {
         const oimPowerSvc = this.accessory.services.find(accSvc => accSvc.displayName === this.oimPowerSvcName)
         const oimProgressSvc = this.accessory.services.find(accSvc => accSvc.displayName === this.oimProgressSvcName)
 
-        const progressBarProductionValue = Math.floor((100 / this.opalProductionLimit) * currentProductionValue)
-
+        // Math.min: If opalProductionLimit is Infinity (default/unset value), set to 100. Otherwise use the opalProductionLimit that is less than 100
+        const progressBarProductionValue = Math.floor((100 / Math.min(this.opalProductionLimit, 100)) * currentProductionValue)
         oimProgressSvc?.updateCharacteristic(this.platform.Characteristic.RotationSpeed, Math.min(progressBarProductionValue, 100))
         oimProgressSvc?.updateCharacteristic(this.platform.Characteristic.Active, currentProductionValue > 0 ? 1 : 0)
 
+        // If opalProductLimit is Infinity (default/unset value), the machine will turn off by itself
         if (currentProductionValue > this.opalProductionLimit) {
           oimPowerSvc?.setCharacteristic(this.platform.Characteristic.On, false)
         }
@@ -147,9 +148,10 @@ export class SmartHQIceMaker extends deviceBase {
   private async getProductionValue(): Promise<number> {
     try {
       const erdVal = await this.readErd(ERD_TYPES.OIM_PRODUCTION)
-      const productionValue = Math.min(Buffer.from(erdVal, 'hex').readUInt8(0), 100)
+      const hexToIntVal = Buffer.from(erdVal, 'hex').readUInt8(0)
+      const productionValue = Math.min(hexToIntVal, 100)
 
-      this.infoLog(`productionValue: ${productionValue}, opl: ${this.opalProductionLimit}`)
+      this.debugSuccessLog(`Progress Svc: Value: ${productionValue}, Limit: ${this.opalProductionLimit}${hexToIntVal > 100 ? ', Completion: ' + hexToIntVal : ''}`)
       return productionValue
     } catch (error) {
       const typedErr = error as { message: string }

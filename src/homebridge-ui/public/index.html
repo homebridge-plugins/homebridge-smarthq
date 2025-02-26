@@ -171,7 +171,7 @@
             const metadata = Object.fromEntries(params)
             const th = document.createElement('th')
             th.scope = 'row'
-            th.innerHTML = metadata.l.replace('_', ' ')
+            th.innerHTML = metadata.l?.replace('_', ' ')
 
             tr.appendChild(th)
 
@@ -179,10 +179,11 @@
 
             const input = document.createElement('input')
             input.type = metadata.t
+            input.placeholder = metadata.p?.replaceAll('_', ' ') || ''
             const existingDefaultValue = currentConfig[0].options[metadata.i]
-            input.defaultValue = existingDefaultValue || metadata.d
+            input.defaultValue = existingDefaultValue || Number(metadata.d) || undefined
             input.addEventListener('change', async () => {
-              currentConfig[0].options = {...currentConfig[0].options, [metadata.i]: Number(event.target.value) }
+              currentConfig[0].options = {...currentConfig[0].options, [metadata.i]: Number(event.target.value) || undefined }
               await homebridge.updatePluginConfig([...currentConfig])
               await homebridge.savePluginConfig();
             })

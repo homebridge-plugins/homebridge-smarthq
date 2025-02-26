@@ -394,7 +394,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
         // create the accessory handler for the restored accessory
         // this is imported from `platformAccessory.ts`
         new SmartHQIceMaker(this, existingAccessory, device)
-        await this.infoLog(`${device.nickname} uuid: ${device.applianceId}`)
+        this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
       } else {
         this.unregisterPlatformAccessories(existingAccessory)
       }
