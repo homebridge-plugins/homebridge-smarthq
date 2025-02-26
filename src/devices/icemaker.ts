@@ -3,8 +3,10 @@ import type { PlatformAccessory } from 'homebridge'
 import axios from 'axios'
 import { Formats, Perms, Units } from 'hap-nodejs'
 import type { SmartHQPlatform } from '../platform.js'
-import { interval, skipWhile } from 'rxjs'
 import type { devicesConfig, SmartHqContext } from '../settings.js'
+
+import { interval, skipWhile } from 'rxjs'
+
 import { ERD_TYPES } from '../settings.js'
 import { deviceBase } from './device.js'
 
@@ -173,5 +175,3 @@ export class SmartHQIceMaker extends deviceBase {
     return undefined
   }
 }
-
-
