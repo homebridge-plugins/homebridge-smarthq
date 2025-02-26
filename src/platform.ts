@@ -493,9 +493,9 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
     const refreshRate = this.config.options?.refreshRate ? 'Using Platform Config refreshRate' : 'Platform Config refreshRate Not Set'
     await this.debugLog(`${refreshRate}: ${this.platformRefreshRate}`)
     // UpdateRate
-    this.platformUpdateRate = this.config.options?.updateRate ? this.config.options.updateRate : undefined
-    const updateRate = this.config.options?.updateRate ? 'Using Platform Config updateRate' : 'Platform Config updateRate Not Set'
-    await this.debugLog(`${updateRate}: ${this.platformUpdateRate}`)
+    this.platformUpdateRate = this.config.options?.updateRate ? (this.config.options.updateRate * 1000) : undefined
+    const updateRateMsg = this.config.options?.updateRate ? 'Using Platform Config updateRate' : 'Platform Config updateRate Not Set'
+    await this.debugLog(`${updateRateMsg}: ${this.platformUpdateRate}`)
     // PushRate
     this.platformPushRate = this.config.options?.pushRate ? this.config.options.pushRate : undefined
     const pushRate = this.config.options?.pushRate ? 'Using Platform Config pushRate' : 'Platform Config pushRate Not Set'
@@ -512,7 +512,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       platformConfig.updateRate = this.config.options.updateRate ? this.config.options.updateRate : undefined
       platformConfig.pushRate = this.config.options.pushRate ? this.config.options.pushRate : undefined
       if (Object.entries(platformConfig).length !== 0) {
-        await this.debugLog(`Platform Config: ${JSON.stringify(platformConfig)}`)
+        await this.infoLog(`Platform Config: ${JSON.stringify(platformConfig)}`)
       }
       this.platformConfig = platformConfig
     }
