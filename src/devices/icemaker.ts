@@ -150,8 +150,8 @@ export class SmartHQIceMaker extends deviceBase {
       const erdVal = await this.readErd(ERD_TYPES.OIM_PRODUCTION)
       const hexToIntVal = Buffer.from(erdVal, 'hex').readUInt8(0)
       const productionValue = Math.min(hexToIntVal, 100)
-
-      this.debugSuccessLog(`Progress Svc: Value: ${productionValue}, Limit: ${this.opalProductionLimit}${hexToIntVal > 100 ? ', Completion: ' + hexToIntVal : ''}`)
+      const completionistMsg = hexToIntVal > 100 ? `, Completion: ${hexToIntVal}` : ''
+      this.debugSuccessLog(`Progress Svc: Value: ${productionValue}, Limit: ${this.opalProductionLimit}${completionistMsg}`)
       return productionValue
     } catch (error) {
       const typedErr = error as { message: string }
