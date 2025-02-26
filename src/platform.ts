@@ -512,7 +512,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       platformConfig.updateRate = this.config.options.updateRate ? this.config.options.updateRate : undefined
       platformConfig.pushRate = this.config.options.pushRate ? this.config.options.pushRate : undefined
       if (Object.entries(platformConfig).length !== 0) {
-        await this.infoLog(`Platform Config: ${JSON.stringify(platformConfig)}`)
+        await this.debugLog(`Platform Config: ${JSON.stringify(platformConfig)}`)
       }
       this.platformConfig = platformConfig
     }

@@ -99,7 +99,7 @@ export class SmartHQIceMaker extends deviceBase {
 
     opalProgressSvc.getCharacteristic(this.platform.Characteristic.Active)
       .setProps({
-        // Omit PAIRED_WRITE
+        // Omit PAIRED_WRITE to prevent user from setting Active to False, is read only.
         perms: [Perms.EVENTS, Perms.PAIRED_READ]
       })
 
@@ -133,12 +133,12 @@ export class SmartHQIceMaker extends deviceBase {
         const oimPowerSvc = this.accessory.services.find((accSvc) => accSvc.displayName === this.oimPowerSvcName);
         const oimProgressSvc = this.accessory.services.find((accSvc) => accSvc.displayName === this.oimProgressSvcName)
 
-        const determinedProductionValue = Math.ceil(100 / this.opalProductionLimit) * currentProductionValue
+        const progressBarProductionValue = Math.floor((100 / this.opalProductionLimit) * currentProductionValue)
 
-        oimProgressSvc?.updateCharacteristic(this.platform.Characteristic.RotationSpeed, Math.min(determinedProductionValue, 100))
+        oimProgressSvc?.updateCharacteristic(this.platform.Characteristic.RotationSpeed, Math.min(progressBarProductionValue, 100))
         oimProgressSvc?.updateCharacteristic(this.platform.Characteristic.Active, currentProductionValue > 0 ? 1 : 0)
 
-        if (currentProductionValue >= this.opalProductionLimit) {
+        if (currentProductionValue > this.opalProductionLimit) {
           oimPowerSvc?.setCharacteristic(this.platform.Characteristic.On, false)
         }
       })
