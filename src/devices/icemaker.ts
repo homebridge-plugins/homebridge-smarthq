@@ -1,8 +1,9 @@
 import type { PlatformAccessory } from 'homebridge'
 
 import type { SmartHQPlatform } from '../platform.js'
-import { Buffer } from 'node:buffer'
 import type { devicesConfig, SmartHqContext } from '../settings.js'
+
+import { Buffer } from 'node:buffer'
 
 import axios from 'axios'
 import { Formats, Perms, Units } from 'hap-nodejs'
