@@ -39,7 +39,10 @@
             "default": "Keep your username and password a secret!"
           }
         },
-        "required": ["email", "password"]
+        "required": [
+          "email",
+          "password"
+        ]
       },
       "devices": {
         "type": "array",
@@ -103,19 +106,27 @@
               "oneOf": [
                 {
                   "title": "Default Logging",
-                  "enum": [""]
+                  "enum": [
+                    ""
+                  ]
                 },
                 {
                   "title": "Standard Logging",
-                  "enum": ["standard"]
+                  "enum": [
+                    "standard"
+                  ]
                 },
                 {
                   "title": "No Logging",
-                  "enum": ["none"]
+                  "enum": [
+                    "none"
+                  ]
                 },
                 {
                   "title": "Debug Logging",
-                  "enum": ["debug"]
+                  "enum": [
+                    "debug"
+                  ]
                 }
               ],
               "condition": {
@@ -123,7 +134,11 @@
               }
             }
           },
-          "required": ["id", "configDeviceName", "logging"]
+          "required": [
+            "id",
+            "configDeviceName",
+            "logging"
+          ]
         }
       },
       "options": {
@@ -136,6 +151,13 @@
             "placeholder": 120,
             "description": "Indicates the number of seconds between polls of the Meater service."
           },
+          "updateRate": {
+            "title": "Update Rate",
+            "type": "number",
+            "minimum": 30,
+            "placeholder": 30,
+            "description": "How frequently in seconds that HomeKit accessories are updated"
+          },
           "logging": {
             "title": "Logging Setting",
             "type": "string",
@@ -144,24 +166,34 @@
             "oneOf": [
               {
                 "title": "Default Logging",
-                "enum": [""]
+                "enum": [
+                  ""
+                ]
               },
               {
                 "title": "Standard Logging",
-                "enum": ["standard"]
+                "enum": [
+                  "standard"
+                ]
               },
               {
                 "title": "No Logging",
-                "enum": ["none"]
+                "enum": [
+                  "none"
+                ]
               },
               {
                 "title": "Debug Logging",
-                "enum": ["debug"]
+                "enum": [
+                  "debug"
+                ]
               }
             ]
           }
         },
-        "required": ["logging"]
+        "required": [
+          "logging"
+        ]
       }
     }
   },
@@ -218,6 +250,14 @@
         },
         {
           "key": "options.refreshRate",
+          "notitle": true
+        },
+        {
+          "type": "help",
+          "helpvalue": "<h5>Update Rate</h5><em class='primary-text'>Update Rate indicates how frequently in seconds HomeKit accessories are updated.</em>"
+        },
+        {
+          "key": "options.updateRate",
           "notitle": true
         },
         "options.logging"
