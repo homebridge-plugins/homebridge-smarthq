@@ -1,13 +1,11 @@
 import type { PlatformAccessory } from 'homebridge'
+
 import axios from 'axios'
-
 import { Formats, Perms, Units } from 'hap-nodejs'
-import { interval, skipWhile } from 'rxjs'
-
 import type { SmartHQPlatform } from '../platform.js'
+import { interval, skipWhile } from 'rxjs'
 import type { devicesConfig, SmartHqContext } from '../settings.js'
 import { ERD_TYPES } from '../settings.js'
-
 import { deviceBase } from './device.js'
 
 export class SmartHQIceMaker extends deviceBase {
@@ -144,15 +142,16 @@ export class SmartHQIceMaker extends deviceBase {
 
   private async getProductionValue(): Promise<number> {
     try {
-      const erdVal = await this.readErd(ERD_TYPES.OIM_PRODUCTION);
+      const erdVal = await this.readErd(ERD_TYPES.OIM_PRODUCTION)
       const productionValue = Math.min(Buffer.from(erdVal, 'hex').readUInt8(0), 100)
 
       this.infoLog(`productionValue: ${productionValue}, opl: ${this.opalProductionLimit}`)
-      return productionValue;
+      return productionValue
     } catch (error) {
       const typedErr = error as { message: string }
-      this.errorLog(`Failed to read production value: ${typedErr.message}`);
-      return 0; // Default to 0 if there's an error
+      this.errorLog(`Failed to read production value: ${typedErr.message}`)
+      // Default to 0 if there's an error
+      return 0
     }
   }
 
