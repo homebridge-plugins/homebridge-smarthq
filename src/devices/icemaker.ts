@@ -9,7 +9,7 @@ import { ERD_TYPES } from '../settings.js'
 import { deviceBase } from './device.js'
 import { interval, skipWhile } from 'rxjs'
 
-import { Perms, Units } from 'hap-nodejs'
+import { Perms, Units, Formats } from 'hap-nodejs'
 
 export class SmartHQIceMaker extends deviceBase {
   private opalProductionLimit: number = 100
@@ -94,20 +94,24 @@ export class SmartHQIceMaker extends deviceBase {
       })
     // Opal Progress service
     const opalProgressSvc = this.accessory.getService(this.oimProgressSvcName)
-      || this.accessory.addService(this.platform.Service.Fan, this.oimProgressSvcName);
+      || this.accessory.addService(this.platform.Service.Fanv2, this.oimProgressSvcName);
 
 
-    opalProgressSvc.getCharacteristic(this.platform.Characteristic.On)
+    opalProgressSvc.getCharacteristic(this.platform.Characteristic.Active)
       .setProps({
-        perms: [Perms.PAIRED_READ, Perms.TIMED_WRITE]
+        // Omit PAIRED_WRITE
+        perms: [Perms.EVENTS, Perms.PAIRED_READ]
       })
 
     opalProgressSvc.getCharacteristic(this.platform.Characteristic.RotationSpeed)
       .setProps(
         {
+          format: Formats.INT,
           unit: Units.PERCENTAGE,
-          minStep: 100 / (this.opalProductionLimit || 100),
-          perms: [Perms.PAIRED_READ],
+          minStep: 1,
+          minValue: 0,
+          maxValue: 100,
+          perms: [Perms.EVENTS, Perms.PAIRED_READ],
         }
       )
       .removeOnGet()
@@ -129,8 +133,10 @@ export class SmartHQIceMaker extends deviceBase {
         const oimPowerSvc = this.accessory.services.find((accSvc) => accSvc.displayName === this.oimPowerSvcName);
         const oimProgressSvc = this.accessory.services.find((accSvc) => accSvc.displayName === this.oimProgressSvcName)
 
-        oimProgressSvc?.updateCharacteristic(this.platform.Characteristic.RotationSpeed, currentProductionValue)
-        oimProgressSvc?.updateCharacteristic(this.platform.Characteristic.On, currentProductionValue > 0)
+        const determinedProductionValue = Math.ceil(100 / this.opalProductionLimit) * currentProductionValue
+
+        oimProgressSvc?.updateCharacteristic(this.platform.Characteristic.RotationSpeed, Math.min(determinedProductionValue, 100))
+        oimProgressSvc?.updateCharacteristic(this.platform.Characteristic.Active, currentProductionValue > 0 ? 1 : 0)
 
         if (currentProductionValue >= this.opalProductionLimit) {
           oimPowerSvc?.setCharacteristic(this.platform.Characteristic.On, false)
@@ -143,7 +149,7 @@ export class SmartHQIceMaker extends deviceBase {
       const erdVal = await this.readErd(ERD_TYPES.OIM_PRODUCTION);
       const productionValue = Math.min(Buffer.from(erdVal, 'hex').readUInt8(0), 100)
 
-      this.debugLog(`productionValue: ${productionValue}, opl: ${this.opalProductionLimit}, minStep: ${100 / (this.opalProductionLimit || 100)}`)
+      this.infoLog(`productionValue: ${productionValue}, opl: ${this.opalProductionLimit}`)
       return productionValue;
     } catch (error) {
       const typedErr = error as { message: string }
