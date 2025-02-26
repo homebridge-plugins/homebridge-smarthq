@@ -1,5 +1,5 @@
 import type { PlatformAccessory } from 'homebridge'
-
+import { Buffer } from 'buffer'
 import axios from 'axios'
 import { Formats, Perms, Units } from 'hap-nodejs'
 import type { SmartHQPlatform } from '../platform.js'
