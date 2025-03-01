@@ -171,7 +171,7 @@
             const metadata = Object.fromEntries(params)
             const th = document.createElement('th')
             th.scope = 'row'
-            th.innerHTML = metadata.l?.replace('_', ' ')
+            th.innerHTML = metadata.l?.replaceAll('_', ' ')
 
             tr.appendChild(th)
 

@@ -66,6 +66,7 @@
     "axios-cookiejar-support": "^5.0.5",
     "axios-form-data": "^1.1.1",
     "cheerio": "^1.0.0-rc.12",
+    "homebridge-dummy-contact": "^0.3.9",
     "lodash": "^4.17.21",
     "openid-client": "5.7.0",
     "rxjs": "^7.8.2",
