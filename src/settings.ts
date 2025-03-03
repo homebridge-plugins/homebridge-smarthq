@@ -59,6 +59,7 @@ export interface options {
   opalProductionLimit?: number
   oplHKCIceBucketFullNotificationPath?: string
   homekitControllerNotificationsSecret?: string
+  oplHKCProgressCompleteNotificationPath?: string
 }
 
 export interface SmartHqContext {

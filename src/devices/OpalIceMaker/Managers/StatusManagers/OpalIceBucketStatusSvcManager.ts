@@ -27,10 +27,11 @@ export class OpalIceBucketStatusSvcManager extends OpalDeviceBase {
     this.service
       .getCharacteristic(this.platform.Characteristic.ContactSensorState)
       .onGet(() => this.iceBucketCurrentStatus)
-      .on('change', (chg) => {
+      .on('change', async (chg) => {
         if (chg.oldValue === this.IceBucketFullStatus.ICE_BUCKET_NOT_FULL && chg.newValue === this.IceBucketFullStatus.ICE_BUCKET_FULL) {
-          if (this.platform.config.options?.oplHKCIceBucketFullNotificationPath) {
-            this.sendHomeKitControllerNotification(this.platform.config.options.oplHKCIceBucketFullNotificationPath)
+          const notificationPath = this.platform.config.options?.oplHKCIceBucketFullNotificationPath
+          if (notificationPath) {
+            await this.sendHomeKitControllerNotification(notificationPath)
           }
         }
       })

@@ -35,7 +35,7 @@ export class OpalMonitorManager extends OpalDeviceBase {
           try {
             const currentProductionValue = await this.progressManager.processProductionProgress()
             // Auto-shutoff if production exceeds limit
-            if (this.progressManager.opalProductionLimit && currentProductionValue > this.progressManager.opalProductionLimit) {
+            if (this.progressManager.opalProductionLimit && currentProductionValue >= this.progressManager.opalProductionLimit) {
               this.powerManager.setOpalPowerState(false)
               this.platform.debugLog(`Auto-shutoff triggered: Production (${currentProductionValue}) > Limit (${this.progressManager.opalProductionLimit})`);
             }

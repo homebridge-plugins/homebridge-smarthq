@@ -1,4 +1,4 @@
-import type { PlatformAccessory, Service } from 'homebridge'
+import type { PlatformAccessory, Service, CharacteristicChange } from 'homebridge'
 
 import type { SmartHQPlatform } from '../../../platform.js'
 import type { devicesConfig, SmartHqContext } from '../../../settings.js'
@@ -61,6 +61,14 @@ export class OpalProgressSvcManager extends OpalDeviceBase {
       })
       .removeOnGet()
       .removeOnSet()
+      .on('change', async (chg) => {
+        if (chg.oldValue !== 100 && chg.newValue === 100) {
+          const notificationPath = this.platform.config.options?.oplHKCProgressCompleteNotificationPath
+          if (notificationPath) {
+            await this.sendHomeKitControllerNotification(notificationPath)
+          }
+        }
+      })
   }
 
   // Update characteristics if service exists
@@ -121,7 +129,7 @@ export class OpalProgressSvcManager extends OpalDeviceBase {
       const productionValueMinutes = Buffer.from(erdVal, 'hex').readUInt8(0);
 
       const completionistMsg = productionValueMinutes > 100 ? `, Completion: ${productionValueMinutes}` : '';
-      this.platform.infoLog(`Production: ${productionValueMinutes}, Limit: ${this.opalProductionLimit}${completionistMsg}`);
+      this.platform.debugSuccessLog(`Production: ${productionValueMinutes}, Limit: ${this.opalProductionLimit}${completionistMsg}`);
 
       const productionValueProgressBar = Math.floor((100 / this.opalProductionLimit!) * productionValueMinutes);
       return [productionValueProgressBar, productionValueMinutes]
