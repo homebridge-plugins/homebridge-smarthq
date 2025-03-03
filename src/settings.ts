@@ -56,8 +56,7 @@ export interface options {
   updateRate?: number
   pushRate?: number
   logging?: string
-  // OPAL PRODUCTION LIMIT
-  OPL?: number
+  opalProductionLimit?: number
   oplHKCIceBucketFullNotificationPath?: string
   homekitControllerNotificationsSecret?: string
 }

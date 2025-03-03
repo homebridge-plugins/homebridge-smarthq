@@ -162,34 +162,33 @@
           const advancedOptions = thisAcc.services.filter((svc) => !!svc.characteristics.find((char) => char.displayName === 'Product Data'))
 
           if (advancedOptions.length) {
-            const tr = document.createElement('tr')
-
             // currently only supporting one advanced option
-            const raw = advancedOptions[0].characteristics.find((char) => char.displayName === 'Product Data').value
-            const params = new URLSearchParams(raw);
-            const metadata = Object.fromEntries(params)
-            const th = document.createElement('th')
-            th.scope = 'row'
-            th.innerHTML = metadata.l?.replaceAll('_', ' ')
+            const raw = advancedOptions[0].characteristics.find((char) => char.displayName === 'Product Data').value.split(',')
+            raw.forEach((r) => {
+              const tr = document.createElement('tr')
+              const params = new URLSearchParams(r);
+              const metadata = Object.fromEntries(params)
+              const th = document.createElement('th')
+              th.scope = 'row'
+              th.innerHTML = metadata.l?.replaceAll('_', ' ')
+              tr.appendChild(th)
+              const td = document.createElement('td')
 
-            tr.appendChild(th)
+              const input = document.createElement('input')
+              input.type = metadata.t
+              input.placeholder = metadata.p?.replaceAll('_', ' ') || ''
+              const existingDefaultValue = metadata.t === 'number' ? Number(currentConfig[0].options?.[metadata.i]) : (currentConfig[0].options?.[metadata.i] ?? "")
 
-            const td = document.createElement('td')
-
-            const input = document.createElement('input')
-            input.type = metadata.t
-            input.placeholder = metadata.p?.replaceAll('_', ' ') || ''
-            const existingDefaultValue = currentConfig[0].options[metadata.i]
-            input.defaultValue = existingDefaultValue || Number(metadata.d) || undefined
-            input.addEventListener('change', async () => {
-              currentConfig[0].options = {...currentConfig[0].options, [metadata.i]: Number(event.target.value) || undefined }
-              await homebridge.updatePluginConfig([...currentConfig])
-              await homebridge.savePluginConfig();
+              input.defaultValue = existingDefaultValue
+              input.addEventListener('change', async () => {
+                const value = metadata.t === 'number' ? Number(event.target.value) : (event.target.value ?? "")
+                currentConfig[0].options = {...currentConfig[0].options, [metadata.i]: value }
+                await homebridge.updatePluginConfig([...currentConfig])
+                await homebridge.savePluginConfig();
+              })
+              tr.appendChild(input)
+              document.getElementById('deviceAdvancedOptions').appendChild(tr)
             })
-
-            tr.appendChild(input)
-
-            document.getElementById('deviceAdvancedOptions').appendChild(tr)
           }
           homebridge.hideSpinner();
         };

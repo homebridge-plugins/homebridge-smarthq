@@ -18,9 +18,13 @@ export class OpalMetadataSvcManager extends OpalDeviceBase {
     // Get default accessory information service
     this.service = this.accessory.getService('')!
     // Metadata for Device Form, Opal Production Limit
+    const opalProductionLimitQueryStr = 'l=Production_Duration_Minutes&i=opalProductionLimit&t=number&d=0&p=Number._0_for_Infinite'
+    const opalHKCNotificationsPathQueryStr = 'l=HKC_Ice_Bucket_Full_Notifications_Path&i=oplHKCIceBucketFullNotificationPath'
+
+    const fullQueryStr = opalProductionLimitQueryStr.concat(',').concat(opalHKCNotificationsPathQueryStr)
     this.service
       ?.getCharacteristic(this.platform.Characteristic.ProductData)
-      .onGet(() => 'l=Production_Duration_Minutes&i=OPL&t=number&d=0&p=Number,_0_for_Infinite')
+      .onGet(() => fullQueryStr)
   }
 
   getService(): Service {

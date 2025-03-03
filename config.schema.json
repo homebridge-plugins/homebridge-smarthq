@@ -162,7 +162,10 @@
             "title": "Homekit Controller Notifications Secret",
             "type": "string",
             "placeholder": "xxxxxx",
-            "default": ""
+            "default": "",
+            "x-schema-form": {
+              "type": "password"
+            }
           },
           "logging": {
             "title": "Logging Setting",

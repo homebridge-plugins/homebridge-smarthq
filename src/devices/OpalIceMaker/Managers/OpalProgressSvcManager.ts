@@ -2,27 +2,31 @@ import type { PlatformAccessory, Service } from 'homebridge'
 
 import type { SmartHQPlatform } from '../../../platform.js'
 import type { devicesConfig, SmartHqContext } from '../../../settings.js'
-
+import { ERD_TYPES } from '../../../settings.js'
+import { OpalDeviceBase } from '../OpalDeviceBase.js'
 import { Formats, Perms, Units } from 'hap-nodejs'
 
-export class OpalProgressSvcManager {
+export class OpalProgressSvcManager extends OpalDeviceBase {
   public serviceName: string = 'Opal Progress'
   public service: Service | null = null
-
+  public opalProductionLimit?: number = Infinity
   constructor(
     readonly platform: SmartHQPlatform,
-    private accessory: PlatformAccessory<SmartHqContext>,
+    public accessory: PlatformAccessory<SmartHqContext>,
     readonly device: SmartHqContext['device'] & devicesConfig,
-    readonly condition: boolean = true,
   ) {
-    if (condition) {
+    super(platform, accessory, device)
+
+    if (!!platform.config.options?.opalProductionLimit) {
       this.createService()
+      this.opalProductionLimit = platform.config.options?.opalProductionLimit
     } else {
       // If the service exists but condition is false, remove it
       const existingService = this.accessory.getService(this.serviceName)
       if (existingService) {
         this.accessory.removeService(existingService)
       }
+      this.opalProductionLimit = Infinity
     }
   }
 
@@ -78,6 +82,54 @@ export class OpalProgressSvcManager {
     } else if (!enabled && this.service) {
       this.accessory.removeService(this.service)
       this.service = null
+    }
+  }
+
+  public async processProductionProgress() {
+    try {
+      const [productionValueProgressBar, productionValueMinutes] = await this.getProductionValue()
+
+
+      this.service?.updateCharacteristic(
+        this.platform.Characteristic.RotationSpeed,
+        Math.min(productionValueProgressBar, 100)
+      );
+
+      this.service?.updateCharacteristic(
+        this.platform.Characteristic.Active,
+        productionValueMinutes > 0 ? 1 : 0
+      );
+
+      return productionValueMinutes
+    } catch (err) {
+      const typedErr = err as { message: string }
+      this.platform.errorLog(`Monitor error: ${typedErr.message}`);
+      return 0
+    }
+  }
+
+  // Update production limit
+  updateProductionLimit(newLimit: number): void {
+    this.opalProductionLimit = newLimit;
+    this.platform.debugLog(`Updated production limit to: ${newLimit}`);
+  }
+
+  // Get current production value
+  private async getProductionValue(): Promise<[number, number]> {
+    try {
+      const erdVal = await this.readErd(ERD_TYPES.OIM_PRODUCTION);
+      const productionValueMinutes = Buffer.from(erdVal, 'hex').readUInt8(0);
+
+      const completionistMsg = productionValueMinutes > 100 ? `, Completion: ${productionValueMinutes}` : '';
+      this.platform.infoLog(`Production: ${productionValueMinutes}, Limit: ${this.opalProductionLimit}${completionistMsg}`);
+
+      const productionValueProgressBar = Math.floor((100 / this.opalProductionLimit!) * productionValueMinutes);
+      return [productionValueProgressBar, productionValueMinutes]
+    } catch (error) {
+      const typedErr = error as { message: string }
+      this.platform.errorLog(`Failed to read production value: ${typedErr.message}`);
+      // Default to 0 if there's an error
+      return [0, 0];
     }
   }
 }

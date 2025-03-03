@@ -4,7 +4,7 @@ import type { SmartHQPlatform } from '../platform.js'
 import type { devicesConfig, SmartHqContext } from '../settings.js'
 
 import { deviceBase } from './device.js'
-import { OpalIceBucketStatusSvcManager } from './OpalIceMaker/Managers/OpalIceBucketStatusSvcManager.js'
+import { OpalStatusSvcManager } from './OpalIceMaker/Managers/StatusManagers/index.js'
 import { OpalMetadataSvcManager } from './OpalIceMaker/Managers/OpalMetadataSvcManager.js'
 import { OpalMonitorManager } from './OpalIceMaker/Managers/OpalMonitorManager.js'
 import { OpalNightlightSvcManager } from './OpalIceMaker/Managers/OpalNightlightSvcManager.js'
@@ -12,10 +12,9 @@ import { OpalPowerSvcManager } from './OpalIceMaker/Managers/OpalPowerSvcManager
 import { OpalProgressSvcManager } from './OpalIceMaker/Managers/OpalProgressSvcManager.js'
 
 export class SmartHQIceMaker extends deviceBase {
-  private currentIceBucketStatus: number = 0
   private powerManager: OpalPowerSvcManager
   private nightlightService: OpalNightlightSvcManager
-  private iceBucketStatusManager: OpalIceBucketStatusSvcManager
+  private statusManager: OpalStatusSvcManager
   private monitorManager: OpalMonitorManager
   private progressManager?: OpalProgressSvcManager
   private metadataManager: OpalMetadataSvcManager
@@ -35,20 +34,20 @@ export class SmartHQIceMaker extends deviceBase {
       platform,
       accessory,
       device,
-      !!this.platform.config.options?.OPL,
     )
 
     this.powerManager = new OpalPowerSvcManager(platform, accessory, device)
     this.nightlightService = new OpalNightlightSvcManager(platform, accessory, device)
+    this.statusManager = new OpalStatusSvcManager(platform, accessory, device)
     this.monitorManager = new OpalMonitorManager(
       platform,
       accessory,
       device,
+      this.statusManager,
       this.powerManager,
       this.progressManager,
     )
 
-    this.iceBucketStatusManager = new OpalIceBucketStatusSvcManager(platform, accessory, device)
 
     this.monitorManager.startMonitoring()
   }

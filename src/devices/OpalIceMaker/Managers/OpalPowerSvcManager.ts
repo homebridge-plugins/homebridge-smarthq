@@ -30,4 +30,11 @@ export class OpalPowerSvcManager extends OpalDeviceBase {
   getService(): Service {
     return this.service
   }
+
+  public setOpalPowerState(newPowerState: boolean) {
+    this.service?.setCharacteristic(
+      this.platform.Characteristic.On,
+      newPowerState
+    );
+  }
 }

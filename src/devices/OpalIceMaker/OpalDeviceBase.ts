@@ -6,11 +6,14 @@ import type { devicesConfig, SmartHqContext } from '../../settings.js'
 import axios from 'axios'
 
 export class OpalDeviceBase {
+  private hkcControllerNotificationsSecret?: string
   constructor(
     readonly platform: SmartHQPlatform,
     protected accessory: PlatformAccessory<SmartHqContext>,
     readonly device: SmartHqContext['device'] & devicesConfig,
-  ) { }
+  ) {
+    this.hkcControllerNotificationsSecret = this.platform.config.options?.homekitControllerNotificationsSecret
+  }
 
   // Shared utility methods
   async readErd(erd: string): Promise<string> {
@@ -32,6 +35,13 @@ export class OpalDeviceBase {
   }
 
   async sendHomeKitControllerNotification(hkcNotificationPath: string): Promise<void> {
-    await axios.get(`https://api.controllerforhomekit.com/notify/${this.platform.config.options?.homekitControllerNotificationsSecret}/${hkcNotificationPath}`)
+    if (this.hkcControllerNotificationsSecret) {
+      try {
+        await axios.get(`https://api.controllerforhomekit.com/notify/${this.hkcControllerNotificationsSecret}/${hkcNotificationPath}`)
+      } catch (err) {
+        const typedErr = err as { message: string }
+        this.platform.debugLog(typedErr.message)
+      }
+    }
   }
 }
