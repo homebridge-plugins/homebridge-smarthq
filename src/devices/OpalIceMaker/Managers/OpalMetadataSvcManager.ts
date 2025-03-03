@@ -1,7 +1,8 @@
-import type { devicesConfig, SmartHqContext } from '../../../settings.js'
 import type { PlatformAccessory, Service } from 'homebridge'
 
 import type { SmartHQPlatform } from '../../../platform.js'
+import type { devicesConfig, SmartHqContext } from '../../../settings.js'
+
 import { OpalDeviceBase } from '../OpalDeviceBase.js'
 
 export class OpalMetadataSvcManager extends OpalDeviceBase {

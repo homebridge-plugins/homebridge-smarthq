@@ -12,7 +12,6 @@ export class OpalDeviceBase {
     readonly device: SmartHqContext['device'] & devicesConfig,
   ) { }
 
-
   // Shared utility methods
   async readErd(erd: string): Promise<string> {
     const d = await axios
@@ -30,5 +29,9 @@ export class OpalDeviceBase {
         value: typeof value === 'boolean' ? (value ? '01' : '00') : value,
       })
     return undefined
+  }
+
+  async sendHomeKitControllerNotification(hkcNotificationPath: string): Promise<void> {
+    await axios.get(`https://api.controllerforhomekit.com/notify/${this.platform.config.options?.homekitControllerNotificationsSecret}/${hkcNotificationPath}`)
   }
 }

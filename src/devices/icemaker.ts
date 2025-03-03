@@ -2,22 +2,21 @@ import type { PlatformAccessory } from 'homebridge'
 
 import type { SmartHQPlatform } from '../platform.js'
 import type { devicesConfig, SmartHqContext } from '../settings.js'
-import { OpalNightlightSvcManager } from './OpalIceMaker/Managers/OpalNightlightSvcManager.js'
-import { OpalProgressSvcManager } from './OpalIceMaker/Managers/OpalProgressSvcManager.js'
-import { OpalMonitorManager } from './OpalIceMaker/Managers/OpalMonitorManager.js'
-import { OpalMetadataSvcManager } from './OpalIceMaker/Managers/OpalMetadataSvcManager.js'
-import { OpalIceBucketStatusSvcManager } from './OpalIceMaker/Managers/OpalIceBucketStatusSvcManager.js'
-
 
 import { deviceBase } from './device.js'
+import { OpalIceBucketStatusSvcManager } from './OpalIceMaker/Managers/OpalIceBucketStatusSvcManager.js'
+import { OpalMetadataSvcManager } from './OpalIceMaker/Managers/OpalMetadataSvcManager.js'
+import { OpalMonitorManager } from './OpalIceMaker/Managers/OpalMonitorManager.js'
+import { OpalNightlightSvcManager } from './OpalIceMaker/Managers/OpalNightlightSvcManager.js'
 import { OpalPowerSvcManager } from './OpalIceMaker/Managers/OpalPowerSvcManager.js'
+import { OpalProgressSvcManager } from './OpalIceMaker/Managers/OpalProgressSvcManager.js'
 
 export class SmartHQIceMaker extends deviceBase {
   private currentIceBucketStatus: number = 0
   private powerManager: OpalPowerSvcManager
   private nightlightService: OpalNightlightSvcManager
   private iceBucketStatusManager: OpalIceBucketStatusSvcManager
-  private monitorManager: OpalMonitorManager;
+  private monitorManager: OpalMonitorManager
   private progressManager?: OpalProgressSvcManager
   private metadataManager: OpalMetadataSvcManager
 
@@ -32,12 +31,11 @@ export class SmartHQIceMaker extends deviceBase {
 
     this.metadataManager = new OpalMetadataSvcManager(platform, accessory, device)
 
-
     this.progressManager = new OpalProgressSvcManager(
       platform,
       accessory,
       device,
-      !!this.platform.config.options?.OPL
+      !!this.platform.config.options?.OPL,
     )
 
     this.powerManager = new OpalPowerSvcManager(platform, accessory, device)
@@ -52,12 +50,11 @@ export class SmartHQIceMaker extends deviceBase {
 
     this.iceBucketStatusManager = new OpalIceBucketStatusSvcManager(platform, accessory, device)
 
-
-    this.monitorManager.startMonitoring();
+    this.monitorManager.startMonitoring()
   }
 
   shutdown(): void {
     // Clean up subscriptions
-    this.monitorManager.stopMonitoring();
+    this.monitorManager.stopMonitoring()
   }
 }

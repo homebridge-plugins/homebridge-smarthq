@@ -158,6 +158,12 @@
             "placeholder": 30,
             "description": "How frequently in seconds that HomeKit accessories are updated"
           },
+          "homekitControllerNotificationsSecret": {
+            "title": "Homekit Controller Notifications Secret",
+            "type": "string",
+            "placeholder": "xxxxxx",
+            "default": ""
+          },
           "logging": {
             "title": "Logging Setting",
             "type": "string",
@@ -258,6 +264,14 @@
         },
         {
           "key": "options.updateRate",
+          "notitle": true
+        },
+        {
+          "type": "help",
+          "helpvalue": "<h5>Homekit Controller Notifications Secret</h5><em class='primary-text'>For better notifications you can configure homekit controller, this is the secret under 'Devices & Secret'</em>"
+        },
+        {
+          "key": "options.homekitControllerNotificationsSecret",
           "notitle": true
         },
         "options.logging"
