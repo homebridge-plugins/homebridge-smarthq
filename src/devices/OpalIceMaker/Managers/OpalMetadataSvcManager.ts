@@ -23,7 +23,10 @@ export class OpalMetadataSvcManager extends OpalDeviceBase {
     const opalHKCCompletionNotificationPathQueryStr = 'l=HKC_Progress_Complete_Notification_Path&i=oplHKCProgressCompleteNotificationPath'
 
     const fullQueryStr = [opalProductionLimitQueryStr, opalHKCNotificationsPathQueryStr, opalHKCCompletionNotificationPathQueryStr]
-      .reduce((acc, qs) => {
+      .reduce((acc, qs, index) => {
+        if (index === 0) {
+          return acc.concat(qs)
+        }
         return acc.concat(',').concat(qs)
       }, '')
 
