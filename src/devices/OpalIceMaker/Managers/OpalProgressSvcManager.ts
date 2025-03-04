@@ -3,6 +3,8 @@ import type { PlatformAccessory, Service } from 'homebridge'
 import type { SmartHQPlatform } from '../../../platform.js'
 import type { devicesConfig, SmartHqContext } from '../../../settings.js'
 
+import { Buffer } from 'node:buffer'
+
 import { Formats, Perms, Units } from 'hap-nodejs'
 
 import { ERD_TYPES } from '../../../settings.js'
