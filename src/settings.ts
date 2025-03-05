@@ -56,6 +56,8 @@ export interface options {
   updateRate?: number
   pushRate?: number
   logging?: string
+  // OPAL PRODUCTION LIMIT
+  OPL?: number
 }
 
 export interface SmartHqContext {

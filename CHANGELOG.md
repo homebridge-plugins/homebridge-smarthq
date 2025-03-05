@@ -2,13 +2,16 @@
 
 All notable changes to this project will be documented in this file. This project uses [Semantic Versioning](https://semver.org/)
 
-## [1.0.0](https://github.com/homebridge-plugins/homebridge-smarthq/releases/tag/v1.0.0) (2025-XX-XX)
+## [0.3.0](https://github.com/homebridge-plugins/homebridge-smarthq/releases/tag/v0.3.0) (2025-03-04)
+
+# *No New Releases During Lent*
 
 ### What's Changes
 
-- Release of [@homebridge-plugins/homebridge-smarthq](https://github.com/homebridge-plugins/homebridge-smarthq) which allows to interact with SmartHQ API.
+- Opal Ice Maker Production/Progress Feature. [#17](https://github.com/homebridge-plugins/homebridge-smarthq/pull/17), Thanks [@jamesh48](https://github.com/jamesh48)
+- Housekeeping and updated dependencies.
 
-**Full Changelog**: https://github.com/homebridge-plugins/homebridge-smarthq/compare/v0.2.0...v1.0.0
+**Full Changelog**: https://github.com/homebridge-plugins/homebridge-smarthq/compare/v0.2.0...v0.3.0
 
 ## [0.2.0](https://github.com/homebridge-plugins/homebridge-smarthq/releases/tag/v0.2.0) (2025-02-23)
 

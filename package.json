@@ -2,7 +2,7 @@
   "name": "@homebridge-plugins/homebridge-smarthq",
   "displayName": "SmartHQ",
   "type": "module",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "The SmartHQ plugin allows you to interact with SmartHQ Devices in HomeKit and with Siri.",
   "author": {
     "name": "donavanbecker",
@@ -62,15 +62,15 @@
   },
   "dependencies": {
     "@homebridge/plugin-ui-utils": "^2.0.1",
-    "axios": "^1.7.9",
+    "axios": "^1.8.1",
     "axios-cookiejar-support": "^5.0.5",
     "axios-form-data": "^1.1.1",
     "cheerio": "^1.0.0-rc.12",
     "lodash": "^4.17.21",
     "openid-client": "5.7.0",
     "rxjs": "^7.8.2",
-    "tough-cookie": "^5.1.1",
-    "undici": "^7.2.0",
+    "tough-cookie": "^5.1.2",
+    "undici": "^7.4.0",
     "ws": "^8.18.1"
   },
   "optionalDependencies": {
@@ -78,18 +78,18 @@
     "utf-8-validat": "*"
   },
   "devDependencies": {
-    "@antfu/eslint-config": "^4.3.0",
+    "@antfu/eslint-config": "^4.4.0",
     "@types/aes-js": "^3.1.4",
     "@types/debug": "^4.1.12",
     "@types/fs-extra": "^11.0.4",
-    "@types/lodash": "^4.17.15",
+    "@types/lodash": "^4.17.16",
     "@types/mdast": "^4.0.4",
-    "@types/node": "^22.13.5",
+    "@types/node": "^22.13.9",
     "@types/semver": "^7.5.8",
     "@types/source-map-support": "^0.5.10",
-    "@types/ws": "^8.5.14",
+    "@types/ws": "^8.18.0",
     "@typhonjs-typedoc/typedoc-theme-dmt": "^0.3.1",
-    "@vitest/coverage-v8": "^3.0.6",
+    "@vitest/coverage-v8": "^3.0.7",
     "eslint": "^9.21.0",
     "eslint-plugin-format": "^1.0.1",
     "homebridge": "^1.9.0",
@@ -99,8 +99,8 @@
     "shx": "^0.3.4",
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
-    "typedoc": "^0.27.8",
-    "typescript": "^5.7.2",
-    "vitest": "^3.0.3"
+    "typedoc": "^0.27.9",
+    "typescript": "^5.8.2",
+    "vitest": "^3.0.7"
   }
 }
