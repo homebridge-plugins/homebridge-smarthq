@@ -394,7 +394,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
         // create the accessory handler for the restored accessory
         // this is imported from `platformAccessory.ts`
         new SmartHQIceMaker(this, existingAccessory, device)
-        await this.infoLog(`${device.nickname} uuid: ${device.applianceId}`)
+        this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
       } else {
         this.unregisterPlatformAccessories(existingAccessory)
       }
@@ -493,9 +493,9 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
     const refreshRate = this.config.options?.refreshRate ? 'Using Platform Config refreshRate' : 'Platform Config refreshRate Not Set'
     await this.debugLog(`${refreshRate}: ${this.platformRefreshRate}`)
     // UpdateRate
-    this.platformUpdateRate = this.config.options?.updateRate ? this.config.options.updateRate : undefined
-    const updateRate = this.config.options?.updateRate ? 'Using Platform Config updateRate' : 'Platform Config updateRate Not Set'
-    await this.debugLog(`${updateRate}: ${this.platformUpdateRate}`)
+    this.platformUpdateRate = this.config.options?.updateRate ? (this.config.options.updateRate * 1000) : undefined
+    const updateRateMsg = this.config.options?.updateRate ? 'Using Platform Config updateRate' : 'Platform Config updateRate Not Set'
+    await this.debugLog(`${updateRateMsg}: ${this.platformUpdateRate}`)
     // PushRate
     this.platformPushRate = this.config.options?.pushRate ? this.config.options.pushRate : undefined
     const pushRate = this.config.options?.pushRate ? 'Using Platform Config pushRate' : 'Platform Config pushRate Not Set'
