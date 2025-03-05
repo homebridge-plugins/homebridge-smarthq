@@ -40,6 +40,7 @@ export class OpalMetadataSvcManager extends OpalDeviceBase {
     this.service
       ?.getCharacteristic(this.platform.Characteristic.ProductData)
       .onGet(() => fullQueryStr)
+      .updateValue(fullQueryStr)
   }
 
   getService(): Service {

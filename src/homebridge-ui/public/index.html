@@ -177,12 +177,22 @@
               const input = document.createElement('input')
               input.type = metadata.t
               input.placeholder = metadata.p?.replaceAll('_', ' ') || ''
-              const existingDefaultValue = metadata.t === 'number' ? Number(currentConfig[0].deviceOptions?.[metadata.de][metadata.i]) : (currentConfig[0].deviceOptions?.[metadata.de][metadata.i] ?? "")
+              const existingDefaultValue = metadata.t === 'number' ? Number(currentConfig[0].deviceOptions?.[metadata.de]?.[metadata.i]) : (currentConfig[0].deviceOptions?.[metadata.de]?.[metadata.i] ?? "")
 
               input.defaultValue = existingDefaultValue
               input.addEventListener('change', async () => {
                 const value = metadata.t === 'number' ? Number(event.target.value) : (event.target.value ?? "")
-                currentConfig[0].deviceOptions[metadata.de] = {...currentConfig[0].deviceOptions[metadata.de], [metadata.i]: value }
+
+                currentConfig[0] = {
+                  ...currentConfig[0],
+                  deviceOptions: {
+                    ...currentConfig[0].deviceOptions,
+                    [metadata.de]: {
+                      ...currentConfig[0].deviceOptions?.[metadata.de],
+                      [metadata.i]: value
+                    }
+                  }
+                }
                 await homebridge.updatePluginConfig([...currentConfig])
                 await homebridge.savePluginConfig();
               })

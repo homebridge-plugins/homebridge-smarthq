@@ -70,6 +70,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       credentials: config.credentials as credentials,
       devices: config.devices as devicesConfig[],
       options: config.options as options,
+      deviceOptions: config.deviceOptions
     }
 
     // Plugin Configuration
