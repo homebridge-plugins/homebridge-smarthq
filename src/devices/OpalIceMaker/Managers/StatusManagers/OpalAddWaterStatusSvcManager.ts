@@ -29,7 +29,7 @@ export class OpalAddWaterStatusSvcManager extends OpalDeviceBase {
       .onGet(() => this.addWaterCurrentStatus)
       .on('change', async (chg) => {
         if (chg.oldValue === this.AddWaterCurrentStatus.WATER_OK && chg.newValue === this.AddWaterCurrentStatus.ADD_WATER) {
-          const notificationPath = this.platform.config.options?.oplHKCAddWaterNotificationPath
+          const notificationPath = this.platform.config.deviceOptions?.opal?.oplHKCAddWaterNotificationPath
 
           if (notificationPath) {
             await this.sendHomeKitControllerNotification(notificationPath)

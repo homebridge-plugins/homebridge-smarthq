@@ -19,9 +19,9 @@ export class OpalProgressSvcManager extends OpalDeviceBase {
   ) {
     super(platform, accessory, device)
 
-    if (platform.config.options?.opalProductionLimit) {
+    if (platform.config.deviceOptions?.opal?.opalProductionLimit) {
       this.createService()
-      this.opalProductionLimit = platform.config.options?.opalProductionLimit
+      this.opalProductionLimit = platform.config.deviceOptions.opal.opalProductionLimit
     } else {
       // If the service exists but condition is false, remove it
       const existingService = this.accessory.getService(this.serviceName)
@@ -65,7 +65,7 @@ export class OpalProgressSvcManager extends OpalDeviceBase {
       .removeOnSet()
       .on('change', async (chg) => {
         if (chg.oldValue !== 100 && chg.newValue === 100) {
-          const notificationPath = this.platform.config.options?.oplHKCProgressCompleteNotificationPath
+          const notificationPath = this.platform.config.deviceOptions?.opal?.oplHKCProgressCompleteNotificationPath
           if (notificationPath) {
             await this.sendHomeKitControllerNotification(notificationPath)
           }

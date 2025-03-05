@@ -162,7 +162,7 @@
           const advancedOptions = thisAcc.services.filter((svc) => !!svc.characteristics.find((char) => char.displayName === 'Product Data'))
 
           if (advancedOptions.length) {
-            // currently only supporting one advanced option
+            // currently only supporting one accessory for now - opal
             const raw = advancedOptions[0].characteristics.find((char) => char.displayName === 'Product Data').value.split(',')
             raw.forEach((r) => {
               const tr = document.createElement('tr')
@@ -177,12 +177,22 @@
               const input = document.createElement('input')
               input.type = metadata.t
               input.placeholder = metadata.p?.replaceAll('_', ' ') || ''
-              const existingDefaultValue = metadata.t === 'number' ? Number(currentConfig[0].options?.[metadata.i]) : (currentConfig[0].options?.[metadata.i] ?? "")
+              const existingDefaultValue = metadata.t === 'number' ? Number(currentConfig[0].deviceOptions?.[metadata.de]?.[metadata.i]) : (currentConfig[0].deviceOptions?.[metadata.de]?.[metadata.i] ?? "")
 
               input.defaultValue = existingDefaultValue
               input.addEventListener('change', async () => {
                 const value = metadata.t === 'number' ? Number(event.target.value) : (event.target.value ?? "")
-                currentConfig[0].options = {...currentConfig[0].options, [metadata.i]: value }
+
+                currentConfig[0] = {
+                  ...currentConfig[0],
+                  deviceOptions: {
+                    ...currentConfig[0].deviceOptions,
+                    [metadata.de]: {
+                      ...currentConfig[0].deviceOptions?.[metadata.de],
+                      [metadata.i]: value
+                    }
+                  }
+                }
                 await homebridge.updatePluginConfig([...currentConfig])
                 await homebridge.savePluginConfig();
               })
