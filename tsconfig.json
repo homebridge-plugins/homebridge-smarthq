@@ -5,6 +5,7 @@
       "DOM",
       "ES2022"
     ],
+    "baseUrl": ".",
     "rootDir": "src",
     "module": "ES2022",
     "moduleResolution": "bundler",
@@ -16,12 +17,21 @@
     "sourceMap": true,
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "allowJs": false,
+    "paths": {
+      "@opal/*": [
+        "src/devices/OpalIceMaker/*"
+      ],
+      "@root": [
+        "src/index.js"
+      ]
+    }
   },
   "include": [
-    "src"
+    "src/**/*"
   ],
   "exclude": [
-    "**/*.spec.ts"
+    "**/*.spec.ts",
   ]
 }

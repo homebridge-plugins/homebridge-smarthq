@@ -11,3 +11,7 @@ import { PLATFORM_NAME, PLUGIN_NAME } from './settings.js'
 export default (api: API): void => {
   api.registerPlatform(PLUGIN_NAME, PLATFORM_NAME, SmartHQPlatform)
 }
+
+
+export * from './settings.js'
+export * from './platform.js'

@@ -46,7 +46,7 @@
     "lint:fix": "eslint src/**/*.ts --fix",
     "watch": "npm run build && npm run plugin-ui && npm link && nodemon",
     "plugin-ui": "rsync ./src/homebridge-ui/public/index.html ./dist/homebridge-ui/public/",
-    "build": "npm run clean && tsc && npm run plugin-ui",
+    "build": "npm run clean && tsc && tsc-alias && npm run plugin-ui",
     "prepublishOnly": "npm run lint && npm run build && npm run plugin-ui && npm run docs && npm run docs:lint && npm run docs:theme",
     "postpublish": "npm run clean && npm ci",
     "clean": "shx rm -rf ./dist",
@@ -99,6 +99,7 @@
     "shx": "^0.3.4",
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
+    "tsc-alias": "^1.8.11",
     "typedoc": "^0.27.9",
     "typescript": "^5.8.2",
     "vitest": "^3.0.7"
