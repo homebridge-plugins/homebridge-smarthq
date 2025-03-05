@@ -1,15 +1,17 @@
 import type { PlatformAccessory } from 'homebridge'
-
-import type { SmartHQPlatform } from '../platform.js'
-import type { devicesConfig, SmartHqContext } from '../settings.js'
+import type { devicesConfig, SmartHqContext, SmartHQPlatform } from '@root'
 
 import { deviceBase } from './device.js'
+import {
+  OpalProgressSvcManager,
+  OpalPowerSvcManager,
+  OpalMonitorManager,
+  OpalMetadataSvcManager,
+  OpalFilterMaintenanceSvcManager,
+  OpalNightlightSvcManager
+} from '@opal/Managers/index.js'
 import { OpalStatusSvcManager } from './OpalIceMaker/Managers/StatusManagers/index.js'
-import { OpalMetadataSvcManager } from './OpalIceMaker/Managers/OpalMetadataSvcManager.js'
-import { OpalMonitorManager } from './OpalIceMaker/Managers/OpalMonitorManager.js'
-import { OpalNightlightSvcManager } from './OpalIceMaker/Managers/OpalNightlightSvcManager.js'
-import { OpalPowerSvcManager } from './OpalIceMaker/Managers/OpalPowerSvcManager.js'
-import { OpalProgressSvcManager } from './OpalIceMaker/Managers/OpalProgressSvcManager.js'
+
 
 export class SmartHQIceMaker extends deviceBase {
   private powerManager: OpalPowerSvcManager
@@ -18,6 +20,7 @@ export class SmartHQIceMaker extends deviceBase {
   private monitorManager: OpalMonitorManager
   private progressManager?: OpalProgressSvcManager
   private metadataManager: OpalMetadataSvcManager
+  private filterMaintenanceManager: OpalFilterMaintenanceSvcManager
 
   constructor(
     readonly platform: SmartHQPlatform,
@@ -36,6 +39,8 @@ export class SmartHQIceMaker extends deviceBase {
       device,
     )
 
+    this.filterMaintenanceManager = new OpalFilterMaintenanceSvcManager(platform, accessory, device)
+
     this.powerManager = new OpalPowerSvcManager(platform, accessory, device)
     this.nightlightService = new OpalNightlightSvcManager(platform, accessory, device)
     this.statusManager = new OpalStatusSvcManager(platform, accessory, device)
@@ -46,8 +51,8 @@ export class SmartHQIceMaker extends deviceBase {
       this.statusManager,
       this.powerManager,
       this.progressManager,
+      this.filterMaintenanceManager,
     )
-
 
     this.monitorManager.startMonitoring()
   }

@@ -1,14 +1,12 @@
 import type { PlatformAccessory, Service } from 'homebridge'
-
-import type { SmartHQPlatform } from '../../../platform.js'
-import type { devicesConfig, SmartHqContext } from '../../../settings.js'
+import type { SmartHQPlatform, devicesConfig, SmartHqContext } from '@root'
 
 import { Buffer } from 'node:buffer'
 
 import { Formats, Perms, Units } from 'hap-nodejs'
 
-import { ERD_TYPES } from '../../../settings.js'
-import { OpalDeviceBase } from '../OpalDeviceBase.js'
+import { ERD_TYPES } from '@root'
+import { OpalDeviceBase } from '@opal/OpalDeviceBase.js'
 
 export class OpalProgressSvcManager extends OpalDeviceBase {
   public serviceName: string = 'Opal Progress'

@@ -10,7 +10,7 @@ export class OpalIceBucketStatusSvcManager extends OpalDeviceBase {
   private serviceName = 'Ice Bin Full'
   public IceBucketFullStatus = {
     ICE_BUCKET_NOT_FULL: 0,
-    ICE_BUCKET_FULL: 1
+    ICE_BUCKET_FULL: 1,
   } as const
   public iceBucketCurrentStatus: 0 | 1 = this.IceBucketFullStatus.ICE_BUCKET_NOT_FULL
 
@@ -35,7 +35,6 @@ export class OpalIceBucketStatusSvcManager extends OpalDeviceBase {
           }
         }
       })
-      .on('characteristic-warning', () => { })
   }
 
   setIceBucketFullStatus(updateValue: 0 | 1) {

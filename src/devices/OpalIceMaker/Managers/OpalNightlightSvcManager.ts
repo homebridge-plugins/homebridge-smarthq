@@ -1,10 +1,8 @@
 import type { PlatformAccessory, Service } from 'homebridge'
+import type { SmartHQPlatform, devicesConfig, SmartHqContext } from '@root'
 
-import type { SmartHQPlatform } from '../../../platform.js'
-import type { devicesConfig, SmartHqContext } from '../../../settings.js'
-
-import { ERD_TYPES } from '../../../settings.js'
-import { OpalDeviceBase } from '../OpalDeviceBase.js'
+import { ERD_TYPES } from '@root'
+import { OpalDeviceBase } from '@opal/OpalDeviceBase.js'
 
 export class OpalNightlightSvcManager extends OpalDeviceBase {
   private service: Service
@@ -73,7 +71,6 @@ export class OpalNightlightSvcManager extends OpalDeviceBase {
 
         await this.writeErd(ERD_TYPES.OIM_LIGHT_LEVEL, newState)
       })
-
   }
 
   getService(): Service {

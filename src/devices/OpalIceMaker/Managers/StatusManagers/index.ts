@@ -1,10 +1,8 @@
 import type { PlatformAccessory } from 'homebridge'
+import type { SmartHQPlatform, devicesConfig, SmartHqContext } from '@root'
 
-import type { SmartHQPlatform } from '../../../../platform.js'
-import type { devicesConfig, SmartHqContext } from '../../../../settings.js'
-
+import { OpalIceBucketStatusSvcManager } from '@opal/Managers/StatusManagers/OpalIceBucketStatusSvcManager.js'
 import { OpalStatusBase } from './OpalStatusBase.js'
-import { OpalIceBucketStatusSvcManager } from './OpalIceBucketStatusSvcManager.js'
 
 export class OpalStatusSvcManager extends OpalStatusBase {
   private iceBucketStatusManager: OpalIceBucketStatusSvcManager
@@ -12,7 +10,7 @@ export class OpalStatusSvcManager extends OpalStatusBase {
   constructor(
     readonly platform: SmartHQPlatform,
     public accessory: PlatformAccessory<SmartHqContext>,
-    readonly device: SmartHqContext['device'] & devicesConfig
+    readonly device: SmartHqContext['device'] & devicesConfig,
   ) {
     super(platform, accessory, device)
     this.iceBucketStatusManager = new OpalIceBucketStatusSvcManager(platform, accessory, device)

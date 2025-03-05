@@ -1,9 +1,8 @@
 import type { PlatformAccessory, Service } from 'homebridge'
 
-import type { SmartHQPlatform } from '../../../platform.js'
-import type { devicesConfig, SmartHqContext } from '../../../settings.js'
+import type { SmartHQPlatform, devicesConfig, SmartHqContext } from '@root'
 
-import { OpalDeviceBase } from '../OpalDeviceBase.js'
+import { OpalDeviceBase } from '@opal/OpalDeviceBase.js'
 
 export class OpalMetadataSvcManager extends OpalDeviceBase {
   public service: Service
@@ -21,8 +20,14 @@ export class OpalMetadataSvcManager extends OpalDeviceBase {
     const opalProductionLimitQueryStr = 'l=Production_Duration_Minutes&i=opalProductionLimit&t=number&d=0&p=Number._0_for_Infinite'
     const opalHKCNotificationsPathQueryStr = 'l=HKC_Ice_Bucket_Full_Notifications_Path&i=oplHKCIceBucketFullNotificationPath'
     const opalHKCCompletionNotificationPathQueryStr = 'l=HKC_Progress_Complete_Notification_Path&i=oplHKCProgressCompleteNotificationPath'
+    const opalHKCFilterMaintenanceNotificationPathQueryStr = 'l=HKC_Filter_Maintenace_Notification_Path&i=oplHKCFilterMaintenanceNotificationPath'
 
-    const fullQueryStr = [opalProductionLimitQueryStr, opalHKCNotificationsPathQueryStr, opalHKCCompletionNotificationPathQueryStr]
+    const fullQueryStr = [
+      opalProductionLimitQueryStr,
+      opalHKCNotificationsPathQueryStr,
+      opalHKCCompletionNotificationPathQueryStr,
+      opalHKCFilterMaintenanceNotificationPathQueryStr,
+    ]
       .reduce((acc, qs, index) => {
         if (index === 0) {
           return acc.concat(qs)

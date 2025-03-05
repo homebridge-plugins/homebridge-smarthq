@@ -1,7 +1,6 @@
 import type { PlatformAccessory } from 'homebridge'
 
-import type { SmartHQPlatform } from '../../platform.js'
-import type { devicesConfig, SmartHqContext } from '../../settings.js'
+import type { SmartHQPlatform, devicesConfig, SmartHqContext } from '@root'
 
 import axios from 'axios'
 

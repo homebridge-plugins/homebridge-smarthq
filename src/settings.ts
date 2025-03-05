@@ -60,6 +60,7 @@ export interface options {
   oplHKCIceBucketFullNotificationPath?: string
   homekitControllerNotificationsSecret?: string
   oplHKCProgressCompleteNotificationPath?: string
+  oplHKCFilterMaintenanceNotificationPath?: string
 }
 
 export interface SmartHqContext {

@@ -1,10 +1,10 @@
-import type { PlatformAccessory, Service } from 'homebridge'
+import type { PlatformAccessory } from 'homebridge'
 
 import type { SmartHQPlatform } from '../../../../platform.js'
 import type { devicesConfig, SmartHqContext } from '../../../../settings.js'
 
+import { ERD_TYPES } from '../../../../settings.js'
 import { OpalDeviceBase } from '../../OpalDeviceBase.js'
-import { ERD_TYPES } from '../../../../settings.js';
 
 export class OpalStatusBase extends OpalDeviceBase {
   public OpalStatusCodes = {
@@ -24,7 +24,7 @@ export class OpalStatusBase extends OpalDeviceBase {
   constructor(
     readonly platform: SmartHQPlatform,
     public accessory: PlatformAccessory<SmartHqContext>,
-    readonly device: SmartHqContext['device'] & devicesConfig
+    readonly device: SmartHqContext['device'] & devicesConfig,
   ) {
     super(platform, accessory, device)
   }
