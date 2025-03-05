@@ -15,7 +15,7 @@ import pkg from 'lodash'
 import ws from 'ws'
 
 import { SmartHQDishWasher } from './devices/dishwasher.js'
-import { SmartHQIceMaker } from './devices/icemaker.js'
+import { SmartHQIceMaker } from '@opal/index.js'
 import { SmartHQOven } from './devices/oven.js'
 import { SmartHQRefrigerator } from './devices/refrigerator.js'
 import getAccessToken, { refreshAccessToken } from './getAccessToken.js'
