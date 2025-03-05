@@ -61,6 +61,7 @@ export interface options {
   homekitControllerNotificationsSecret?: string
   oplHKCProgressCompleteNotificationPath?: string
   oplHKCFilterMaintenanceNotificationPath?: string
+  oplHKCAddWaterNotificationPath?: string
 }
 
 export interface SmartHqContext {

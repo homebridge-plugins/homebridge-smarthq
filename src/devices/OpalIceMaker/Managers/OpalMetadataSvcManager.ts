@@ -21,12 +21,14 @@ export class OpalMetadataSvcManager extends OpalDeviceBase {
     const opalHKCNotificationsPathQueryStr = 'l=HKC_Ice_Bucket_Full_Notifications_Path&i=oplHKCIceBucketFullNotificationPath'
     const opalHKCCompletionNotificationPathQueryStr = 'l=HKC_Progress_Complete_Notification_Path&i=oplHKCProgressCompleteNotificationPath'
     const opalHKCFilterMaintenanceNotificationPathQueryStr = 'l=HKC_Filter_Maintenace_Notification_Path&i=oplHKCFilterMaintenanceNotificationPath'
+    const opalHKCAddWaterNotificationPathQueryStr = 'l=HKC_Add_water_Notification_Path&i=oplHKCAddWaterNotificationPath'
 
     const fullQueryStr = [
       opalProductionLimitQueryStr,
       opalHKCNotificationsPathQueryStr,
       opalHKCCompletionNotificationPathQueryStr,
       opalHKCFilterMaintenanceNotificationPathQueryStr,
+      opalHKCAddWaterNotificationPathQueryStr
     ]
       .reduce((acc, qs, index) => {
         if (index === 0) {
