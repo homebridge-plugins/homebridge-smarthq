@@ -20,7 +20,7 @@ export class OpalFilterMaintenanceSvcManager extends OpalDeviceBase {
       return this.filterMaintenanceStatus
     }).on('change', async (chg) => {
       if (chg.oldValue === this.platform.Characteristic.FilterChangeIndication.FILTER_OK && chg.newValue === this.platform.Characteristic.FilterChangeIndication.CHANGE_FILTER) {
-        const notificationPath = this.platform.config.options?.oplHKCFilterMaintenanceNotificationPath
+        const notificationPath = this.platform.config.deviceOptions?.opal?.oplHKCFilterMaintenanceNotificationPath
         if (notificationPath) {
           await this.sendHomeKitControllerNotification(notificationPath)
         }

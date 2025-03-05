@@ -34,6 +34,7 @@ export interface SmartHQPlatformConfig extends PlatformConfig {
   credentials?: credentials
   devices?: devicesConfig[]
   options?: options
+  deviceOptions?: DeviceOptions
 }
 
 export interface credentials {
@@ -56,12 +57,18 @@ export interface options {
   updateRate?: number
   pushRate?: number
   logging?: string
+  homekitControllerNotificationsSecret?: string
+}
+
+interface OpalOptions {
   opalProductionLimit?: number
   oplHKCIceBucketFullNotificationPath?: string
-  homekitControllerNotificationsSecret?: string
   oplHKCProgressCompleteNotificationPath?: string
   oplHKCFilterMaintenanceNotificationPath?: string
   oplHKCAddWaterNotificationPath?: string
+}
+export interface DeviceOptions {
+  opal?: OpalOptions
 }
 
 export interface SmartHqContext {
