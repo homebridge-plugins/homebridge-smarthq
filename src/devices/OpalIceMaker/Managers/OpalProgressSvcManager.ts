@@ -11,6 +11,7 @@ import { OpalDeviceBase } from '@opal/OpalDeviceBase.js'
 export class OpalProgressSvcManager extends OpalDeviceBase {
   public serviceName: string = 'Opal Progress'
   public service: Service | null = null
+  private configuredName = 'Ice Progress'
   public opalProductionLimit?: number = Infinity
   constructor(
     readonly platform: SmartHQPlatform,
@@ -44,6 +45,11 @@ export class OpalProgressSvcManager extends OpalDeviceBase {
 
     // Create new service
     this.service = this.accessory.addService(this.platform.Service.Fanv2, this.serviceName)
+
+    this.service
+      .getCharacteristic(this.platform.Characteristic.ConfiguredName)
+      .onGet(() => this.configuredName)
+      .setValue(this.configuredName)
 
     // Configure Active characteristic
     this.service.getCharacteristic(this.platform.Characteristic.Active)

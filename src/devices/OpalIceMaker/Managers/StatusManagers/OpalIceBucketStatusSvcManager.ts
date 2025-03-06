@@ -7,7 +7,9 @@ import { OpalDeviceBase } from '../../OpalDeviceBase.js'
 
 export class OpalIceBucketStatusSvcManager extends OpalDeviceBase {
   public service: Service
-  private serviceName = 'Ice Bin Full'
+  private serviceName = 'Opal Ice Bucket Full Sensor'
+  private configuredName = 'Bucket Full'
+
   public IceBucketFullStatus = {
     ICE_BUCKET_NOT_FULL: 0,
     ICE_BUCKET_FULL: 1,
@@ -21,10 +23,26 @@ export class OpalIceBucketStatusSvcManager extends OpalDeviceBase {
   ) {
     super(platform, accessory, device)
 
-    this.service = this.accessory.getService(this.serviceName)
-      || this.accessory.addService(this.platform.Service.ContactSensor, this.serviceName)
+    this.service = this.createService()
+  }
 
-    this.service
+  private createService(): Service {
+    // Check if service already exists
+    const existingService = this.accessory.getService(this.serviceName)
+
+    // Remove existing service if it exists
+    if (existingService) {
+      this.accessory.removeService(existingService)
+    }
+
+    const service = this.accessory.addService(this.platform.Service.ContactSensor, this.serviceName, 'opal-ice-bin-full-sensor')
+
+    service
+      .getCharacteristic(this.platform.Characteristic.ConfiguredName)
+      .onGet(() => this.configuredName)
+      .setValue(this.configuredName)
+
+    service
       .getCharacteristic(this.platform.Characteristic.ContactSensorState)
       .onGet(() => this.iceBucketCurrentStatus)
       .on('change', async (chg) => {
@@ -35,6 +53,8 @@ export class OpalIceBucketStatusSvcManager extends OpalDeviceBase {
           }
         }
       })
+
+    return service
   }
 
   setIceBucketFullStatus(updateValue: 0 | 1) {

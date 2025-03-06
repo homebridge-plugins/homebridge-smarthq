@@ -7,6 +7,7 @@ import { OpalDeviceBase } from '@opal/OpalDeviceBase.js'
 export class OpalPowerSvcManager extends OpalDeviceBase {
   public service: Service
   private serviceName = 'Opal Power'
+  private configuredName = 'Power'
 
   constructor(
     platform: SmartHQPlatform,
@@ -15,13 +16,31 @@ export class OpalPowerSvcManager extends OpalDeviceBase {
   ) {
     super(platform, accessory, device)
 
-    this.service = this.accessory.getService(this.serviceName)
-      || this.accessory.addService(this.platform.Service.Switch, this.serviceName, 'opal-power')
+    this.service = this.createService()
+  }
 
-    this.service
+  createService(): Service {
+    // Check if service already exists
+    const existingService = this.accessory.getService(this.serviceName)
+
+    // Remove existing service if it exists
+    if (existingService) {
+      this.accessory.removeService(existingService)
+    }
+
+    const service = this.accessory.addService(this.platform.Service.Switch, this.serviceName, 'opal-power')
+    service.setPrimaryService()
+    service
+      .getCharacteristic(this.platform.Characteristic.ConfiguredName)
+      .onGet(() => this.configuredName)
+      .setValue(this.configuredName)
+    service
       .getCharacteristic(this.platform.Characteristic.On)
       .onGet(() => this.readErd(ERD_TYPES.OIM_POWER).then(r => Number.parseInt(r) !== 0))
       .onSet(value => this.writeErd(ERD_TYPES.OIM_POWER, value as boolean))
+
+    return service
+
   }
 
   getService(): Service {

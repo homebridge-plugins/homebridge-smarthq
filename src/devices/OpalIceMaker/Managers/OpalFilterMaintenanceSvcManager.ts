@@ -6,6 +6,8 @@ import type { PlatformAccessory, Service } from 'homebridge'
 export class OpalFilterMaintenanceSvcManager extends OpalDeviceBase {
   public service: Service
   public serviceName: string = 'Opal Filter Maintenance'
+  private configuredName = 'Filter Maintenance'
+
   filterMaintenanceStatus: 0 | 1 = 0
   constructor(
     platform: SmartHQPlatform,
@@ -13,19 +15,8 @@ export class OpalFilterMaintenanceSvcManager extends OpalDeviceBase {
     device: SmartHqContext['device'] & devicesConfig,
   ) {
     super(platform, accessory, device)
-    this.service = this.accessory.getService(this.serviceName)
-      || this.accessory.addService(this.platform.Service.FilterMaintenance, this.serviceName)
 
-    this.service.getCharacteristic(this.platform.Characteristic.FilterChangeIndication).onGet(() => {
-      return this.filterMaintenanceStatus
-    }).on('change', async (chg) => {
-      if (chg.oldValue === this.platform.Characteristic.FilterChangeIndication.FILTER_OK && chg.newValue === this.platform.Characteristic.FilterChangeIndication.CHANGE_FILTER) {
-        const notificationPath = this.platform.config.deviceOptions?.opal?.oplHKCFilterMaintenanceNotificationPath
-        if (notificationPath) {
-          await this.sendHomeKitControllerNotification(notificationPath)
-        }
-      }
-    })
+    this.service = this.createService()
   }
 
   async getFilterMaintenaceStatus() {
@@ -39,6 +30,37 @@ export class OpalFilterMaintenanceSvcManager extends OpalDeviceBase {
     this.service.getCharacteristic(this.platform.Characteristic.FilterChangeIndication).setValue(updateValue)
   }
 
+  private createService(): Service {
+    // Check if service already exists
+    const existingService = this.accessory.getService(this.serviceName)
+
+    // Remove existing service if it exists
+    if (existingService) {
+      this.accessory.removeService(existingService)
+    }
+
+    const service = this.accessory.addService(this.platform.Service.FilterMaintenance, this.serviceName)
+
+    service
+      .getCharacteristic(this.platform.Characteristic.ConfiguredName)
+      .onGet(() => this.configuredName)
+      .setValue(this.configuredName)
+
+    service
+      .getCharacteristic(this.platform.Characteristic.FilterChangeIndication)
+      .onGet(() => {
+        return this.filterMaintenanceStatus
+      }).on('change', async (chg) => {
+        if (chg.oldValue === this.platform.Characteristic.FilterChangeIndication.FILTER_OK && chg.newValue === this.platform.Characteristic.FilterChangeIndication.CHANGE_FILTER) {
+          const notificationPath = this.platform.config.deviceOptions?.opal?.oplHKCFilterMaintenanceNotificationPath
+          if (notificationPath) {
+            await this.sendHomeKitControllerNotification(notificationPath)
+          }
+        }
+      })
+
+    return service
+  }
   getService(): Service {
     return this.service
   }

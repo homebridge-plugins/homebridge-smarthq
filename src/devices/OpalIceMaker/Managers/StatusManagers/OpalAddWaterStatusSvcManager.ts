@@ -7,7 +7,8 @@ import { OpalDeviceBase } from '../../OpalDeviceBase.js'
 
 export class OpalAddWaterStatusSvcManager extends OpalDeviceBase {
   public service: Service
-  private serviceName = 'Add Water Sensor'
+  private serviceName = 'Opal Add Water Sensor'
+  private configuredName = 'Add Water'
   public AddWaterCurrentStatus = {
     WATER_OK: 0,
     ADD_WATER: 1,
@@ -21,10 +22,26 @@ export class OpalAddWaterStatusSvcManager extends OpalDeviceBase {
   ) {
     super(platform, accessory, device)
 
-    this.service = this.accessory.getService(this.serviceName)
-      || this.accessory.addService(this.platform.Service.ContactSensor, this.serviceName, 'opal-add-water-sensor')
+    this.service = this.createService()
+  }
 
-    this.service
+  private createService(): Service {
+    // Check if service already exists
+    const existingService = this.accessory.getService(this.serviceName)
+
+    // Remove existing service if it exists
+    if (existingService) {
+      this.accessory.removeService(existingService)
+    }
+
+    const service = this.accessory.addService(this.platform.Service.ContactSensor, this.serviceName, 'opal-add-water-sensor')
+
+    service
+      .getCharacteristic(this.platform.Characteristic.ConfiguredName)
+      .onGet(() => this.configuredName)
+      .setValue(this.configuredName)
+
+    service
       .getCharacteristic(this.platform.Characteristic.ContactSensorState)
       .onGet(() => this.addWaterCurrentStatus)
       .on('change', async (chg) => {
@@ -36,6 +53,9 @@ export class OpalAddWaterStatusSvcManager extends OpalDeviceBase {
           }
         }
       })
+
+    return service
+
   }
 
   setAddWaterCurrentStatus(updateValue: 0 | 1) {

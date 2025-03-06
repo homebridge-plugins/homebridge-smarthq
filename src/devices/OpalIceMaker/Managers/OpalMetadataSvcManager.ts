@@ -6,6 +6,7 @@ import { OpalDeviceBase } from '@opal/OpalDeviceBase.js'
 
 export class OpalMetadataSvcManager extends OpalDeviceBase {
   public service: Service
+  private configuredName = 'Metadata'
 
   constructor(
     platform: SmartHQPlatform,
@@ -14,8 +15,19 @@ export class OpalMetadataSvcManager extends OpalDeviceBase {
   ) {
     super(platform, accessory, device)
 
-    // Get default accessory information service
-    this.service = this.accessory.getService('')!
+    this.service = this.createService()
+  }
+
+  createService(): Service {
+    // Check if service already exists
+    const service = this.accessory.getService('')!
+
+    service
+      .getCharacteristic(this.platform.Characteristic.ConfiguredName)
+      .onGet(() => this.configuredName)
+      .setValue(this.configuredName)
+
+
     // Metadata for Device Form, Opal Production Limit
     const opalProductionLimitQueryStr = 'l=Production_Duration_Minutes&i=opalProductionLimit&t=number&d=0&p=Number._0_for_Infinite&de=opal'
     const opalHKCNotificationsPathQueryStr = 'l=HKC_Ice_Bucket_Full_Notification_Path&i=oplHKCIceBucketFullNotificationPath&de=opal'
@@ -37,10 +49,12 @@ export class OpalMetadataSvcManager extends OpalDeviceBase {
         return acc.concat(',').concat(qs)
       }, '')
 
-    this.service
-      ?.getCharacteristic(this.platform.Characteristic.ProductData)
+    service
+      .getCharacteristic(this.platform.Characteristic.ProductData)
       .onGet(() => fullQueryStr)
       .updateValue(fullQueryStr)
+
+    return service
   }
 
   getService(): Service {

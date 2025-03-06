@@ -32,19 +32,19 @@ export class SmartHQIceMaker extends deviceBase {
 
     this.platform.debugSuccessLog(`Opal IceMaker Features: ${JSON.stringify(accessory.context.device.features)}`)
 
+    /* Services- The order matters! */
     this.metadataManager = new OpalMetadataSvcManager(platform, accessory, device)
-
+    this.filterMaintenanceManager = new OpalFilterMaintenanceSvcManager(platform, accessory, device)
+    this.powerManager = new OpalPowerSvcManager(platform, accessory, device)
     this.progressManager = new OpalProgressSvcManager(
       platform,
       accessory,
       device,
     )
-
-    this.filterMaintenanceManager = new OpalFilterMaintenanceSvcManager(platform, accessory, device)
-
-    this.powerManager = new OpalPowerSvcManager(platform, accessory, device)
     this.nightlightService = new OpalNightlightSvcManager(platform, accessory, device)
     this.statusManager = new OpalStatusSvcManager(platform, accessory, device)
+    /* -------  --------  */
+
     this.monitorManager = new OpalMonitorManager(
       platform,
       accessory,
