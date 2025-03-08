@@ -32,10 +32,11 @@ This plugin is in development
 
 ## Homekit Controller Notifications
 
-Currently Homekit Controller Notifications are supported for the Opal Ice Maker, to setup, install Homekit Controller App and configure notifications for each respective event. Put your Homekit Controller client secret in the Plugin Advanced Options, and the path associated with each available notifcation in the Opal device options. 
+Currently Homekit Controller Notifications are supported for the Opal Ice Maker, to setup, install Homekit Controller App and configure notifications for each respective event. Put your Homekit Controller client secret in the Plugin Advanced Options, and the path associated with each available notifcation in the Opal device options.
 These are the events that are currently supported:
 
 - Ice Bucket Full
 - Production Progress Complete
 - Filter Maintenance Change Alert
+- Descale Needed Alert
 - Add Water Alert

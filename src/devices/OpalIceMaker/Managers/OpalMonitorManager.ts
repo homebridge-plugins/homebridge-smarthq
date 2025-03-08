@@ -1,9 +1,9 @@
 import type { PlatformAccessory } from 'homebridge'
 import type { Subscription } from 'rxjs'
 
+import { SmartHQIceMaker } from '@opal/index.js'
 import type { SmartHQPlatform, devicesConfig, SmartHqContext } from '@root'
-import type { OpalFilterMaintenanceSvcManager, OpalPowerSvcManager, OpalProgressSvcManager } from '@opal/Managers/index.js'
-import type { OpalStatusSvcManager } from '@opal/Managers/StatusManagers/index.js'
+
 
 import { interval, skipWhile } from 'rxjs'
 import { OpalDeviceBase } from '@opal/OpalDeviceBase.js'
@@ -11,16 +11,16 @@ import { OpalDeviceBase } from '@opal/OpalDeviceBase.js'
 
 export class OpalMonitorManager extends OpalDeviceBase {
   private subscription: Subscription | null = null
+  public opalIceMaker: SmartHQIceMaker
+
   constructor(
+    opalIceMaker: SmartHQIceMaker,
     readonly platform: SmartHQPlatform,
     public accessory: PlatformAccessory<SmartHqContext>,
     readonly device: SmartHqContext['device'] & devicesConfig,
-    private statusManager: OpalStatusSvcManager,
-    private powerManager: OpalPowerSvcManager,
-    private progressManager: OpalProgressSvcManager,
-    private filterMaintenanceManager: OpalFilterMaintenanceSvcManager,
   ) {
     super(platform, accessory, device)
+    this.opalIceMaker = opalIceMaker
   }
 
   // Start the monitoring
@@ -29,18 +29,19 @@ export class OpalMonitorManager extends OpalDeviceBase {
     this.stopMonitoring()
 
     this.subscription = interval((this.device.refreshRate || 30) * 1000)
-      .pipe(skipWhile(() => !this.progressManager && !this.platform.config.options?.homekitControllerNotificationsSecret))
+      .pipe(skipWhile(() => !this.opalIceMaker.progressManager && !this.platform.config.options?.homekitControllerNotificationsSecret))
       .subscribe(async () => {
-        await this.statusManager.getOpalCurrentStatus()
-        await this.filterMaintenanceManager.getFilterMaintenaceStatus()
+        await this.opalIceMaker.statusManager.getOpalCurrentStatus()
+        await this.opalIceMaker.filterMaintenanceManager.getFilterMaintenaceStatus()
+        await this.opalIceMaker.descaleManager.getDescaleStatus()
 
-        if (this.progressManager.hasService()) {
+        if (this.opalIceMaker.progressManager?.hasService()) {
           try {
-            const currentProductionValue = await this.progressManager.processProductionProgress()
+            const currentProductionValue = await this.opalIceMaker.progressManager.processProductionProgress()
             // Auto-shutoff if production exceeds limit
-            if (this.progressManager.opalProductionLimit && currentProductionValue >= this.progressManager.opalProductionLimit) {
-              this.powerManager.setOpalPowerState(false)
-              this.platform.debugLog(`Auto-shutoff triggered: Production (${currentProductionValue}) > Limit (${this.progressManager.opalProductionLimit})`)
+            if (this.opalIceMaker.progressManager.opalProductionLimit && currentProductionValue >= this.opalIceMaker.progressManager.opalProductionLimit) {
+              this.opalIceMaker.powerManager.setOpalPowerState(false)
+              this.platform.debugLog(`Auto-shutoff triggered: Production (${currentProductionValue}) > Limit (${this.opalIceMaker.progressManager.opalProductionLimit})`)
             }
           } catch (error) {
             const typedErr = error as { message: string }

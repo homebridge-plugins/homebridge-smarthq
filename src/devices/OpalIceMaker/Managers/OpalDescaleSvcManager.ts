@@ -3,13 +3,13 @@ import { ERD_TYPES, type devicesConfig, type SmartHqContext } from '@root'
 import { OpalDeviceBase } from '@opal/OpalDeviceBase.js'
 import type { PlatformAccessory, Service } from 'homebridge'
 
-export class OpalFilterMaintenanceSvcManager extends OpalDeviceBase {
+export class OpalDescaleSvcManager extends OpalDeviceBase {
   public service: Service
-  public serviceName: string = 'Opal Filter Maintenance'
-  private configuredName = 'Filter Maintenance'
-  public advancedOptionQueryStrs: string[] = ['device=opal&label=HKC_Filter_Maintenace_Notification_Path&indicator=oplHKCFilterMaintenanceNotificationPath']
+  public advancedOptionQueryStrs: string[] = ['device=opal&label=HKC_Descale_Notification_Path&indicator=oplHKCDescaleNotificationPath']
+  public serviceName: string = 'Opal Descale'
+  private configuredName = 'Opal Descale'
 
-  filterMaintenanceStatus: 0 | 1 = 0
+  descaleStatus: 0 | 1 = 0
   constructor(
     platform: SmartHQPlatform,
     accessory: PlatformAccessory<SmartHqContext>,
@@ -20,13 +20,15 @@ export class OpalFilterMaintenanceSvcManager extends OpalDeviceBase {
     this.service = this.createService()
   }
 
-  async getFilterMaintenaceStatus() {
-    const currentFilterStatus = await this.readErd(ERD_TYPES.OIM_FILTER_STATUS)
-    this.setFilterMaintenaceStatus(Number.parseInt(currentFilterStatus) as 0 | 1)
+  async getDescaleStatus() {
+    const currentDescaleStatus = await this.readErd(ERD_TYPES.OIM_NEEDS_DESCALING)
+    this.platform.infoLog('CURRENT DESCALE STATUS')
+    this.platform.infoLog(currentDescaleStatus)
+    this.setOpalDescaleStatus(Number.parseInt(currentDescaleStatus) as 0 | 1)
   }
 
-  setFilterMaintenaceStatus(updateValue: 0 | 1) {
-    this.filterMaintenanceStatus = updateValue
+  setOpalDescaleStatus(updateValue: 0 | 1) {
+    this.descaleStatus = updateValue
     // Stimulate on change handler for native notification
     this.service.getCharacteristic(this.platform.Characteristic.FilterChangeIndication).setValue(updateValue)
   }
@@ -40,7 +42,7 @@ export class OpalFilterMaintenanceSvcManager extends OpalDeviceBase {
       this.accessory.removeService(existingService)
     }
 
-    const service = this.accessory.addService(this.platform.Service.FilterMaintenance, this.serviceName, 'filter-maintenance-status')
+    const service = this.accessory.addService(this.platform.Service.FilterMaintenance, this.serviceName, 'descale-status')
 
     service
       .getCharacteristic(this.platform.Characteristic.ConfiguredName)
@@ -50,10 +52,10 @@ export class OpalFilterMaintenanceSvcManager extends OpalDeviceBase {
     service
       .getCharacteristic(this.platform.Characteristic.FilterChangeIndication)
       .onGet(() => {
-        return this.filterMaintenanceStatus
+        return this.descaleStatus
       }).on('change', async (chg) => {
         if (chg.oldValue === this.platform.Characteristic.FilterChangeIndication.FILTER_OK && chg.newValue === this.platform.Characteristic.FilterChangeIndication.CHANGE_FILTER) {
-          const notificationPath = this.platform.config.deviceOptions?.opal?.oplHKCFilterMaintenanceNotificationPath
+          const notificationPath = this.platform.config.deviceOptions?.opal?.oplHKCDescaleNotificationPath
           if (notificationPath) {
             await this.sendHomeKitControllerNotification(notificationPath)
           }

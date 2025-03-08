@@ -7,6 +7,7 @@ import { OpalDeviceBase } from '@opal/OpalDeviceBase.js'
 export class OpalNightlightSvcManager extends OpalDeviceBase {
   private service: Service
   private serviceName = 'Opal Nightlight'
+  private configuredName = 'Nightlight'
 
   constructor(
     platform: SmartHQPlatform,
@@ -15,10 +16,27 @@ export class OpalNightlightSvcManager extends OpalDeviceBase {
   ) {
     super(platform, accessory, device)
 
-    this.service = this.accessory.getService(this.serviceName)
-      || this.accessory.addService(this.platform.Service.Lightbulb, this.serviceName)
+    this.service = this.createService()
+  }
 
-    this.service.getCharacteristic(this.platform.Characteristic.On)
+  private createService(): Service {
+    // Check if service already exists
+    const existingService = this.accessory.getService(this.serviceName)
+
+    // Remove existing service if it exists
+    if (existingService) {
+      this.accessory.removeService(existingService)
+    }
+
+    const service = this.accessory.addService(this.platform.Service.Lightbulb, this.serviceName)
+
+    service
+      .getCharacteristic(this.platform.Characteristic.ConfiguredName)
+      .onGet(() => this.configuredName)
+      .setValue(this.configuredName)
+
+    service
+      .getCharacteristic(this.platform.Characteristic.On)
       .onGet(async () => {
         const currentLevel = await this.readErd(ERD_TYPES.OIM_LIGHT_LEVEL)
         return currentLevel !== '00' // If the level is not OFF (00), return true (ON)
@@ -41,7 +59,7 @@ export class OpalNightlightSvcManager extends OpalDeviceBase {
         await this.writeErd(ERD_TYPES.OIM_LIGHT_LEVEL, newState)
       })
 
-    this.service.getCharacteristic(this.platform.Characteristic.Brightness)
+    service.getCharacteristic(this.platform.Characteristic.Brightness)
       .setProps({
         minValue: 0, // Minimum value for brightness (OFF)
         maxValue: 100, // Maximum value for brightness (HIGH)
@@ -71,6 +89,8 @@ export class OpalNightlightSvcManager extends OpalDeviceBase {
 
         await this.writeErd(ERD_TYPES.OIM_LIGHT_LEVEL, newState)
       })
+
+    return service
   }
 
   getService(): Service {
