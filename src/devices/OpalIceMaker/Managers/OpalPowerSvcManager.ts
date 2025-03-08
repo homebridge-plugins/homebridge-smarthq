@@ -8,6 +8,7 @@ export class OpalPowerSvcManager extends OpalDeviceBase {
   public service: Service
   private serviceName = 'Opal Power'
   private configuredName = 'Power'
+  public advancedOptionQueryStrs: string[] = ['device=opal&label=Auto_Shutoff_on_Blocking_Event&indicator=oplAutoShutoffOnBlockingEvent&type=boolean&defaultValue=false']
 
   constructor(
     platform: SmartHQPlatform,

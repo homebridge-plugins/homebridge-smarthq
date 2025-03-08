@@ -1,8 +1,7 @@
 <p class="text-center">
   <img
     src="https://raw.githubusercontent.com/homebridge-plugins/homebridge-smarthq/latest/branding/Homebridge_x_SmartHQ.svg"
-    alt="homebridge-smarthq logo"
-    style="width: 40%" />
+    alt="homebridge-smarthq logo" style="width: 40%" />
 </p>
 <div id="pageIntro" style="display: none">
   <p class="lead text-center">Thank you for installing <strong>homebridge-smarthq</strong></p>
@@ -74,31 +73,38 @@
       <a href="https://github.com/homebridge-plugins/homebridge-smarthq/wiki" target="_blank">Wiki Home</a>
     </li>
     <li>
-      <a href="https://github.com/homebridge-plugins/homebridge-smarthq/wiki/Configuration" target="_blank">Configuration</a>
+      <a href="https://github.com/homebridge-plugins/homebridge-smarthq/wiki/Configuration"
+        target="_blank">Configuration</a>
     </li>
     <li>
-      <a href="https://github.com/homebridge-plugins/homebridge-smarthq/wiki/Beta-Version" target="_blank">Beta Version</a>
+      <a href="https://github.com/homebridge-plugins/homebridge-smarthq/wiki/Beta-Version" target="_blank">Beta
+        Version</a>
     </li>
     <li>
-      <a href="https://github.com/homebridge-plugins/homebridge-smarthq/wiki/Node-Version" target="_blank">Node Version</a>
+      <a href="https://github.com/homebridge-plugins/homebridge-smarthq/wiki/Node-Version" target="_blank">Node
+        Version</a>
     </li>
     <li>
-      <a href="https://github.com/homebridge-plugins/homebridge-smarthq/wiki/Uninstallation" target="_blank">Uninstallation</a>
+      <a href="https://github.com/homebridge-plugins/homebridge-smarthq/wiki/Uninstallation"
+        target="_blank">Uninstallation</a>
     </li>
   </ul>
   <h5>Features</h5>
   <ul>
     <li>
-      <a href="https://github.com/homebridge-plugins/homebridge-smarthq/wiki/Supported-Devices" target="_blank">Supported Devices</a>
+      <a href="https://github.com/homebridge-plugins/homebridge-smarthq/wiki/Supported-Devices"
+        target="_blank">Supported Devices</a>
     </li>
   </ul>
   <h5>Help/About</h5>
   <ul>
     <li>
-      <a href="https://github.com/homebridge-plugins/homebridge-smarthq/issues/new/choose" target="_blank">Support Request</a>
+      <a href="https://github.com/homebridge-plugins/homebridge-smarthq/issues/new/choose" target="_blank">Support
+        Request</a>
     </li>
     <li>
-      <a href="https://github.com/homebridge-plugins/homebridge-smarthq/blob/latest/CHANGELOG.md" target="_blank">Changelog</a>
+      <a href="https://github.com/homebridge-plugins/homebridge-smarthq/blob/latest/CHANGELOG.md"
+        target="_blank">Changelog</a>
     </li>
   </ul>
 </div>
@@ -170,26 +176,34 @@
               const metadata = Object.fromEntries(params)
               const th = document.createElement('th')
               th.scope = 'row'
-              th.innerHTML = metadata.l?.replaceAll('_', ' ')
+              th.innerHTML = metadata.label?.replaceAll('_', ' ')
               tr.appendChild(th)
               const td = document.createElement('td')
 
               const input = document.createElement('input')
-              input.type = metadata.t
-              input.placeholder = metadata.p?.replaceAll('_', ' ') || ''
-              const existingDefaultValue = metadata.t === 'number' ? Number(currentConfig[0].deviceOptions?.[metadata.de]?.[metadata.i]) : (currentConfig[0].deviceOptions?.[metadata.de]?.[metadata.i] ?? "")
+              input.type = metadata.type === 'number' ? 'number' : metadata.type === 'boolean' ? 'checkbox' : ''
+              input.placeholder = metadata.placeholder?.replaceAll('_', ' ') || ''
+              const existingDefaultValue = metadata.type === 'number' ?
+                Number(currentConfig[0].deviceOptions?.[metadata.device]?.[metadata.indicator] ?? 0)
+                : metadata.t === 'boolean' ? Boolean(currentConfig[0].deviceOptions?.[metadata.device]?.[metadata.indicator] ?? false)
+                  : (currentConfig[0].deviceOptions?.[metadata.device]?.[metadata.indicator] ?? "")
 
               input.defaultValue = existingDefaultValue
+              input.checked = existingDefaultValue
               input.addEventListener('change', async () => {
-                const value = metadata.t === 'number' ? Number(event.target.value) : (event.target.value ?? "")
+                const value =
+                  metadata.type === 'number'
+                    ? Number(event.target.value)
+                    : metadata.type === 'boolean' ? Boolean(input.checked ?? false)
+                      : (event.target.value ?? "")
 
                 currentConfig[0] = {
                   ...currentConfig[0],
                   deviceOptions: {
                     ...currentConfig[0].deviceOptions,
-                    [metadata.de]: {
-                      ...currentConfig[0].deviceOptions?.[metadata.de],
-                      [metadata.i]: value
+                    [metadata.device]: {
+                      ...currentConfig[0].deviceOptions?.[metadata.device],
+                      [metadata.indicator]: value
                     }
                   }
                 }

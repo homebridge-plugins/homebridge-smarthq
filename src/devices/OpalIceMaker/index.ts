@@ -9,19 +9,21 @@ import {
   OpalMonitorManager,
   OpalMetadataSvcManager,
   OpalFilterMaintenanceSvcManager,
-  OpalNightlightSvcManager
+  OpalNightlightSvcManager,
+  OpalDescaleSvcManager
 } from '@opal/Managers/index.js'
 import { OpalStatusSvcManager } from '@opal/Managers/StatusManagers/index.js'
 
 
 export class SmartHQIceMaker extends deviceBase {
-  private powerManager: OpalPowerSvcManager
+  public powerManager: OpalPowerSvcManager
   private nightlightService: OpalNightlightSvcManager
-  private statusManager: OpalStatusSvcManager
+  public statusManager: OpalStatusSvcManager
   private monitorManager: OpalMonitorManager
-  private progressManager?: OpalProgressSvcManager
+  public progressManager?: OpalProgressSvcManager
   private metadataManager: OpalMetadataSvcManager
-  private filterMaintenanceManager: OpalFilterMaintenanceSvcManager
+  public filterMaintenanceManager: OpalFilterMaintenanceSvcManager
+  public descaleManager: OpalDescaleSvcManager
 
   constructor(
     readonly platform: SmartHQPlatform,
@@ -33,26 +35,24 @@ export class SmartHQIceMaker extends deviceBase {
     this.platform.debugSuccessLog(`Opal IceMaker Features: ${JSON.stringify(accessory.context.device.features)}`)
 
     /* Services- The order matters! */
-    this.metadataManager = new OpalMetadataSvcManager(platform, accessory, device)
-    this.filterMaintenanceManager = new OpalFilterMaintenanceSvcManager(platform, accessory, device)
     this.powerManager = new OpalPowerSvcManager(platform, accessory, device)
+    this.filterMaintenanceManager = new OpalFilterMaintenanceSvcManager(platform, accessory, device)
+    this.descaleManager = new OpalDescaleSvcManager(platform, accessory, device)
     this.progressManager = new OpalProgressSvcManager(
       platform,
       accessory,
       device,
     )
     this.nightlightService = new OpalNightlightSvcManager(platform, accessory, device)
-    this.statusManager = new OpalStatusSvcManager(platform, accessory, device)
+    this.statusManager = new OpalStatusSvcManager(this, platform, accessory, device)
     /* -------  --------  */
+    this.metadataManager = new OpalMetadataSvcManager(this, platform, accessory, device)
 
     this.monitorManager = new OpalMonitorManager(
+      this,
       platform,
       accessory,
       device,
-      this.statusManager,
-      this.powerManager,
-      this.progressManager,
-      this.filterMaintenanceManager,
     )
 
     this.monitorManager.startMonitoring()

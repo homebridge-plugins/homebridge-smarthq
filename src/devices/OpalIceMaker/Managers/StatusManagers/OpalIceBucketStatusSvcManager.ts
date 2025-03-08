@@ -1,15 +1,17 @@
 import type { PlatformAccessory, Service } from 'homebridge'
 
-import type { SmartHQPlatform } from '../../../../platform.js'
-import type { devicesConfig, SmartHqContext } from '../../../../settings.js'
+import type { SmartHQPlatform } from '@root'
+import type { devicesConfig, SmartHqContext } from '@root'
 
-import { OpalDeviceBase } from '../../OpalDeviceBase.js'
+import { SmartHQIceMaker } from '@opal/index.js'
+import { OpalDeviceBase } from '@opal/OpalDeviceBase.js'
 
 export class OpalIceBucketStatusSvcManager extends OpalDeviceBase {
   public service: Service
   private serviceName = 'Opal Ice Bucket Full Sensor'
   private configuredName = 'Bucket Full'
-
+  public opalIceMaker: SmartHQIceMaker
+  public advancedOptionQueryStrs: string[] = ['device=opal&label=HKC_Ice_Bucket_Full_Notification_Path&indicator=oplHKCIceBucketFullNotificationPath']
   public IceBucketFullStatus = {
     ICE_BUCKET_NOT_FULL: 0,
     ICE_BUCKET_FULL: 1,
@@ -17,12 +19,13 @@ export class OpalIceBucketStatusSvcManager extends OpalDeviceBase {
   public iceBucketCurrentStatus: 0 | 1 = this.IceBucketFullStatus.ICE_BUCKET_NOT_FULL
 
   constructor(
+    opalIceMaker: SmartHQIceMaker,
     platform: SmartHQPlatform,
     accessory: PlatformAccessory<SmartHqContext>,
     device: SmartHqContext['device'] & devicesConfig,
   ) {
     super(platform, accessory, device)
-
+    this.opalIceMaker = opalIceMaker
     this.service = this.createService()
   }
 
@@ -61,6 +64,9 @@ export class OpalIceBucketStatusSvcManager extends OpalDeviceBase {
     this.iceBucketCurrentStatus = updateValue
     // Stimulate on change handler for native notification
     this.service.getCharacteristic(this.platform.Characteristic.ContactSensorState).setValue(updateValue)
+    if (updateValue === this.IceBucketFullStatus.ICE_BUCKET_FULL && this.platform.config.deviceOptions?.opal?.oplAutoShutoffOnBlockingEvent === true) {
+      this.opalIceMaker.powerManager.setOpalPowerState(false)
+    }
   }
 
   getService(): Service {

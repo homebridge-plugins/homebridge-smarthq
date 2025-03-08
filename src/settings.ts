@@ -66,6 +66,8 @@ interface OpalOptions {
   oplHKCProgressCompleteNotificationPath?: string
   oplHKCFilterMaintenanceNotificationPath?: string
   oplHKCAddWaterNotificationPath?: string
+  oplHKCDescaleNotificationPath?: string
+  oplAutoShutoffOnBlockingEvent?: boolean
 }
 export interface DeviceOptions {
   opal?: OpalOptions

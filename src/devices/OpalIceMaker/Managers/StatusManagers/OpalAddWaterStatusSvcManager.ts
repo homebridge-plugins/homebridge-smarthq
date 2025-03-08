@@ -1,14 +1,17 @@
 import type { PlatformAccessory, Service } from 'homebridge'
 
-import type { SmartHQPlatform } from '../../../../platform.js'
-import type { devicesConfig, SmartHqContext } from '../../../../settings.js'
+import type { SmartHQIceMaker } from '@opal/index.js'
+import type { SmartHQPlatform } from '@root'
+import type { devicesConfig, SmartHqContext } from '@root'
 
 import { OpalDeviceBase } from '../../OpalDeviceBase.js'
 
 export class OpalAddWaterStatusSvcManager extends OpalDeviceBase {
   public service: Service
+  public opalIceMaker: SmartHQIceMaker
   private serviceName = 'Opal Add Water Sensor'
   private configuredName = 'Add Water'
+  public advancedOptionQueryStrs = ['device=opal&label=HKC_Add_Water_Notification_Path&indicator=oplHKCAddWaterNotificationPath']
   public AddWaterCurrentStatus = {
     WATER_OK: 0,
     ADD_WATER: 1,
@@ -16,12 +19,13 @@ export class OpalAddWaterStatusSvcManager extends OpalDeviceBase {
   public addWaterCurrentStatus: 0 | 1 = this.AddWaterCurrentStatus.WATER_OK
 
   constructor(
+    opalIceMaker: SmartHQIceMaker,
     platform: SmartHQPlatform,
     accessory: PlatformAccessory<SmartHqContext>,
     device: SmartHqContext['device'] & devicesConfig,
   ) {
     super(platform, accessory, device)
-
+    this.opalIceMaker = opalIceMaker
     this.service = this.createService()
   }
 
@@ -62,6 +66,10 @@ export class OpalAddWaterStatusSvcManager extends OpalDeviceBase {
     this.addWaterCurrentStatus = updateValue
     // Stimulate on change handler for native notification
     this.service.getCharacteristic(this.platform.Characteristic.ContactSensorState).setValue(updateValue)
+
+    if (updateValue === this.AddWaterCurrentStatus.ADD_WATER && this.platform.config.deviceOptions?.opal?.oplAutoShutoffOnBlockingEvent === true) {
+      this.opalIceMaker.powerManager.setOpalPowerState(false)
+    }
   }
 
   getService(): Service {

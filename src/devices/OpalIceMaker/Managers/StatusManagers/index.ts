@@ -1,21 +1,23 @@
 import type { PlatformAccessory } from 'homebridge'
 import type { SmartHQPlatform, devicesConfig, SmartHqContext } from '@root'
 
+import { SmartHQIceMaker } from '@opal/index.js'
 import { OpalIceBucketStatusSvcManager } from '@opal/Managers/StatusManagers/OpalIceBucketStatusSvcManager.js'
 import { OpalAddWaterStatusSvcManager } from '@opal/Managers/StatusManagers/OpalAddWaterStatusSvcManager.js'
 import { OpalStatusBase } from './OpalStatusBase.js'
 
 export class OpalStatusSvcManager extends OpalStatusBase {
-  private iceBucketStatusManager: OpalIceBucketStatusSvcManager
-  private addWaterStatusManager: OpalAddWaterStatusSvcManager
+  public iceBucketStatusManager: OpalIceBucketStatusSvcManager
+  public addWaterStatusManager: OpalAddWaterStatusSvcManager
   constructor(
+    public opalIceMaker: SmartHQIceMaker,
     readonly platform: SmartHQPlatform,
     public accessory: PlatformAccessory<SmartHqContext>,
     readonly device: SmartHqContext['device'] & devicesConfig,
   ) {
     super(platform, accessory, device)
-    this.iceBucketStatusManager = new OpalIceBucketStatusSvcManager(platform, accessory, device)
-    this.addWaterStatusManager = new OpalAddWaterStatusSvcManager(platform, accessory, device)
+    this.iceBucketStatusManager = new OpalIceBucketStatusSvcManager(opalIceMaker, platform, accessory, device)
+    this.addWaterStatusManager = new OpalAddWaterStatusSvcManager(opalIceMaker, platform, accessory, device)
   }
 
   override setChildStatus(): void {
