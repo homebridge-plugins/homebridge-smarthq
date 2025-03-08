@@ -30,13 +30,6 @@ export class OpalMetadataSvcManager extends OpalDeviceBase {
       .onGet(() => this.configuredName)
       .setValue(this.configuredName)
 
-    // Metadata for Device Form, Opal Production Limit
-
-
-
-
-
-
     const fullQueryStr = [
       this.opalIceMaker.progressManager?.advancedOptionQueryStrs || [],
       this.opalIceMaker.statusManager.iceBucketStatusManager.advancedOptionQueryStrs,

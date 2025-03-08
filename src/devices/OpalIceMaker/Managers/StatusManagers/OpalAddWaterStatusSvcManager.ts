@@ -4,7 +4,7 @@ import type { SmartHQIceMaker } from '@opal/index.js'
 import type { SmartHQPlatform } from '@root'
 import type { devicesConfig, SmartHqContext } from '@root'
 
-import { OpalDeviceBase } from '../../OpalDeviceBase.js'
+import { OpalDeviceBase } from '@opal/OpalDeviceBase.js'
 
 export class OpalAddWaterStatusSvcManager extends OpalDeviceBase {
   public service: Service
