@@ -22,8 +22,6 @@ export class OpalDescaleSvcManager extends OpalDeviceBase {
 
   async getDescaleStatus() {
     const currentDescaleStatus = await this.readErd(ERD_TYPES.OIM_NEEDS_DESCALING)
-    this.platform.infoLog('CURRENT DESCALE STATUS')
-    this.platform.infoLog(currentDescaleStatus)
     this.setOpalDescaleStatus(Number.parseInt(currentDescaleStatus) as 0 | 1)
   }
 
