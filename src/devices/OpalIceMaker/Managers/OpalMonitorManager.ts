@@ -45,8 +45,6 @@ export class OpalMonitorManager extends OpalDeviceBase {
   }
 
   startSchedulerMonitoring(): void {
-    // Below 60,000 and there are two edges cases where either the machine does not start within the given minute
-    // Or the machine starts, the user turns it off and then it starts again before the minute expires
     this.schedulerSubscription = interval(this.opalIceMaker.schedulingManager.schedulerInterval)
       .pipe(skipWhile(() => !this.platform.config.deviceOptions?.opal?.oplIceProductionSchedule))
       .subscribe(() => {

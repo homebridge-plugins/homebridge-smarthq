@@ -6,6 +6,8 @@ import type { PlatformAccessory } from 'homebridge'
 export class OpalSchedulingManager extends OpalDeviceBase {
   public opalIceMaker: SmartHQIceMaker
   public advancedOptionQueryStrs: string[] = ['device=opal&label=Opal_Ice_Production_Scheduler&indicator=oplIceProductionSchedule&type=scheduler']
+  // Below 60,000 and there are two edges cases where either the machine does not start within the given minute
+  // Or the machine starts, the user turns it off and then it starts again before the minute expires
   public schedulerInterval = 60 * 1000
 
   constructor(
