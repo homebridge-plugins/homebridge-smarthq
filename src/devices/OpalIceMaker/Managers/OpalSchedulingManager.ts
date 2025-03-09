@@ -30,14 +30,9 @@ export class OpalSchedulingManager extends OpalDeviceBase {
         scheduledTime.setHours(hours, minutes, 0, 0)
 
         const now = new Date();
-
-        let bufferTimeSeconds = (this.platform.config.options?.refreshRate || 360)
-        if (bufferTimeSeconds < 60) {
-          bufferTimeSeconds = bufferTimeSeconds * 2
-        }
-        const bufferTimeMilliseconds = bufferTimeSeconds * 1000
+        const bufferTimeMilliseconds = 62 * 1000
         const triggerWindowEnd = new Date(scheduledTime.getTime() + bufferTimeMilliseconds);
-        this.platform.infoLog('this condition')
+
         if (now >= scheduledTime && now <= triggerWindowEnd) {
           this.platform.debugSuccessLog('Turning on Ice Machine on Schedule')
           this.opalIceMaker.powerManager.setOpalPowerState(true)

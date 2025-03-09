@@ -10,7 +10,8 @@ import { OpalDeviceBase } from '@opal/OpalDeviceBase.js'
 
 
 export class OpalMonitorManager extends OpalDeviceBase {
-  private subscription: Subscription | null = null
+  private servicesSubscription: Subscription | null = null
+  private schedulerSubscription: Subscription | null = null
   public opalIceMaker: SmartHQIceMaker
 
   constructor(
@@ -26,9 +27,10 @@ export class OpalMonitorManager extends OpalDeviceBase {
   // Start the monitoring
   startMonitoring(): void {
     // Stop any existing subscription first
-    this.stopMonitoring()
+    this.stopServicesMonitoring()
+    this.stopSchedulerMonitoring()
 
-    this.subscription = interval((this.device.refreshRate || 30) * 1000)
+    this.servicesSubscription = interval((this.device.refreshRate || 30) * 1000)
       .pipe(skipWhile(() => !this.opalIceMaker.progressManager && !this.platform.config.options?.homekitControllerNotificationsSecret))
       .subscribe(async () => {
         await this.opalIceMaker.statusManager.getOpalCurrentStatus()
@@ -38,27 +40,33 @@ export class OpalMonitorManager extends OpalDeviceBase {
           const currentProductionValue = await this.opalIceMaker.progressManager.processProductionProgress()
           this.opalIceMaker.powerManager.turnOffOnProductionLimitSurpassed(currentProductionValue)
         }
+      })
+    this.platform.debugLog(`Started ice maker monitoring at ${this.device.refreshRate}s intervals`)
+
+    // Below 60,000 and there are two edges cases where either the machine does not start within the given minute
+    // Or the machine starts, the user turns it off and then it starts again before the minute expires
+    this.schedulerSubscription = interval(60 * 1000)
+      .pipe(skipWhile(() => !this.platform.config.deviceOptions?.opal?.oplIceProductionSchedule))
+      .subscribe(() => {
         this.opalIceMaker.schedulingManager.initializeIfIceMakerOnSchedule()
       })
 
-    this.platform.debugLog(`Started ice maker monitoring at ${this.device.refreshRate}s intervals`)
   }
 
-  // Stop the monitoring
-  stopMonitoring(): void {
-    if (this.subscription) {
-      this.subscription.unsubscribe()
-      this.subscription = null
-      this.platform.debugLog('Stopped ice maker monitoring')
+  stopSchedulerMonitoring(): void {
+    if (this.schedulerSubscription) {
+      this.schedulerSubscription.unsubscribe()
+      this.schedulerSubscription = null
+      this.platform.debugLog('Stopped Schedule Monitoring')
     }
   }
 
-  // Update monitoring rate
-  updateRefreshRate(newRate: number): void {
-    this.device.refreshRate = newRate
-    if (this.subscription) {
-      // Restart with new rate
-      this.startMonitoring()
+  // Stop the monitoring
+  stopServicesMonitoring(): void {
+    if (this.servicesSubscription) {
+      this.servicesSubscription.unsubscribe()
+      this.servicesSubscription = null
+      this.platform.debugLog('Stopped ice maker monitoring')
     }
   }
 }
