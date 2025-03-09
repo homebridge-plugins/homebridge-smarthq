@@ -60,9 +60,9 @@ export class SmartHQIceMaker extends deviceBase {
 
     this.metadataManager = new OpalMetadataSvcManager(this, platform, accessory, device)
 
-
     this.monitorManager.startServicesMonitoring()
     this.monitorManager.startSchedulerMonitoring()
+    this.monitorManager.startStatusMonitoring()
   }
 
   shutdown(): void {
