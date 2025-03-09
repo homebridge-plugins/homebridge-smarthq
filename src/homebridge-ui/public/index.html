@@ -107,6 +107,65 @@
         target="_blank">Changelog</a>
     </li>
   </ul>
+  <style>
+    /* iOS Switch Style */
+    .ios-switch {
+      position: relative;
+      display: inline-block;
+      width: 42px;
+      height: 24px;
+      margin: 0;
+    }
+
+    .ios-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #e4e4e4;
+      transition: .3s;
+      border-radius: 34px;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 20px;
+      width: 20px;
+      left: 2px;
+      bottom: 2px;
+      background-color: white;
+      transition: .3s;
+      border-radius: 50%;
+      box-shadow: 0 2px 3px rgba(0, 0, 0, 0.2);
+    }
+
+    input:checked+.slider {
+      background-color: #FFA002;
+    }
+
+    input:focus+.slider {
+      box-shadow: 0 0 1px #FFA002;
+    }
+
+    input:checked+.slider:before {
+      transform: translateX(18px);
+    }
+
+    /* Add this to ensure the switch works with your form handling */
+    .ios-switch input:disabled+.slider {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  </style>
 </div>
 <script>
   (async () => {
@@ -168,6 +227,7 @@
           const advancedOptions = thisAcc.services.filter((svc) => !!svc.characteristics.find((char) => char.displayName === 'Product Data'))
 
           if (advancedOptions.length) {
+
             // currently only supporting one accessory for now - opal
             const raw = advancedOptions[0].characteristics.find((char) => char.displayName === 'Product Data').value.split(',')
             raw.forEach((r) => {
@@ -176,42 +236,280 @@
               const metadata = Object.fromEntries(params)
               const th = document.createElement('th')
               th.scope = 'row'
+              th.style.width = '50%'
               th.innerHTML = metadata.label?.replaceAll('_', ' ')
               tr.appendChild(th)
+
               const td = document.createElement('td')
+              td.style.borderTop = '1px solid white'
+              if (metadata.type === 'scheduler') {
+                // Create a button to open the scheduler dialog
+                const button = document.createElement('button');
+                button.className = 'btn btn-sm btn-primary';
+                button.innerHTML = 'Configure Schedule';
+                button.style.color = 'white'
 
-              const input = document.createElement('input')
-              input.type = metadata.type === 'number' ? 'number' : metadata.type === 'boolean' ? 'checkbox' : ''
-              input.placeholder = metadata.placeholder?.replaceAll('_', ' ') || ''
-              const existingDefaultValue = metadata.type === 'number' ?
-                Number(currentConfig[0].deviceOptions?.[metadata.device]?.[metadata.indicator] ?? 0)
-                : metadata.t === 'boolean' ? Boolean(currentConfig[0].deviceOptions?.[metadata.device]?.[metadata.indicator] ?? false)
-                  : (currentConfig[0].deviceOptions?.[metadata.device]?.[metadata.indicator] ?? "")
+                // Create a unique ID for this dialog
+                const dialogId = `scheduler-dialog-${metadata.device}-${metadata.indicator}`;
 
-              input.defaultValue = existingDefaultValue
-              input.checked = existingDefaultValue
-              input.addEventListener('change', async () => {
-                const value =
-                  metadata.type === 'number'
-                    ? Number(event.target.value)
-                    : metadata.type === 'boolean' ? Boolean(input.checked ?? false)
-                      : (event.target.value ?? "")
+                // Get existing schedule data or create a default one
+                // Structure includes enabled property for each day
+                const defaultSchedule = {
+                  Monday: { time: '08:00', enabled: false },
+                  Tuesday: { time: '08:00', enabled: false },
+                  Wednesday: { time: '08:00', enabled: false },
+                  Thursday: { time: '08:00', enabled: false },
+                  Friday: { time: '08:00', enabled: false },
+                  Saturday: { time: '08:00', enabled: false },
+                  Sunday: { time: '08:00', enabled: false }
+                };
 
-                currentConfig[0] = {
-                  ...currentConfig[0],
-                  deviceOptions: {
-                    ...currentConfig[0].deviceOptions,
-                    [metadata.device]: {
-                      ...currentConfig[0].deviceOptions?.[metadata.device],
-                      [metadata.indicator]: value
-                    }
+                // Parse existing value if available
+                let scheduleData = defaultSchedule;
+                try {
+                  if (currentConfig[0].deviceOptions?.[metadata.device]?.[metadata.indicator]) {
+                    scheduleData = currentConfig[0].deviceOptions[metadata.device][metadata.indicator]
                   }
+                } catch (e) {
+                  console.error('Error parsing existing schedule data', e);
                 }
-                await homebridge.updatePluginConfig([...currentConfig])
-                await homebridge.savePluginConfig();
-              })
-              tr.appendChild(input)
-              document.getElementById('deviceAdvancedOptions').appendChild(tr)
+
+                // Create the dialog element with a custom overlay
+                const dialogOverlay = document.createElement('div');
+                dialogOverlay.id = dialogId;
+                dialogOverlay.style.display = 'none';
+                dialogOverlay.style.position = 'fixed';
+                dialogOverlay.style.top = '0';
+                dialogOverlay.style.left = '0';
+                dialogOverlay.style.width = '100%';
+                dialogOverlay.style.height = '100%';
+                dialogOverlay.style.backgroundColor = 'rgba(0,0,0,0.5)';
+                dialogOverlay.style.zIndex = '1000';
+                dialogOverlay.style.overflow = 'auto';
+
+                // Create the dialog content with Bootstrap styling classes
+                dialogOverlay.innerHTML = `
+    <div style="display: flex; align-items: center; justify-content: center; height: 100%;">
+      <div class="card" style="width: 90%; max-width: 500px;">
+        <div class="card-header">
+          <h5 class="mb-0">${metadata.label?.replaceAll('_', ' ') || 'Weekly Schedule'}</h5>
+          <button type="button" class="close" id="close-${dialogId}" aria-label="Close" style="position: absolute; right: .5rem; top: .5rem; border: none; background-color: transparent;">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="card-body">
+          <div class="form-group row align-items-center table-active" style="background-color: #6c757d; display: flex;">
+            <label class="col-md-3 col-form-label" style="flex: .35; border: 1.5px solid rgb(91.8, 99.45, 106.25); padding: .25rem;">Day</label>
+            <label class="col-sm-3 col-form-label" style="flex: .25; border: 1.5px solid rgb(91.8, 99.45, 106.25); padding: .25rem;">Enabled</label>
+            <label class="col-sm-3 col-form-label" style="flex: 1; border: 1.5px solid rgb(91.8, 99.45, 106.25); padding: .25rem;">Start Time</label>
+          </div>
+          <form id="scheduler-form-${dialogId}">
+            ${Object.keys(scheduleData).map(day => `
+              <div class="form-group row align-items-center" style="display: flex;">
+                <label class="col-sm-3 col-form-label" style="border: 1.5px solid rgb(91.8, 99.45, 106.25); flex: .35; height: 2.75rem; padding: .25rem;">${day}</label>
+
+                <div class="col-sm-2 d-flex align-items-center" style="border: 1.5px solid rgb(91.8, 99.45, 106.25); flex: .25; height: 2.75rem; padding: .25rem;">
+                  <label class="ios-switch" style="margin-bottom: 0; width: 42px; height: 24px;">
+                    <input type="checkbox" id="enable-${dialogId}-${day}" name="enable-${day}"
+                      ${scheduleData[day].enabled ? 'checked' : ''}>
+                    <span class="slider"></span>
+                  </label>
+                </div>
+
+                <div class="col-sm-7" style="display: flex; flex: 1; height: 2.75rem; padding: .25rem; border: 1.5px solid #6c757d;">
+                  <input type="time" class="form-control" name="time-${day}" value="${scheduleData[day].time}"
+                    ${!scheduleData[day].enabled ? 'disabled' : ''}>
+                </div>
+              </div>
+            `).join('')}
+          </form>
+        </div>
+        <div class="card-footer d-flex justify-content-end" style="column-gap: .5rem;">
+          <button type="button" class="btn btn-secondary mr-2" id="cancel-${dialogId}">Cancel</button>
+          <button type="button" class="btn btn-primary" id="save-${dialogId}">Save</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+                // Add the dialog to the document
+                document.body.appendChild(dialogOverlay);
+
+                // Show dialog function
+                const showDialog = () => {
+                  dialogOverlay.style.display = 'block';
+                  document.body.style.overflow = 'hidden'; // Prevent scrolling while dialog is open
+                };
+
+                // Hide dialog function
+                const hideDialog = () => {
+                  dialogOverlay.style.display = 'none';
+                  document.body.style.overflow = ''; // Restore scrolling
+                };
+
+                // Add event listeners
+                button.addEventListener('click', showDialog);
+
+                // Close button handler
+                document.getElementById(`close-${dialogId}`).addEventListener('click', hideDialog);
+
+                // Cancel button handler
+                document.getElementById(`cancel-${dialogId}`).addEventListener('click', hideDialog);
+
+                // Add event listeners to enable/disable time inputs based on checkbox state
+                Object.keys(scheduleData).forEach(day => {
+                  const enableCheckbox = document.getElementById(`enable-${dialogId}-${day}`);
+                  const timeInput = enableCheckbox.closest('.form-group').querySelector('input[type="time"]');
+
+                  enableCheckbox.addEventListener('change', () => {
+                    timeInput.disabled = !enableCheckbox.checked;
+                  });
+                });
+
+                // Save button handler
+                document.getElementById(`save-${dialogId}`).addEventListener('click', async () => {
+                  // Show spinner while saving
+                  homebridge.showSpinner();
+
+                  try {
+                    // Collect the schedule data from the form
+                    const form = document.getElementById(`scheduler-form-${dialogId}`);
+                    const formElements = form.elements;
+                    const newScheduleData = {};
+
+                    // Process the form data
+                    Object.keys(scheduleData).forEach(day => {
+                      const enabled = formElements[`enable-${day}`].checked;
+                      const time = formElements[`time-${day}`].value;
+
+                      newScheduleData[day] = {
+                        time: time,
+                        enabled: enabled
+                      };
+                    });
+
+                    // Update the config
+                    currentConfig[0] = {
+                      ...currentConfig[0],
+                      deviceOptions: {
+                        ...currentConfig[0].deviceOptions,
+                        [metadata.device]: {
+                          ...currentConfig[0].deviceOptions?.[metadata.device],
+                          [metadata.indicator]: newScheduleData
+                        }
+                      }
+                    };
+
+                    // Save the config
+                    await homebridge.updatePluginConfig([...currentConfig]);
+                    await homebridge.savePluginConfig();
+
+                    // Show a success message
+                    homebridge.toast.success('Schedule saved successfully');
+                  } catch (error) {
+                    homebridge.toast.error(`Failed to save schedule: ${error.message}`);
+                  } finally {
+                    // Hide spinner and dialog
+                    homebridge.hideSpinner();
+                    hideDialog();
+                  }
+                });
+
+                // Close dialog when clicking outside of it
+                dialogOverlay.addEventListener('click', (event) => {
+                  if (event.target === dialogOverlay) {
+                    hideDialog();
+                  }
+                });
+
+                td.appendChild(button);
+                tr.appendChild(td)
+                document.getElementById('deviceAdvancedOptions').appendChild(tr)
+              } else if (metadata.type === 'number') {
+
+                const input = document.createElement('input');
+                input.type = 'number';
+                input.placeholder = metadata.placeholder?.replaceAll('_', ' ') || '';
+                const existingDefaultValue = Number(currentConfig[0].deviceOptions?.[metadata.device]?.[metadata.indicator] ?? 0);
+                input.defaultValue = existingDefaultValue;
+                td.appendChild(input);
+                tr.appendChild(td)
+                document.getElementById('deviceAdvancedOptions').appendChild(tr)
+                input.addEventListener('change', async () => {
+                  const value = Number(event.target.value);
+                  currentConfig[0] = {
+                    ...currentConfig[0],
+                    deviceOptions: {
+                      ...currentConfig[0].deviceOptions,
+                      [metadata.device]: {
+                        ...currentConfig[0].deviceOptions?.[metadata.device],
+                        [metadata.indicator]: value
+                      }
+                    }
+                  };
+                  await homebridge.updatePluginConfig([...currentConfig]);
+                  await homebridge.savePluginConfig();
+                });
+
+              } else if (metadata.type === 'boolean') {
+                const switchDiv = document.createElement('div');
+                const existingDefaultValue = Boolean(currentConfig[0].deviceOptions?.[metadata.device]?.[metadata.indicator] ?? false);
+                // input.type = 'checkbox';
+                switchDiv.innerHTML = `
+                  <label class="ios-switch" style="margin-bottom: 0; width: 42px; height: 24px;">
+                    <input type="checkbox" id="enable-${metadata.device}-${metadata.indicator}" name="enable-${metadata.indicator}"
+                      ${existingDefaultValue ? 'checked' : ''}>
+                    <span class="slider"></span>
+                  </label>
+                  `
+
+                td.appendChild(switchDiv);
+                tr.appendChild(td)
+                document.getElementById('deviceAdvancedOptions').appendChild(tr)
+
+                const enableCheckbox = document.getElementById(`enable-${metadata.device}-${metadata.indicator}`);
+
+                enableCheckbox.addEventListener('change', async () => {
+                  const value = Boolean(enableCheckbox.checked ?? false);
+                  currentConfig[0] = {
+                    ...currentConfig[0],
+                    deviceOptions: {
+                      ...currentConfig[0].deviceOptions,
+                      [metadata.device]: {
+                        ...currentConfig[0].deviceOptions?.[metadata.device],
+                        [metadata.indicator]: value
+                      }
+                    }
+                  };
+                  await homebridge.updatePluginConfig([...currentConfig]);
+                  await homebridge.savePluginConfig();
+                });
+              } else {
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.placeholder = metadata.placeholder?.replaceAll('_', ' ') || '';
+                const existingDefaultValue = currentConfig[0].deviceOptions?.[metadata.device]?.[metadata.indicator] ?? "";
+                input.defaultValue = existingDefaultValue;
+                td.appendChild(input);
+                tr.appendChild(td)
+                document.getElementById('deviceAdvancedOptions').appendChild(tr)
+
+                input.addEventListener('change', async () => {
+                  const value = event.target.value ?? "";
+                  currentConfig[0] = {
+                    ...currentConfig[0],
+                    deviceOptions: {
+                      ...currentConfig[0].deviceOptions,
+                      [metadata.device]: {
+                        ...currentConfig[0].deviceOptions?.[metadata.device],
+                        [metadata.indicator]: value
+                      }
+                    }
+                  };
+                  await homebridge.updatePluginConfig([...currentConfig]);
+                  await homebridge.savePluginConfig();
+                });
+              }
             })
           }
           homebridge.hideSpinner();

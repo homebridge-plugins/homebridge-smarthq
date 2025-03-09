@@ -7,7 +7,7 @@ export class OpalFilterMaintenanceSvcManager extends OpalDeviceBase {
   public service: Service
   public serviceName: string = 'Opal Filter Maintenance'
   private configuredName = 'Filter Maintenance'
-  public advancedOptionQueryStrs: string[] = ['device=opal&label=HKC_Filter_Maintenace_Notification_Path&indicator=oplHKCFilterMaintenanceNotificationPath']
+  public advancedOptionQueryStrs: string[] = ['device=opal&label=HKC_Filter_Maintenance_Notification_Path&indicator=oplHKCFilterMaintenanceNotificationPath']
 
   filterMaintenanceStatus: 0 | 1 = 0
   constructor(
@@ -20,12 +20,12 @@ export class OpalFilterMaintenanceSvcManager extends OpalDeviceBase {
     this.service = this.createService()
   }
 
-  async getFilterMaintenaceStatus() {
+  async getFilterMaintenanceStatus() {
     const currentFilterStatus = await this.readErd(ERD_TYPES.OIM_FILTER_STATUS)
-    this.setFilterMaintenaceStatus(Number.parseInt(currentFilterStatus) as 0 | 1)
+    this.setFilterMaintenanceStatus(Number.parseInt(currentFilterStatus) as 0 | 1)
   }
 
-  setFilterMaintenaceStatus(updateValue: 0 | 1) {
+  setFilterMaintenanceStatus(updateValue: 0 | 1) {
     this.filterMaintenanceStatus = updateValue
     // Stimulate on change handler for native notification
     this.service.getCharacteristic(this.platform.Characteristic.FilterChangeIndication).setValue(updateValue)

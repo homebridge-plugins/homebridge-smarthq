@@ -10,7 +10,8 @@ import {
   OpalMetadataSvcManager,
   OpalFilterMaintenanceSvcManager,
   OpalNightlightSvcManager,
-  OpalDescaleSvcManager
+  OpalDescaleSvcManager,
+  OpalSchedulingManager
 } from '@opal/Managers/index.js'
 import { OpalStatusSvcManager } from '@opal/Managers/StatusManagers/index.js'
 
@@ -24,6 +25,7 @@ export class SmartHQIceMaker extends deviceBase {
   private metadataManager: OpalMetadataSvcManager
   public filterMaintenanceManager: OpalFilterMaintenanceSvcManager
   public descaleManager: OpalDescaleSvcManager
+  public schedulingManager: OpalSchedulingManager
 
   constructor(
     readonly platform: SmartHQPlatform,
@@ -46,7 +48,8 @@ export class SmartHQIceMaker extends deviceBase {
     this.nightlightService = new OpalNightlightSvcManager(platform, accessory, device)
     this.statusManager = new OpalStatusSvcManager(this, platform, accessory, device)
     /* -------  --------  */
-    this.metadataManager = new OpalMetadataSvcManager(this, platform, accessory, device)
+
+    this.schedulingManager = new OpalSchedulingManager(this, platform, accessory, device)
 
     this.monitorManager = new OpalMonitorManager(
       this,
@@ -55,11 +58,16 @@ export class SmartHQIceMaker extends deviceBase {
       device,
     )
 
-    this.monitorManager.startMonitoring()
+    this.metadataManager = new OpalMetadataSvcManager(this, platform, accessory, device)
+
+
+    this.monitorManager.startServicesMonitoring()
+    this.monitorManager.startSchedulerMonitoring()
   }
 
   shutdown(): void {
     // Clean up subscriptions
-    this.monitorManager.stopMonitoring()
+    this.monitorManager.stopServicesMonitoring()
+    this.monitorManager.stopSchedulerMonitoring()
   }
 }
