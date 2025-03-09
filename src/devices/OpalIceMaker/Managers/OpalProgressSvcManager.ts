@@ -16,7 +16,7 @@ export class OpalProgressSvcManager extends OpalDeviceBase {
   public serviceName: string = 'Opal Progress'
   public service: Service | null = null
   private configuredName = 'Ice Progress'
-  public opalProductionLimit?: number = Infinity
+
   constructor(
     readonly platform: SmartHQPlatform,
     public accessory: PlatformAccessory<SmartHqContext>,
@@ -26,14 +26,12 @@ export class OpalProgressSvcManager extends OpalDeviceBase {
 
     if (platform.config.deviceOptions?.opal?.opalProductionLimit) {
       this.createService()
-      this.opalProductionLimit = platform.config.deviceOptions.opal.opalProductionLimit
     } else {
       // If the service exists but condition is false, remove it
       const existingService = this.accessory.getService(this.serviceName)
       if (existingService) {
         this.accessory.removeService(existingService)
       }
-      this.opalProductionLimit = Infinity
     }
   }
 
@@ -83,26 +81,9 @@ export class OpalProgressSvcManager extends OpalDeviceBase {
       })
   }
 
-  // Update characteristics if service exists
-  updateCharacteristic(characteristic: any, value: any): void {
-    if (this.service) {
-      this.service.updateCharacteristic(characteristic, value)
-    }
-  }
-
   // Check if service exists
   hasService(): boolean {
     return this.service !== null
-  }
-
-  // Enable/disable the service based on a new condition
-  setEnabled(enabled: boolean): void {
-    if (enabled && !this.service) {
-      this.createService()
-    } else if (!enabled && this.service) {
-      this.accessory.removeService(this.service)
-      this.service = null
-    }
   }
 
   public async processProductionProgress() {
@@ -127,12 +108,6 @@ export class OpalProgressSvcManager extends OpalDeviceBase {
     }
   }
 
-  // Update production limit
-  updateProductionLimit(newLimit: number): void {
-    this.opalProductionLimit = newLimit
-    this.platform.debugLog(`Updated production limit to: ${newLimit}`)
-  }
-
   // Get current production value
   private async getProductionValue(): Promise<[number, number]> {
     try {
@@ -140,9 +115,9 @@ export class OpalProgressSvcManager extends OpalDeviceBase {
       const productionValueMinutes = Buffer.from(erdVal, 'hex').readUInt8(0)
 
       const completionistMsg = productionValueMinutes > 100 ? `, Completion: ${productionValueMinutes}` : ''
-      this.platform.debugSuccessLog(`Production: ${productionValueMinutes}, Limit: ${this.opalProductionLimit}${completionistMsg}`)
+      this.platform.debugSuccessLog(`Production: ${productionValueMinutes}, Limit: ${this.platform.config.deviceOptions?.opal?.opalProductionLimit}${completionistMsg}`)
 
-      const productionValueProgressBar = Math.floor((100 / this.opalProductionLimit!) * productionValueMinutes)
+      const productionValueProgressBar = Math.floor((100 / this.platform.config.deviceOptions?.opal?.opalProductionLimit!) * productionValueMinutes)
       return [productionValueProgressBar, productionValueMinutes]
     } catch (error) {
       const typedErr = error as { message: string }

@@ -32,22 +32,13 @@ export class OpalMonitorManager extends OpalDeviceBase {
       .pipe(skipWhile(() => !this.opalIceMaker.progressManager && !this.platform.config.options?.homekitControllerNotificationsSecret))
       .subscribe(async () => {
         await this.opalIceMaker.statusManager.getOpalCurrentStatus()
-        await this.opalIceMaker.filterMaintenanceManager.getFilterMaintenaceStatus()
+        await this.opalIceMaker.filterMaintenanceManager.getFilterMaintenanceStatus()
         await this.opalIceMaker.descaleManager.getDescaleStatus()
-
         if (this.opalIceMaker.progressManager?.hasService()) {
-          try {
-            const currentProductionValue = await this.opalIceMaker.progressManager.processProductionProgress()
-            // Auto-shutoff if production exceeds limit
-            if (this.opalIceMaker.progressManager.opalProductionLimit && currentProductionValue >= this.opalIceMaker.progressManager.opalProductionLimit) {
-              this.opalIceMaker.powerManager.setOpalPowerState(false)
-              this.platform.debugLog(`Auto-shutoff triggered: Production (${currentProductionValue}) > Limit (${this.opalIceMaker.progressManager.opalProductionLimit})`)
-            }
-          } catch (error) {
-            const typedErr = error as { message: string }
-            this.platform.errorLog(`Monitor error: ${typedErr.message}`)
-          }
+          const currentProductionValue = await this.opalIceMaker.progressManager.processProductionProgress()
+          this.opalIceMaker.powerManager.turnOffOnProductionLimitSurpassed(currentProductionValue)
         }
+        this.opalIceMaker.schedulingManager.initializeIfIceMakerOnSchedule()
       })
 
     this.platform.debugLog(`Started ice maker monitoring at ${this.device.refreshRate}s intervals`)

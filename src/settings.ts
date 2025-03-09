@@ -68,6 +68,36 @@ interface OpalOptions {
   oplHKCAddWaterNotificationPath?: string
   oplHKCDescaleNotificationPath?: string
   oplAutoShutoffOnBlockingEvent?: boolean
+  oplIceProductionSchedule?: {
+    Monday: {
+      time: string,
+      enabled: boolean
+    },
+    Tuesday: {
+      time: string,
+      enabled: boolean
+    },
+    Wednesday: {
+      time: string,
+      enabled: boolean
+    },
+    Thursday: {
+      time: string,
+      enabled: boolean
+    },
+    Friday: {
+      time: string,
+      enabled: boolean
+    },
+    Saturday: {
+      time: string,
+      enabled: boolean
+    },
+    Sunday: {
+      time: string,
+      enabled: boolean
+    }
+  }
 }
 export interface DeviceOptions {
   opal?: OpalOptions

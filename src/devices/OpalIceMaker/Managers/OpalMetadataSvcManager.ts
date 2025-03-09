@@ -31,12 +31,13 @@ export class OpalMetadataSvcManager extends OpalDeviceBase {
       .setValue(this.configuredName)
 
     const fullQueryStr = [
+      this.opalIceMaker.schedulingManager.advancedOptionQueryStrs,
+      this.opalIceMaker.powerManager.advancedOptionQueryStrs,
       this.opalIceMaker.progressManager?.advancedOptionQueryStrs || [],
       this.opalIceMaker.statusManager.iceBucketStatusManager.advancedOptionQueryStrs,
       this.opalIceMaker.statusManager.addWaterStatusManager.advancedOptionQueryStrs,
       this.opalIceMaker.filterMaintenanceManager.advancedOptionQueryStrs,
       this.opalIceMaker.descaleManager.advancedOptionQueryStrs,
-      this.opalIceMaker.powerManager.advancedOptionQueryStrs
     ]
       .reduce((acc, qs, index) => {
         if (index === 0) {

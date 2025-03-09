@@ -49,9 +49,22 @@ export class OpalPowerSvcManager extends OpalDeviceBase {
   }
 
   public setOpalPowerState(newPowerState: boolean) {
-    this.service?.setCharacteristic(
+    this.service.setCharacteristic(
       this.platform.Characteristic.On,
       newPowerState,
     )
+  }
+
+  public getOpalPowerState() {
+    return this.service.getCharacteristic(
+      this.platform.Characteristic.On
+    ).value
+  }
+
+  public turnOffOnProductionLimitSurpassed(currentProductionValue: number) {
+    if (this.platform.config.deviceOptions?.opal?.opalProductionLimit && currentProductionValue >= this.platform.config.deviceOptions.opal.opalProductionLimit) {
+      this.setOpalPowerState(false)
+      this.platform.debugLog(`Auto-shutoff triggered: Production (${currentProductionValue}) > Limit (${this.platform.config.deviceOptions.opal.opalProductionLimit})`)
+    }
   }
 }
