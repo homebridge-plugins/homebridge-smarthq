@@ -6,6 +6,7 @@ import type { PlatformAccessory } from 'homebridge'
 export class OpalSchedulingManager extends OpalDeviceBase {
   public opalIceMaker: SmartHQIceMaker
   public advancedOptionQueryStrs: string[] = ['device=opal&label=Opal_Ice_Production_Scheduler&indicator=oplIceProductionSchedule&type=scheduler']
+  public schedulerInterval = 60 * 1000
 
   constructor(
     opalIceMaker: SmartHQIceMaker,
@@ -30,8 +31,7 @@ export class OpalSchedulingManager extends OpalDeviceBase {
         scheduledTime.setHours(hours, minutes, 0, 0)
 
         const now = new Date();
-        const bufferTimeMilliseconds = 62 * 1000
-        const triggerWindowEnd = new Date(scheduledTime.getTime() + bufferTimeMilliseconds);
+        const triggerWindowEnd = new Date(scheduledTime.getTime() + this.schedulerInterval);
 
         if (now >= scheduledTime && now <= triggerWindowEnd) {
           this.platform.debugSuccessLog('Turning on Ice Machine on Schedule')
