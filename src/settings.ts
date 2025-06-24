@@ -74,6 +74,15 @@ export interface SmartHqContext {
   }
 }
 
+export interface SmartHqERDResponse {
+  kind: string
+  userId: string
+  applianceId: string
+  erd: string
+  value: string
+  time: string
+}
+
 // Constants
 export const OAUTH2_CLIENT_ID = '564c31616c4f7474434b307435412b4d2f6e7672'
 export const OAUTH2_CLIENT_SECRET = '6476512b5246446d452f697154444941387052645938466e5671746e5847593d'
@@ -228,6 +237,15 @@ export const ERD_TYPES = {
   DISHWASHER_V1_SERVICE: '0x700e' as const,
   DISHWASHER_V2_SMART_ASSIST: '0x700f' as const,
   RESOURCE_MANAGEMENT_V1_ELECTRICAL_ENERGY_USAGE_V2: '0x7010' as const,
+
+  // Air Conditioner
+  AIR_CONDITIONER_AMBIENT_TEMPERATURE: '0x7A02' as const,
+  AIR_CONDITIONER_FAN_SETTING: '0x7A00' as const,
+  AIR_CONDITIONER_FILTER_STATUS: '0x7A04' as const,
+  AIR_CONDITIONER_OPERATION_MODE: '0x7A01' as const,
+  AIR_CONDITIONER_POWER_STATUS: '0x7A0F' as const,
+  AIR_CONDITIONER_TARGET_TEMPERATURE: '0x7003' as const,
+  AIR_CONDITIONER_TEMPERATURE_UNIT: '0x0007' as const,
 }
 
 export const ERD_CODES = invert(ERD_TYPES)
