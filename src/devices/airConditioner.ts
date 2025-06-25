@@ -1,5 +1,4 @@
-/* Copyright(C) 2021-2024, donavanbecker (https://github.com/donavanbecker). All rights reserved.
- *
+/*
  * airConditioner.ts: @homebridge-plugins/homebridge-smarthq.
  */
 import { type CharacteristicValue, type PlatformAccessory, type Service } from 'homebridge'
