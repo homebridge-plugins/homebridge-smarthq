@@ -34,6 +34,7 @@ export interface SmartHQPlatformConfig extends PlatformConfig {
   credentials?: credentials
   devices?: devicesConfig[]
   options?: options
+  deviceOptions?: DeviceOptions
 }
 
 export interface credentials {
@@ -56,8 +57,50 @@ export interface options {
   updateRate?: number
   pushRate?: number
   logging?: string
-  // OPAL PRODUCTION LIMIT
-  OPL?: number
+  homekitControllerNotificationsSecret?: string
+}
+
+interface OpalOptions {
+  opalProductionLimit?: number
+  oplHKCIceBucketFullNotificationPath?: string
+  oplHKCProgressCompleteNotificationPath?: string
+  oplHKCFilterMaintenanceNotificationPath?: string
+  oplHKCAddWaterNotificationPath?: string
+  oplHKCDescaleNotificationPath?: string
+  oplAutoShutoffOnBlockingEvent?: boolean
+  oplIceProductionSchedule?: {
+    Monday: {
+      time: string,
+      enabled: boolean
+    },
+    Tuesday: {
+      time: string,
+      enabled: boolean
+    },
+    Wednesday: {
+      time: string,
+      enabled: boolean
+    },
+    Thursday: {
+      time: string,
+      enabled: boolean
+    },
+    Friday: {
+      time: string,
+      enabled: boolean
+    },
+    Saturday: {
+      time: string,
+      enabled: boolean
+    },
+    Sunday: {
+      time: string,
+      enabled: boolean
+    }
+  }
+}
+export interface DeviceOptions {
+  opal?: OpalOptions
 }
 
 export interface SmartHqContext {
@@ -113,15 +156,14 @@ export const ERD_TYPES = {
   LCD_SW_VERSION_AVAILABLE: '0x0107' as const,
   LCD_UPDATING: '0x0108' as const,
 
-
   // Ice Maker
-  OIM_STATUS: "0x9100",
-  OIM_LIGHT_LEVEL: "0x9101",
-  OIM_UNKNOWN9102: "0x9102",
-  OIM_FILTER_STATUS: "0x9104",
-  OIM_NEEDS_DESCALING: "0x9106",
-  OIM_POWER: "0x9107",
-  OIM_PRODUCTION: "0x9108",
+  OIM_STATUS: '0x9100',
+  OIM_LIGHT_LEVEL: '0x9101',
+  OIM_UNKNOWN9102: '0x9102',
+  OIM_FILTER_STATUS: '0x9104',
+  OIM_NEEDS_DESCALING: '0x9106',
+  OIM_POWER: '0x9107',
+  OIM_PRODUCTION: '0x9108',
 
   AIR_FILTER_STATUS: '0x101c' as const,
   DOOR_STATUS: '0x1016' as const,

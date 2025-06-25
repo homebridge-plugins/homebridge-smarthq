@@ -38,7 +38,7 @@ export abstract class deviceBase {
     // Set accessory information
     accessory
       .getService(this.hap.Service.AccessoryInformation)!
-      .setCharacteristic(this.hap.Characteristic.Manufacturer, accessory.context.device.brand ?? 'GE')
+      .setCharacteristic(this.hap.Characteristic.Manufacturer, accessory.context.device.brand || 'GE')
       .setCharacteristic(this.hap.Characteristic.Name, accessory.context.device.nickname)
       .setCharacteristic(this.hap.Characteristic.ConfiguredName, accessory.context.device.nickname)
       .setCharacteristic(this.hap.Characteristic.Model, accessory.context.device.model)

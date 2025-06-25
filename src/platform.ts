@@ -15,7 +15,7 @@ import pkg from 'lodash'
 import ws from 'ws'
 
 import { SmartHQDishWasher } from './devices/dishwasher.js'
-import { SmartHQIceMaker } from './devices/icemaker.js'
+import { SmartHQIceMaker } from '@opal/index.js'
 import { SmartHQOven } from './devices/oven.js'
 import { SmartHQRefrigerator } from './devices/refrigerator.js'
 import { SmartHQAirConditioner } from './devices/airConditioner.js'
@@ -71,6 +71,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       credentials: config.credentials as credentials,
       devices: config.devices as devicesConfig[],
       options: config.options as options,
+      deviceOptions: config.deviceOptions
     }
 
     // Plugin Configuration
