@@ -18,6 +18,7 @@ import { SmartHQDishWasher } from './devices/dishwasher.js'
 import { SmartHQIceMaker } from '@opal/index.js'
 import { SmartHQOven } from './devices/oven.js'
 import { SmartHQRefrigerator } from './devices/refrigerator.js'
+import { SmartHQAirConditioner } from './devices/airConditioner.js'
 import getAccessToken, { refreshAccessToken } from './getAccessToken.js'
 import { API_URL, ERD_CODES, ERD_TYPES, KEEPALIVE_TIMEOUT, PLATFORM_NAME, PLUGIN_NAME } from './settings.js'
 
@@ -264,6 +265,10 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
             case 'Opal Nugget Ice Maker':
               await this.createSmartHQIceMaker(userId, device, details, features)
               break
+            case 'Air Conditioner':
+            case 'Split Air Conditioner':
+              await this.createSmartHQAirConditioner(userId, device, details, features)
+              break
             default:
               await this.warnLog(`Device Type Not Supported: ${device.type}`)
               break
@@ -462,6 +467,55 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       // create the accessory handler for the newly create accessory
       // this is imported from `platformAccessory.ts`
       new SmartHQRefrigerator(this, accessory, device)
+      this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
+
+      // link the accessory to your platform
+      this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
+      this.accessories.push(accessory)
+    } else {
+      this.debugErrorLog(`Unable to Register new device: ${JSON.stringify(device.nickname)}`)
+    }
+  }
+
+  private async createSmartHQAirConditioner(userId: any, device: any, details: any, features: any) {
+    const uuid = this.api.hap.uuid.generate(device.applianceId)
+
+    // see if an accessory with the same uuid has already been registered and restored from
+    // the cached devices we stored in the `configureAccessory` method above
+    const existingAccessory = this.accessories.find(accessory => accessory.UUID === uuid)
+
+    if (existingAccessory) {
+      // the accessory already exists
+      if (!device.hide_device) {
+        // if you need to update the accessory.context then you should run `api.updatePlatformAccessories`. eg.:
+        existingAccessory.context.device = device
+        existingAccessory.context = { device: { brand: 'GE', ...details, ...features }, userId }
+        existingAccessory.displayName = await this.validateAndCleanDisplayName(device.nickname, 'nickname', device.nickname)
+        existingAccessory.context.device.firmware = device.firmware ?? await this.getVersion()
+        this.api.updatePlatformAccessories([existingAccessory])
+        // Restore accessory
+        this.infoLog(`Restoring existing accessory from cache: ${existingAccessory.displayName}`)
+        // create the accessory handler for the restored accessory
+        // this is imported from `platformAccessory.ts`
+        new SmartHQAirConditioner(this, existingAccessory, device)
+        this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
+      } else {
+        this.unregisterPlatformAccessories(existingAccessory)
+      }
+    } else if (!device.hide_device && !existingAccessory) {
+      this.infoLog(`Adding new accessory: ${device.nickname}`)
+      const accessory = new this.api.platformAccessory<SmartHqContext>(device.nickname, uuid)
+
+      // store a copy of the device object in the `accessory.context`
+      // the `context` property can be used to store any data about the accessory you may need
+      accessory.context.device = device
+      accessory.context = { device: { brand: 'GE', ...details, ...features }, userId }
+      accessory.displayName = await this.validateAndCleanDisplayName(device.nickname, 'nickname', device.nickname)
+      accessory.context.device.firmware = device.firmware ?? await this.getVersion()
+      // the accessory does not yet exist, so we need to create it
+      // create the accessory handler for the newly create accessory
+      // this is imported from `platformAccessory.ts`
+      new SmartHQAirConditioner(this, accessory, device)
       this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
 
       // link the accessory to your platform
