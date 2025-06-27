@@ -34,6 +34,7 @@ export interface SmartHQPlatformConfig extends PlatformConfig {
   credentials?: credentials
   devices?: devicesConfig[]
   options?: options
+  deviceOptions?: DeviceOptions
 }
 
 export interface credentials {
@@ -56,8 +57,50 @@ export interface options {
   updateRate?: number
   pushRate?: number
   logging?: string
-  // OPAL PRODUCTION LIMIT
-  OPL?: number
+  homekitControllerNotificationsSecret?: string
+}
+
+interface OpalOptions {
+  opalProductionLimit?: number
+  oplHKCIceBucketFullNotificationPath?: string
+  oplHKCProgressCompleteNotificationPath?: string
+  oplHKCFilterMaintenanceNotificationPath?: string
+  oplHKCAddWaterNotificationPath?: string
+  oplHKCDescaleNotificationPath?: string
+  oplAutoShutoffOnBlockingEvent?: boolean
+  oplIceProductionSchedule?: {
+    Monday: {
+      time: string,
+      enabled: boolean
+    },
+    Tuesday: {
+      time: string,
+      enabled: boolean
+    },
+    Wednesday: {
+      time: string,
+      enabled: boolean
+    },
+    Thursday: {
+      time: string,
+      enabled: boolean
+    },
+    Friday: {
+      time: string,
+      enabled: boolean
+    },
+    Saturday: {
+      time: string,
+      enabled: boolean
+    },
+    Sunday: {
+      time: string,
+      enabled: boolean
+    }
+  }
+}
+export interface DeviceOptions {
+  opal?: OpalOptions
 }
 
 export interface SmartHqContext {
@@ -72,6 +115,15 @@ export interface SmartHqContext {
     firmware: string
     features: string[]
   }
+}
+
+export interface SmartHqERDResponse {
+  kind: string
+  userId: string
+  applianceId: string
+  erd: string
+  value: string
+  time: string
 }
 
 // Constants
@@ -104,15 +156,14 @@ export const ERD_TYPES = {
   LCD_SW_VERSION_AVAILABLE: '0x0107' as const,
   LCD_UPDATING: '0x0108' as const,
 
-
   // Ice Maker
-  OIM_STATUS: "0x9100",
-  OIM_LIGHT_LEVEL: "0x9101",
-  OIM_UNKNOWN9102: "0x9102",
-  OIM_FILTER_STATUS: "0x9104",
-  OIM_NEEDS_DESCALING: "0x9106",
-  OIM_POWER: "0x9107",
-  OIM_PRODUCTION: "0x9108",
+  OIM_STATUS: '0x9100',
+  OIM_LIGHT_LEVEL: '0x9101',
+  OIM_UNKNOWN9102: '0x9102',
+  OIM_FILTER_STATUS: '0x9104',
+  OIM_NEEDS_DESCALING: '0x9106',
+  OIM_POWER: '0x9107',
+  OIM_PRODUCTION: '0x9108',
 
   AIR_FILTER_STATUS: '0x101c' as const,
   DOOR_STATUS: '0x1016' as const,
@@ -228,6 +279,15 @@ export const ERD_TYPES = {
   DISHWASHER_V1_SERVICE: '0x700e' as const,
   DISHWASHER_V2_SMART_ASSIST: '0x700f' as const,
   RESOURCE_MANAGEMENT_V1_ELECTRICAL_ENERGY_USAGE_V2: '0x7010' as const,
+
+  // Air Conditioner
+  AIR_CONDITIONER_AMBIENT_TEMPERATURE: '0x7A02' as const,
+  AIR_CONDITIONER_FAN_SETTING: '0x7A00' as const,
+  AIR_CONDITIONER_FILTER_STATUS: '0x7A04' as const,
+  AIR_CONDITIONER_OPERATION_MODE: '0x7A01' as const,
+  AIR_CONDITIONER_POWER_STATUS: '0x7A0F' as const,
+  AIR_CONDITIONER_TARGET_TEMPERATURE: '0x7003' as const,
+  AIR_CONDITIONER_TEMPERATURE_UNIT: '0x0007' as const,
 }
 
 export const ERD_CODES = invert(ERD_TYPES)
