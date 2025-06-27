@@ -75,7 +75,7 @@
   },
   "optionalDependencies": {
     "bufferutil": "^4.0.9",
-    "utf-8-validat": "*"
+    "utf-8-validate": "*"
   },
   "devDependencies": {
     "@antfu/eslint-config": "^4.16.1",
@@ -93,8 +93,8 @@
     "eslint": "^9.29.0",
     "eslint-plugin-format": "^1.0.1",
     "eslint-plugin-import": "^2.32.0",
-    "homebridge": "^1.10.0",
-    "homebridge-config-ui-x": "4.76.0",
+    "homebridge": "^2.0.0-beta.29",
+    "homebridge-config-ui-x": "5.0.0-beta.101",
     "nodemon": "^3.1.10",
     "rimraf": "^6.0.1",
     "shx": "^0.4.0",

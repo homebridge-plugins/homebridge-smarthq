@@ -10,15 +10,15 @@ import type { credentials, devicesConfig, options, SmartHqContext, SmartHQPlatfo
 import { readFileSync } from 'node:fs'
 import { argv } from 'node:process'
 
+import { SmartHQIceMaker } from '@opal/index.js'
 import axios from 'axios'
 import pkg from 'lodash'
 import ws from 'ws'
 
+import { SmartHQAirConditioner } from './devices/airConditioner.js'
 import { SmartHQDishWasher } from './devices/dishwasher.js'
-import { SmartHQIceMaker } from '@opal/index.js'
 import { SmartHQOven } from './devices/oven.js'
 import { SmartHQRefrigerator } from './devices/refrigerator.js'
-import { SmartHQAirConditioner } from './devices/airConditioner.js'
 import getAccessToken, { refreshAccessToken } from './getAccessToken.js'
 import { API_URL, ERD_CODES, ERD_TYPES, KEEPALIVE_TIMEOUT, PLATFORM_NAME, PLUGIN_NAME } from './settings.js'
 
@@ -71,7 +71,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       credentials: config.credentials as credentials,
       devices: config.devices as devicesConfig[],
       options: config.options as options,
-      deviceOptions: config.deviceOptions
+      deviceOptions: config.deviceOptions,
     }
 
     // Plugin Configuration
@@ -115,11 +115,11 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
    * This function is invoked when homebridge restores cached accessories from disk at startup.
    * It should be used to setup event handlers for characteristics and update respective values.
    */
-  async configureAccessory(accessory: PlatformAccessory<SmartHqContext>) {
-    await this.infoLog(`Loading accessory from cache: ${accessory.displayName}`)
+  configureAccessory(accessory: PlatformAccessory) {
+    this.infoLog(`Loading accessory from cache: ${accessory.displayName}`)
 
     // add the restored accessory to the accessories cache so we can track if it has already been registered
-    this.accessories.push(accessory)
+    this.accessories.push(accessory as PlatformAccessory<SmartHqContext>)
   }
 
   /**
