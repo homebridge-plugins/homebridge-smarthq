@@ -1,18 +1,20 @@
 /*
  * airConditioner.ts: @homebridge-plugins/homebridge-smarthq.
  */
-import { type CharacteristicValue, type PlatformAccessory, type Service } from 'homebridge'
+import type { CharacteristicValue, PlatformAccessory, Service } from 'homebridge'
+
+import type { SmartHQPlatform } from '../platform.js'
+import type { devicesConfig, SmartHqContext, SmartHqERDResponse } from '../settings.js'
+
 import axios from 'axios'
 import { interval, startWith } from 'rxjs'
 
-import { deviceBase } from './device.js'
-import { type SmartHQPlatform } from '../platform.js'
 import {
+
   ERD_TYPES,
-  type devicesConfig,
-  type SmartHqContext,
-  type SmartHqERDResponse,
+
 } from '../settings.js'
+import { deviceBase } from './device.js'
 
 enum PowerState {
   ON = '01',
@@ -60,8 +62,8 @@ export class SmartHQAirConditioner extends deviceBase {
     super(platform, accessory, device)
 
     // HeaterCooler service
-    this.heaterCoolerSvc = this.accessory.getService(this.HEATER_COOLER_SVC_NAME) ??
-      this.accessory.addService(
+    this.heaterCoolerSvc = this.accessory.getService(this.HEATER_COOLER_SVC_NAME)
+      ?? this.accessory.addService(
         this.platform.Service.HeaterCooler,
         accessory.displayName,
         this.HEATER_COOLER_SVC_NAME,
@@ -69,14 +71,14 @@ export class SmartHQAirConditioner extends deviceBase {
 
     // Mode SwitchServices
     this.modeSwitchSvc = {
-      [OperationMode.COOL]: this.accessory.getService(`${this.MODE_SWITCH_SVC_PREFIX}_COOL`) ??
-        this.accessory.addService(this.platform.Service.Switch, `${accessory.displayName} Cool Mode`, `${this.MODE_SWITCH_SVC_PREFIX}_COOL`),
-      [OperationMode.FAN_ONLY]: this.accessory.getService(`${this.MODE_SWITCH_SVC_PREFIX}_FAN_ONLY`) ??
-        this.accessory.addService(this.platform.Service.Switch, `${accessory.displayName} Fan Only Mode`, `${this.MODE_SWITCH_SVC_PREFIX}_FAN_ONLY`),
-      [OperationMode.ENERGY_SAVER]: this.accessory.getService(`${this.MODE_SWITCH_SVC_PREFIX}_ENERGY_SAVER`) ??
-        this.accessory.addService(this.platform.Service.Switch, `${accessory.displayName} Energy Saver Mode`, `${this.MODE_SWITCH_SVC_PREFIX}_ENERGY_SAVER`),
-      [OperationMode.DRY]: this.accessory.getService(`${this.MODE_SWITCH_SVC_PREFIX}_DRY`) ??
-        this.accessory.addService(this.platform.Service.Switch, `${accessory.displayName} Dry Mode`, `${this.MODE_SWITCH_SVC_PREFIX}_DRY`),
+      [OperationMode.COOL]: this.accessory.getService(`${this.MODE_SWITCH_SVC_PREFIX}_COOL`)
+        ?? this.accessory.addService(this.platform.Service.Switch, `${accessory.displayName} Cool Mode`, `${this.MODE_SWITCH_SVC_PREFIX}_COOL`),
+      [OperationMode.FAN_ONLY]: this.accessory.getService(`${this.MODE_SWITCH_SVC_PREFIX}_FAN_ONLY`)
+        ?? this.accessory.addService(this.platform.Service.Switch, `${accessory.displayName} Fan Only Mode`, `${this.MODE_SWITCH_SVC_PREFIX}_FAN_ONLY`),
+      [OperationMode.ENERGY_SAVER]: this.accessory.getService(`${this.MODE_SWITCH_SVC_PREFIX}_ENERGY_SAVER`)
+        ?? this.accessory.addService(this.platform.Service.Switch, `${accessory.displayName} Energy Saver Mode`, `${this.MODE_SWITCH_SVC_PREFIX}_ENERGY_SAVER`),
+      [OperationMode.DRY]: this.accessory.getService(`${this.MODE_SWITCH_SVC_PREFIX}_DRY`)
+        ?? this.accessory.addService(this.platform.Service.Switch, `${accessory.displayName} Dry Mode`, `${this.MODE_SWITCH_SVC_PREFIX}_DRY`),
     }
 
     // Active
@@ -165,8 +167,9 @@ export class SmartHQAirConditioner extends deviceBase {
       throw new Error(
         axios.isAxiosError(cause) && cause.response
           ? `Failed to fetch ERD: ${cause.response.data.message}`
-          : `Failed to fetch ERD: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`
-        , { cause })
+          : `Failed to fetch ERD: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`,
+        { cause },
+      )
     }
   }
 
@@ -185,8 +188,9 @@ export class SmartHQAirConditioner extends deviceBase {
       throw new Error(
         axios.isAxiosError(cause) && cause.response
           ? `Failed to set ERD value for ${erd}: ${cause.response.data.message}`
-          : `Failed to set ERD value for ${erd}: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`
-        , { cause })
+          : `Failed to set ERD value for ${erd}: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`,
+        { cause },
+      )
     }
   }
 
@@ -205,7 +209,7 @@ export class SmartHQAirConditioner extends deviceBase {
   private async getAmbientTemperature(): Promise<number> {
     try {
       const erdValue = await this.getErdValue(ERD_TYPES.AIR_CONDITIONER_AMBIENT_TEMPERATURE)
-      const temperatureInFahrenheit = parseInt(erdValue, 16) // erdValue is a hex string representing the temperature in Fahrenheit
+      const temperatureInFahrenheit = Number.parseInt(erdValue, 16) // erdValue is a hex string representing the temperature in Fahrenheit
 
       return this.fahrenheitToCelsius(temperatureInFahrenheit) // homekit expects Celsius
     } catch (cause) {
@@ -216,7 +220,7 @@ export class SmartHQAirConditioner extends deviceBase {
   private async getTemperature(): Promise<number> {
     try {
       const erdValue = await this.getErdValue(ERD_TYPES.AIR_CONDITIONER_TARGET_TEMPERATURE)
-      const temperatureInFahrenheit = parseInt(erdValue, 16) // erdValue is a hex string representing the temperature in Fahrenheit
+      const temperatureInFahrenheit = Number.parseInt(erdValue, 16) // erdValue is a hex string representing the temperature in Fahrenheit
 
       return this.fahrenheitToCelsius(temperatureInFahrenheit) // homekit expects Celsius
     } catch (cause) {
@@ -349,7 +353,7 @@ export class SmartHQAirConditioner extends deviceBase {
         for (const mode of Object.values(OperationMode)) {
           this.modeSwitchSvc[mode].updateCharacteristic(
             this.platform.Characteristic.On,
-            mode === operationMode
+            mode === operationMode,
           )
         }
 
@@ -432,7 +436,7 @@ export class SmartHQAirConditioner extends deviceBase {
     }
   }
 
-  public async handleSetTargetHeaterCoolerState(value: CharacteristicValue): Promise<void> {
+  public async handleSetTargetHeaterCoolerState(_value: CharacteristicValue): Promise<void> {
     try {
       const powerState: PowerState = await this.getPowerState()
 
@@ -444,7 +448,7 @@ export class SmartHQAirConditioner extends deviceBase {
       // Keep CurrentHeaterCoolerState in sync with TargetHeaterCoolerState
       this.heaterCoolerSvc.updateCharacteristic(
         this.platform.Characteristic.CurrentHeaterCoolerState,
-        this.platform.Characteristic.CurrentHeaterCoolerState.COOLING
+        this.platform.Characteristic.CurrentHeaterCoolerState.COOLING,
       )
     } catch (cause) {
       const error = new Error(`Failed to handle set target heater cooler state: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`, { cause })
@@ -482,7 +486,7 @@ export class SmartHQAirConditioner extends deviceBase {
 
   public async handleSetCoolingThresholdTemperature(value: CharacteristicValue): Promise<void> {
     try {
-      const targetTemperature = parseInt(value as string, 10)
+      const targetTemperature = Number.parseInt(value as string, 10)
 
       await this.setTemperature(targetTemperature)
     } catch (cause) {
