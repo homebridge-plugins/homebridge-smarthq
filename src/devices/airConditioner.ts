@@ -148,6 +148,10 @@ export class SmartHQAirConditioner extends deviceBase {
         .getCharacteristic(this.platform.Characteristic.On)
         .onGet(this.handleGetOperationMode.bind(this, mode))
         .onSet(this.handleSetOperationMode.bind(this, mode))
+
+      this.modeSwitchSvc[mode]
+        .getCharacteristic(this.platform.Characteristic.Name)
+        .onGet(this.handleGetOperationModeName.bind(this, mode))
     }
 
     // Start an update interval to refresh state
@@ -187,8 +191,8 @@ export class SmartHQAirConditioner extends deviceBase {
     } catch (cause) {
       throw new Error(
         axios.isAxiosError(cause) && cause.response
-          ? `Failed to set ERD value for ${erd}: ${cause.response.data.message}`
-          : `Failed to set ERD value for ${erd}: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`,
+          ? `Failed to set ERD ${erd}=${value}: ${cause.response.data.message}`
+          : `Failed to set ERD ${erd}=${value}: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`,
         { cause },
       )
     }
@@ -231,7 +235,7 @@ export class SmartHQAirConditioner extends deviceBase {
   private async setTemperature(value: number): Promise<void> {
     try {
       const temperatureInFahrenheit = this.celsiusToFahrenheit(value)
-      const hexTemperature = temperatureInFahrenheit.toString(16).padStart(4, '0').toUpperCase() // Convert to hex and ensure it's 4 characters long
+      const hexTemperature = Math.round(temperatureInFahrenheit).toString(16).padStart(4, '0').toUpperCase() // Convert to hex and ensure it's 4 characters long
 
       await this.setErdValue(ERD_TYPES.AIR_CONDITIONER_TARGET_TEMPERATURE, hexTemperature)
 
@@ -675,6 +679,28 @@ export class SmartHQAirConditioner extends deviceBase {
         `Failed to handle set operation mode ${mode}: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`,
         { cause },
       )
+      this.platform.log.error(`[${this.accessory.displayName}] ${error.message}`)
+
+      throw error
+    }
+  }
+
+  public handleGetOperationModeName(mode: OperationMode): string {
+    try {
+      switch (mode) {
+        case OperationMode.COOL:
+          return 'Cool Mode'
+        case OperationMode.FAN_ONLY:
+          return 'Fan Only Mode'
+        case OperationMode.ENERGY_SAVER:
+          return 'Energy Saver Mode'
+        case OperationMode.DRY:
+          return 'Dry Mode'
+        default:
+          throw new Error(`Unknown operation mode: ${mode}`)
+      }
+    } catch (cause) {
+      const error = new Error(`Failed to handle get operation mode name for ${mode}: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`, { cause })
       this.platform.log.error(`[${this.accessory.displayName}] ${error.message}`)
 
       throw error
