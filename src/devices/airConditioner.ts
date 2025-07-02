@@ -490,7 +490,7 @@ export class SmartHQAirConditioner extends deviceBase {
 
   public async handleSetCoolingThresholdTemperature(value: CharacteristicValue): Promise<void> {
     try {
-      const targetTemperature = Number.parseInt(value as string, 10)
+      const targetTemperature = Number.parseFloat(value as string)
 
       await this.setTemperature(targetTemperature)
     } catch (cause) {
