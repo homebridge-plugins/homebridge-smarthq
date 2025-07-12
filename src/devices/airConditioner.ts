@@ -9,11 +9,7 @@ import type { devicesConfig, SmartHqContext, SmartHqERDResponse } from '../setti
 import axios from 'axios'
 import { interval, startWith } from 'rxjs'
 
-import {
-
-  ERD_TYPES,
-
-} from '../settings.js'
+import { ERD_TYPES } from '../settings.js'
 import { deviceBase } from './device.js'
 
 enum PowerState {
@@ -604,9 +600,17 @@ export class SmartHQAirConditioner extends deviceBase {
 
   public async handleGetOperationMode(mode: OperationMode): Promise<CharacteristicValue> {
     try {
-      const value = await this.getOperationMode()
+      const [powerState, currentOperationMode] = await Promise.all([
+        this.getPowerState(),
+        this.getOperationMode(),
+      ])
 
-      return value === mode
+      // If the air conditioner is off, all modes are off
+      if (powerState === PowerState.OFF) {
+        return false
+      }
+
+      return currentOperationMode === mode
     } catch (cause) {
       const error = new Error(
         `Failed to handle get operation mode ${mode}: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`,
