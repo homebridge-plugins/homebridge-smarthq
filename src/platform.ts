@@ -266,6 +266,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
               await this.createSmartHQIceMaker(userId, device, details, features)
               break
             case 'Air Conditioner':
+            case 'Portable AC':
             case 'Split Air Conditioner':
               await this.createSmartHQAirConditioner(userId, device, details, features)
               break
