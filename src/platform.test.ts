@@ -1,4 +1,4 @@
-import type { API, Logger, PlatformConfig } from 'homebridge'
+import type { API, Logging, PlatformConfig } from 'homebridge'
 
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 
@@ -24,16 +24,17 @@ vi.mock('axios', () => ({
 describe('SmartHQPlatform Authentication Error Handling', () => {
   let platform: SmartHQPlatform
   let mockApi: API
-  let mockLog: Logger
+  let mockLog: Logging
   let mockConfig: PlatformConfig
 
   beforeEach(() => {
     mockLog = {
+      prefix: 'SmartHQ',
       info: vi.fn(),
       warn: vi.fn(),
       error: vi.fn(),
       debug: vi.fn(),
-    } as unknown as Logger
+    } as unknown as Logging
 
     mockApi = {
       hap: {
