@@ -139,14 +139,23 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
   }
 
   async startRefreshTokenLogic() {
+    if (!this.tokenSet) {
+      throw new Error('Token set is undefined')
+    }
+    
     if (this.tokenSet.refresh_token) {
       try {
         this.tokenSet = await refreshAccessToken(this.tokenSet.refresh_token)
       } catch (e: any) {
         await this.errorLog(`Failed to refresh Access Token, Error Message: ${e.message ?? e}, Submit Bugs Here: https://bit.ly/smarthq-bug-report`)
+        throw e // Re-throw to stop execution
       }
     } else {
       throw new Error('Refresh token is undefined')
+    }
+
+    if (!this.tokenSet.access_token) {
+      throw new Error('Access token is undefined after refresh')
     }
 
     axios.defaults.headers.common = {
@@ -174,11 +183,14 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
         this.tokenSet = await getAccessToken(username, password)
       } catch (e: any) {
         await this.errorLog(`discoverDevices, Failed to get Access Token, Error Message: ${e.message ?? e}, Submit Bugs Here: https://bit.ly/smarthq-bug-report`)
+        return // Stop execution if authentication fails
       }
+      
       try {
         await this.startRefreshTokenLogic()
       } catch (e: any) {
         await this.errorLog(`discoverDevices, Failed to start Refresh Token Logic, Error Message: ${e.message ?? e}, Submit Bugs Here: https://bit.ly/smarthq-bug-report`)
+        return // Stop execution if token refresh setup fails
       }
 
       try {
