@@ -40,3 +40,18 @@ These are the events that are currently supported:
 - Filter Maintenance Change Alert
 - Descale Needed Alert
 - Add Water Alert
+
+## Contributing
+
+This project uses a beta-first workflow for all contributions:
+
+- 🎯 **All PRs must target beta branches first**, never the main `latest` branch
+- 🏷️ **Required labels**: Set `patch`, `minor`, or `major` labels before assigning issues to Copilot
+- 🌿 **Current beta branch**: `beta-0.5.0` (active development)
+
+For detailed contribution guidelines, see [.github/copilot-instructions.md](.github/copilot-instructions.md).
+
+Use the branch helper tool to determine the correct target branch:
+```bash
+.github/scripts/branch-helper.sh
+```
