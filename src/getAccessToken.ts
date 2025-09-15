@@ -52,6 +52,14 @@ export default async function getAccessToken(username: string, password: string)
     validateStatus: () => true,
   })
 
+  if (!res.headers.location) {
+    throw new Error('Authentication failed: No redirect location received')
+  }
+
   const code = new URL(res.headers.location).searchParams.get('code')
+  if (!code) {
+    throw new Error('Authentication failed: No authorization code received')
+  }
+
   return client.grant({ grant_type: 'authorization_code', code, redirect_uri: OAUTH2_REDIRECT_URI })
 }
