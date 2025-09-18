@@ -1,18 +1,18 @@
+import type { devicesConfig, SmartHqContext, SmartHQPlatform } from '@root'
 import type { PlatformAccessory, Service } from 'homebridge'
-import type { SmartHQPlatform, devicesConfig, SmartHqContext } from '@root'
 
 import { Buffer } from 'node:buffer'
 
-import { Formats, Perms, Units } from 'hap-nodejs'
-
-import { ERD_TYPES } from '@root'
 import { OpalDeviceBase } from '@opal/OpalDeviceBase.js'
+import { ERD_TYPES } from '@root'
+import { Formats, Units } from 'homebridge'
 
 export class OpalProgressSvcManager extends OpalDeviceBase {
   public advancedOptionQueryStrs: string[] = [
     'device=opal&label=Production_Duration_Minutes&indicator=opalProductionLimit&type=number&defaultValue=0&placeholder=Number._0_for_Infinite',
-    'device=opal&label=HKC_Progress_Complete_Notification_Path&indicator=oplHKCProgressCompleteNotificationPath'
+    'device=opal&label=HKC_Progress_Complete_Notification_Path&indicator=oplHKCProgressCompleteNotificationPath',
   ]
+
   public serviceName: string = 'Opal Progress'
   public service: Service | null = null
   private configuredName = 'Ice Progress'
@@ -56,7 +56,7 @@ export class OpalProgressSvcManager extends OpalDeviceBase {
     // Configure Active characteristic
     this.service.getCharacteristic(this.platform.Characteristic.Active)
       .setProps({
-        perms: [Perms.EVENTS, Perms.PAIRED_READ],
+        perms: ['ev', 'pr'] as any,
       })
 
     // Configure RotationSpeed characteristic
@@ -67,7 +67,7 @@ export class OpalProgressSvcManager extends OpalDeviceBase {
         minStep: 1,
         minValue: 0,
         maxValue: 100,
-        perms: [Perms.EVENTS, Perms.PAIRED_READ],
+        perms: ['ev', 'pr'] as any,
       })
       .removeOnGet()
       .removeOnSet()
@@ -117,7 +117,11 @@ export class OpalProgressSvcManager extends OpalDeviceBase {
       const completionistMsg = productionValueMinutes > 100 ? `, Completion: ${productionValueMinutes}` : ''
       this.platform.debugSuccessLog(`Production: ${productionValueMinutes}, Limit: ${this.platform.config.deviceOptions?.opal?.opalProductionLimit}${completionistMsg}`)
 
-      const productionValueProgressBar = Math.floor((100 / this.platform.config.deviceOptions?.opal?.opalProductionLimit!) * productionValueMinutes)
+      const opalProductionLimit = this.platform.config.deviceOptions?.opal?.opalProductionLimit
+      let productionValueProgressBar = 0
+      if (typeof opalProductionLimit === 'number' && opalProductionLimit > 0) {
+        productionValueProgressBar = Math.floor((100 / opalProductionLimit) * productionValueMinutes)
+      }
       return [productionValueProgressBar, productionValueMinutes]
     } catch (error) {
       const typedErr = error as { message: string }
