@@ -288,6 +288,10 @@ export const ERD_TYPES = {
   AIR_CONDITIONER_POWER_STATUS: '0x7A0F' as const,
   AIR_CONDITIONER_TARGET_TEMPERATURE: '0x7003' as const,
   AIR_CONDITIONER_TEMPERATURE_UNIT: '0x0007' as const,
+
+  // Hood/Range Vent
+  HOOD_FAN_SPEED: '0x5B00' as const,
+  HOOD_LIGHT_LEVEL: '0x5B02' as const,
 }
 
 export const ERD_CODES = invert(ERD_TYPES)
