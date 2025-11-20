@@ -1,0 +1,365 @@
+/* Copyright(C) 2021-2024, donavanbecker (https://github.com/donavanbecker). All rights reserved.
+ *
+ * hood.ts: @homebridge-plugins/homebridge-smarthq.
+ */
+import type { CharacteristicValue, PlatformAccessory, Service } from 'homebridge'
+
+import type { SmartHQPlatform } from '../platform.js'
+import type { devicesConfig, SmartHqContext, SmartHqERDResponse } from '../settings.js'
+
+import axios from 'axios'
+import { interval, startWith } from 'rxjs'
+
+import { ERD_TYPES } from '../settings.js'
+import { deviceBase } from './device.js'
+
+enum FanSpeed {
+  OFF = '00',
+  LOW = '01',
+  MEDIUM = '02',
+  HIGH = '03',
+  BOOST = '04',
+}
+
+enum LightLevel {
+  OFF = '00',
+  DIM = '01',
+  HIGH = '02',
+}
+
+export class SmartHQHood extends deviceBase {
+  private readonly FAN_SVC_NAME = 'HOOD_FAN'
+  private readonly LIGHT_SVC_NAME = 'HOOD_LIGHT'
+  private readonly fanSvc!: Service
+  private readonly lightSvc!: Service
+
+  constructor(
+    protected readonly platform: SmartHQPlatform,
+    protected readonly accessory: PlatformAccessory<SmartHqContext>,
+    protected readonly device: SmartHqContext['device'] & devicesConfig,
+  ) {
+    super(platform, accessory, device)
+
+    this.fanSvc = this.accessory.getService(this.FAN_SVC_NAME)
+      ?? this.accessory.addService(
+        this.platform.Service.Fanv2,
+        `${accessory.displayName} Fan`,
+        this.FAN_SVC_NAME,
+      )
+
+    this.lightSvc = this.accessory.getService(this.LIGHT_SVC_NAME)
+      ?? this.accessory.addService(
+        this.platform.Service.Lightbulb,
+        `${accessory.displayName} Light`,
+        this.LIGHT_SVC_NAME,
+      )
+
+    const fanSwitchSvc = this.accessory.getService('HOOD_FAN_SWITCH')
+    if (fanSwitchSvc) {
+      this.accessory.removeService(fanSwitchSvc)
+    }
+
+    const lightSwitchSvc = this.accessory.getService('HOOD_LIGHT_SWITCH')
+    if (lightSwitchSvc) {
+      this.accessory.removeService(lightSwitchSvc)
+    }
+
+    this.fanSvc
+      .getCharacteristic(this.platform.Characteristic.Active)
+      .onGet(this.handleGetFanActive.bind(this))
+      .onSet(this.handleSetFanActive.bind(this))
+
+    this.fanSvc
+      .getCharacteristic(this.platform.Characteristic.RotationSpeed)
+      .setProps({
+        minValue: 0,
+        maxValue: 100,
+        minStep: 25,
+      })
+      .onGet(this.handleGetFanRotationSpeed.bind(this))
+      .onSet(this.handleSetFanRotationSpeed.bind(this))
+
+    this.lightSvc
+      .getCharacteristic(this.platform.Characteristic.On)
+      .onGet(this.handleGetLightOn.bind(this))
+      .onSet(this.handleSetLightOn.bind(this))
+
+    this.lightSvc
+      .getCharacteristic(this.platform.Characteristic.Brightness)
+      .setProps({
+        minValue: 0,
+        maxValue: 100,
+        minStep: 50,
+      })
+      .onGet(this.handleGetLightBrightness.bind(this))
+      .onSet(this.handleSetLightBrightness.bind(this))
+
+    interval(this.deviceRefreshRate * 1000)
+      .pipe(startWith(0))
+      .subscribe(this.refreshState.bind(this))
+  }
+
+  private getErdValue(erd: string): Promise<string> {
+    return axios
+      .get<SmartHqERDResponse>(`/appliance/${this.accessory.context.device.applianceId}/erd/${erd}`)
+      .then(response => response.data.value)
+      .catch((err) => {
+        const message = axios.isAxiosError(err) && err.response
+          ? `Failed to fetch ERD: ${err.response.data.message}`
+          : `Failed to fetch ERD: ${err instanceof Error ? err.message : 'An unknown error occurred'}`
+        throw new Error(message, { cause: err })
+      })
+  }
+
+  private setErdValue(erd: string, value: string): Promise<void> {
+    return axios
+      .post(`/appliance/${this.accessory.context.device.applianceId}/erd/${erd}`, {
+        kind: 'appliance#erdListEntry',
+        userId: this.accessory.context.userId,
+        applianceId: this.accessory.context.device.applianceId,
+        erd,
+        value,
+      })
+      .then(() => {
+        this.platform.log.debug(`[${this.accessory.displayName}] Set ERD ${erd}=${value}`)
+      })
+      .catch((err) => {
+        const message = axios.isAxiosError(err) && err.response
+          ? `Failed to set ERD ${erd}=${value}: ${err.response.data.message}`
+          : `Failed to set ERD ${erd}=${value}: ${err instanceof Error ? err.message : 'An unknown error occurred'}`
+        throw new Error(message, { cause: err })
+      })
+  }
+
+  private getFanSpeed(): Promise<FanSpeed> {
+    return this.getErdValue(ERD_TYPES.HOOD_FAN_SPEED)
+      .then(value => value as FanSpeed)
+      .catch((err) => {
+        throw new Error(`Failed to get fan speed: ${err instanceof Error ? err.message : 'An unknown error occurred'}`, { cause: err })
+      })
+  }
+
+  private setFanSpeed(value: FanSpeed): Promise<void> {
+    return this.setErdValue(ERD_TYPES.HOOD_FAN_SPEED, value)
+      .catch((err) => {
+        throw new Error(`Failed to set fan speed: ${err instanceof Error ? err.message : 'An unknown error occurred'}`, { cause: err })
+      })
+  }
+
+  private getLightLevel(): Promise<LightLevel> {
+    return this.getErdValue(ERD_TYPES.HOOD_LIGHT_LEVEL)
+      .then(value => value as LightLevel)
+      .catch((err) => {
+        throw new Error(`Failed to get light level: ${err instanceof Error ? err.message : 'An unknown error occurred'}`, { cause: err })
+      })
+  }
+
+  private setLightLevel(value: LightLevel): Promise<void> {
+    return this.setErdValue(ERD_TYPES.HOOD_LIGHT_LEVEL, value)
+      .catch((err) => {
+        throw new Error(`Failed to set light level: ${err instanceof Error ? err.message : 'An unknown error occurred'}`, { cause: err })
+      })
+  }
+
+  private fanSpeedToRotationSpeed(fanSpeed: FanSpeed): number {
+    switch (fanSpeed) {
+      case FanSpeed.OFF:
+        return 0
+      case FanSpeed.LOW:
+        return 25
+      case FanSpeed.MEDIUM:
+        return 50
+      case FanSpeed.HIGH:
+        return 75
+      case FanSpeed.BOOST:
+        return 100
+      default:
+        return 0
+    }
+  }
+
+  private rotationSpeedToFanSpeed(rotationSpeed: number): FanSpeed {
+    if (rotationSpeed === 0) {
+      return FanSpeed.OFF
+    }
+    if (rotationSpeed <= 25) {
+      return FanSpeed.LOW
+    }
+    if (rotationSpeed <= 50) {
+      return FanSpeed.MEDIUM
+    }
+    if (rotationSpeed <= 75) {
+      return FanSpeed.HIGH
+    }
+    return FanSpeed.BOOST
+  }
+
+  private lightLevelToBrightness(lightLevel: LightLevel): number {
+    switch (lightLevel) {
+      case LightLevel.OFF:
+        return 0
+      case LightLevel.DIM:
+        return 50
+      case LightLevel.HIGH:
+        return 100
+      default:
+        return 0
+    }
+  }
+
+  private brightnessToLightLevel(brightness: number): LightLevel {
+    if (brightness === 0) {
+      return LightLevel.OFF
+    }
+    if (brightness <= 50) {
+      return LightLevel.DIM
+    }
+    return LightLevel.HIGH
+  }
+
+  handleGetFanActive(): Promise<CharacteristicValue> {
+    return this.getFanSpeed()
+      .then((fanSpeed) => {
+        const isActive = fanSpeed !== FanSpeed.OFF
+        const value = isActive ? this.platform.Characteristic.Active.ACTIVE : this.platform.Characteristic.Active.INACTIVE
+        this.debugLog(`Get fan active: ${isActive}`)
+        return value
+      })
+      .catch((err) => {
+        this.errorLog(`handleGetFanActive failed: ${err.message}`)
+        throw new this.platform.api.hap.HapStatusError(this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE)
+      })
+  }
+
+  handleSetFanActive(value: CharacteristicValue): Promise<void> {
+    const isActive = value === this.platform.Characteristic.Active.ACTIVE
+    const fanSpeed = isActive ? FanSpeed.LOW : FanSpeed.OFF
+
+    this.debugLog(`Set fan active: ${isActive}`)
+
+    return this.setFanSpeed(fanSpeed)
+      .then(() => {
+        const rotationSpeed = isActive ? 25 : 0
+        this.fanSvc.updateCharacteristic(this.platform.Characteristic.RotationSpeed, rotationSpeed)
+      })
+      .catch((err) => {
+        this.errorLog(`handleSetFanActive failed: ${err.message}`)
+        throw new this.platform.api.hap.HapStatusError(this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE)
+      })
+  }
+
+  handleGetFanRotationSpeed(): Promise<CharacteristicValue> {
+    return this.getFanSpeed()
+      .then((fanSpeed) => {
+        const rotationSpeed = this.fanSpeedToRotationSpeed(fanSpeed)
+        this.debugLog(`Get fan rotation speed: ${rotationSpeed}% (${fanSpeed})`)
+        return rotationSpeed
+      })
+      .catch((err) => {
+        this.errorLog(`handleGetFanRotationSpeed failed: ${err.message}`)
+        throw new this.platform.api.hap.HapStatusError(this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE)
+      })
+  }
+
+  handleSetFanRotationSpeed(value: CharacteristicValue): Promise<void> {
+    const rotationSpeed = value as number
+    const fanSpeed = this.rotationSpeedToFanSpeed(rotationSpeed)
+
+    this.debugLog(`Set fan rotation speed: ${rotationSpeed}% -> ${fanSpeed}`)
+
+    return this.setFanSpeed(fanSpeed)
+      .then(() => {
+        this.fanSvc.updateCharacteristic(this.platform.Characteristic.RotationSpeed, rotationSpeed)
+      })
+      .catch((err) => {
+        this.errorLog(`handleSetFanRotationSpeed failed: ${err.message}`)
+        throw new this.platform.api.hap.HapStatusError(this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE)
+      })
+  }
+
+  handleGetLightOn(): Promise<CharacteristicValue> {
+    return this.getLightLevel()
+      .then((lightLevel) => {
+        const isOn = lightLevel !== LightLevel.OFF
+        this.debugLog(`Get light on: ${isOn}`)
+        return isOn
+      })
+      .catch((err) => {
+        this.errorLog(`handleGetLightOn failed: ${err.message}`)
+        throw new this.platform.api.hap.HapStatusError(this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE)
+      })
+  }
+
+  handleSetLightOn(value: CharacteristicValue): Promise<void> {
+    const isOn = value as boolean
+    const lightLevel = isOn ? LightLevel.DIM : LightLevel.OFF
+
+    this.debugLog(`Set light on: ${isOn}`)
+
+    return this.setLightLevel(lightLevel)
+      .then(() => {
+        const brightness = isOn ? 50 : 0
+        this.lightSvc.updateCharacteristic(this.platform.Characteristic.Brightness, brightness)
+      })
+      .catch((err) => {
+        this.errorLog(`handleSetLightOn failed: ${err.message}`)
+        throw new this.platform.api.hap.HapStatusError(this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE)
+      })
+  }
+
+  handleGetLightBrightness(): Promise<CharacteristicValue> {
+    return this.getLightLevel()
+      .then((lightLevel) => {
+        const brightness = this.lightLevelToBrightness(lightLevel)
+        this.debugLog(`Get light brightness: ${brightness}% (${lightLevel})`)
+        return brightness
+      })
+      .catch((err) => {
+        this.errorLog(`handleGetLightBrightness failed: ${err.message}`)
+        throw new this.platform.api.hap.HapStatusError(this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE)
+      })
+  }
+
+  handleSetLightBrightness(value: CharacteristicValue): Promise<void> {
+    const brightness = value as number
+    const lightLevel = this.brightnessToLightLevel(brightness)
+
+    this.debugLog(`Set light brightness: ${brightness}% -> ${lightLevel}`)
+
+    return this.setLightLevel(lightLevel)
+      .then(() => {
+        this.lightSvc.updateCharacteristic(this.platform.Characteristic.Brightness, brightness)
+      })
+      .catch((err) => {
+        this.errorLog(`handleSetLightBrightness failed: ${err.message}`)
+        throw new this.platform.api.hap.HapStatusError(this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE)
+      })
+  }
+
+  refreshState(): Promise<void> {
+    return Promise.all([
+      this.getFanSpeed(),
+      this.getLightLevel(),
+    ])
+      .then(([fanSpeed, lightLevel]) => {
+        const isActive = fanSpeed !== FanSpeed.OFF
+        const rotationSpeed = this.fanSpeedToRotationSpeed(fanSpeed)
+        const isOn = lightLevel !== LightLevel.OFF
+        const brightness = this.lightLevelToBrightness(lightLevel)
+
+        this.fanSvc.updateCharacteristic(
+          this.platform.Characteristic.Active,
+          isActive ? this.platform.Characteristic.Active.ACTIVE : this.platform.Characteristic.Active.INACTIVE,
+        )
+        this.fanSvc.updateCharacteristic(this.platform.Characteristic.RotationSpeed, rotationSpeed)
+
+        this.lightSvc.updateCharacteristic(this.platform.Characteristic.On, isOn)
+        this.lightSvc.updateCharacteristic(this.platform.Characteristic.Brightness, brightness)
+
+        this.debugLog(`State refreshed - Fan: ${fanSpeed} (${rotationSpeed}%), Light: ${lightLevel} (${brightness}%)`)
+      })
+      .catch((err) => {
+        this.errorLog(`Failed to refresh state: ${err.message}`)
+      })
+  }
+}
