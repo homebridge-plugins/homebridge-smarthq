@@ -27,17 +27,34 @@ export class SmartHQRefrigerator extends deviceBase {
 
     this.debugLog(`Refrigerator Features: ${JSON.stringify(accessory.context.device.features)}`)
     // Add separate contact sensors for refrigerator and door status
+
     // Refrigerator Door Sensor
     const doorSensorService = this.accessory.getService('Refrigerator Door') ?? this.accessory.addService(this.platform.Service.ContactSensor, 'Refrigerator Door', 'RefrigeratorDoor')
     doorSensorService
       .getCharacteristic(this.platform.Characteristic.ContactSensorState)
-      .onGet(() => this.readErd(ERD_TYPES.DOOR_STATUS).then(r => Number.parseInt(r) !== 0))
+      .onGet(async () => {
+        try {
+          const r = await this.readErd(ERD_TYPES.DOOR_STATUS)
+          return Number.parseInt(r) !== 0
+        } catch (error: any) {
+          this.warnLog?.(`Refrigerator Door Sensor readErd error: ${error?.message ?? error}`)
+          return false
+        }
+      })
 
     // Refrigerator Main Sensor (if you want a separate one, e.g. for overall status)
     const fridgeSensorService = this.accessory.getService('Refrigerator') ?? this.accessory.addService(this.platform.Service.ContactSensor, 'Refrigerator', 'RefrigeratorMain')
     fridgeSensorService
       .getCharacteristic(this.platform.Characteristic.ContactSensorState)
-      .onGet(() => this.readErd(ERD_TYPES.FRIDGE_MODEL_INFO).then(r => Number.parseInt(r) !== 0))
+      .onGet(async () => {
+        try {
+          const r = await this.readErd(ERD_TYPES.FRIDGE_MODEL_INFO)
+          return Number.parseInt(r) !== 0
+        } catch (error: any) {
+          this.warnLog?.(`Refrigerator Main Sensor readErd error: ${error?.message ?? error}`)
+          return false
+        }
+      })
 
     // this is subject we use to track when we need to POST changes to the SmartHQ API
     this.SensorUpdateInProgress = false
