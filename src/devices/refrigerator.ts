@@ -29,6 +29,7 @@ export class SmartHQRefrigerator extends deviceBase {
 
     // Refrigerator Door Sensor
     const doorSensorService = this.accessory.getService('Refrigerator Door') ?? this.accessory.addService(this.platform.Service.ContactSensor, 'Refrigerator Door', 'RefrigeratorDoor')
+    doorSensorService.setCharacteristic(this.platform.Characteristic.Name, 'Refrigerator Door')
     doorSensorService
       .getCharacteristic(this.platform.Characteristic.ContactSensorState)
       .onGet(async () => {
@@ -43,20 +44,46 @@ export class SmartHQRefrigerator extends deviceBase {
 
     // Fridge Temperature Sensor
     const fridgeTempService = this.accessory.getService('Fridge Temperature') ?? this.accessory.addService(this.platform.Service.TemperatureSensor, 'Fridge Temperature', 'FridgeTemp')
+    fridgeTempService.setCharacteristic(this.platform.Characteristic.Name, 'Fridge Temperature')
     fridgeTempService
       .getCharacteristic(this.platform.Characteristic.CurrentTemperature)
       .onGet(async () => {
         try {
           const r = await this.readErd(ERD_TYPES.CURRENT_TEMPERATURE)
-          return Number.parseInt(r, 16) || 0
+          // CURRENT_TEMPERATURE returns a byte array: byte 0 = fridge temp (°F), byte 1 = freezer temp (°F)
+          // Need to convert from hex string to get first byte
+          const bytes = r.match(/.{1,2}/g) || []
+          const fridgeTemp = bytes[0] ? Number.parseInt(bytes[0], 16) : 0
+          // Convert Fahrenheit to Celsius for HomeKit
+          return (fridgeTemp - 32) * 5 / 9
         } catch (error: any) {
           this.warnLog?.(`Fridge Temperature readErd error: ${error?.message ?? error}`)
           return 0
         }
       })
 
+    // Freezer Temperature Sensor
+    const freezerTempService = this.accessory.getService('Freezer Temperature') ?? this.accessory.addService(this.platform.Service.TemperatureSensor, 'Freezer Temperature', 'FreezerTemp')
+    freezerTempService.setCharacteristic(this.platform.Characteristic.Name, 'Freezer Temperature')
+    freezerTempService
+      .getCharacteristic(this.platform.Characteristic.CurrentTemperature)
+      .onGet(async () => {
+        try {
+          const r = await this.readErd(ERD_TYPES.CURRENT_TEMPERATURE)
+          // CURRENT_TEMPERATURE returns a byte array: byte 0 = fridge temp (°F), byte 1 = freezer temp (°F)
+          const bytes = r.match(/.{1,2}/g) || []
+          const freezerTemp = bytes[1] ? Number.parseInt(bytes[1], 16) : 0
+          // Convert Fahrenheit to Celsius for HomeKit
+          return (freezerTemp - 32) * 5 / 9
+        } catch (error: any) {
+          this.warnLog?.(`Freezer Temperature readErd error: ${error?.message ?? error}`)
+          return 0
+        }
+      })
+
     // Air Filter Status
     const filterService = this.accessory.getService('Air Filter') ?? this.accessory.addService(this.platform.Service.FilterMaintenance, 'Air Filter', 'AirFilter')
+    filterService.setCharacteristic(this.platform.Characteristic.Name, 'Air Filter')
     filterService
       .getCharacteristic(this.platform.Characteristic.FilterChangeIndication)
       .onGet(async () => {
@@ -73,6 +100,7 @@ export class SmartHQRefrigerator extends deviceBase {
 
     // Ice Maker Control (Switch)
     const iceMakerService = this.accessory.getService('Ice Maker') ?? this.accessory.addService(this.platform.Service.Switch, 'Ice Maker', 'IceMaker')
+    iceMakerService.setCharacteristic(this.platform.Characteristic.Name, 'Ice Maker')
     iceMakerService
       .getCharacteristic(this.platform.Characteristic.On)
       .onGet(async () => {
@@ -94,6 +122,7 @@ export class SmartHQRefrigerator extends deviceBase {
 
     // Turbo Cool Switch
     const turboCoolService = this.accessory.getService('Turbo Cool') ?? this.accessory.addService(this.platform.Service.Switch, 'Turbo Cool', 'TurboCool')
+    turboCoolService.setCharacteristic(this.platform.Characteristic.Name, 'Turbo Cool')
     turboCoolService
       .getCharacteristic(this.platform.Characteristic.On)
       .onGet(async () => {
@@ -115,6 +144,7 @@ export class SmartHQRefrigerator extends deviceBase {
 
     // Turbo Freeze Switch
     const turboFreezeService = this.accessory.getService('Turbo Freeze') ?? this.accessory.addService(this.platform.Service.Switch, 'Turbo Freeze', 'TurboFreeze')
+    turboFreezeService.setCharacteristic(this.platform.Characteristic.Name, 'Turbo Freeze')
     turboFreezeService
       .getCharacteristic(this.platform.Characteristic.On)
       .onGet(async () => {

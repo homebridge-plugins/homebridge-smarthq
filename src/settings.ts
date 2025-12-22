@@ -70,31 +70,31 @@ interface OpalOptions {
   oplAutoShutoffOnBlockingEvent?: boolean
   oplIceProductionSchedule?: {
     Monday: {
-      time: string,
+      time: string
       enabled: boolean
-    },
+    }
     Tuesday: {
-      time: string,
+      time: string
       enabled: boolean
-    },
+    }
     Wednesday: {
-      time: string,
+      time: string
       enabled: boolean
-    },
+    }
     Thursday: {
-      time: string,
+      time: string
       enabled: boolean
-    },
+    }
     Friday: {
-      time: string,
+      time: string
       enabled: boolean
-    },
+    }
     Saturday: {
-      time: string,
+      time: string
       enabled: boolean
-    },
+    }
     Sunday: {
-      time: string,
+      time: string
       enabled: boolean
     }
   }
