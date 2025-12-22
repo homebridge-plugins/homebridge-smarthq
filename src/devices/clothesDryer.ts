@@ -2,7 +2,7 @@ import type { CharacteristicValue, PlatformAccessory } from 'homebridge'
 
 import type { SmartHqContext } from '../settings.js'
 
-import { deviceBase } from './device'
+import { deviceBase } from './device.js'
 
 export class SmartHQClothesDryer extends deviceBase {
   private ClothesDryer!: {
