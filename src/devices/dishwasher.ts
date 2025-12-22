@@ -34,16 +34,27 @@ export class SmartHQDishWasher extends deviceBase {
 
     this.debugLog(`Dishwasher Features: ${JSON.stringify(accessory.context.device.features)}`)
     accessory.context.device.features.forEach((feature) => {
-      switch (feature) {
-        case 'DISHWASHER_V1_FOUNDATION': {
-          const dishwasher = this.accessory.getService(accessory.displayName) ?? this.accessory.addService(this.platform.Service.Lightbulb, accessory.displayName, 'Dishwasher')
-
-          dishwasher
-            .getCharacteristic(this.platform.Characteristic.On)
-            .onGet(() => this.readErd(ERD_TYPES.DISHWASHER_CYCLE).then(r => Number.parseInt(r) !== 0))
-            .onSet(value => this.writeErd(ERD_TYPES.DISHWASHER_CYCLE, value as boolean))
-          break
-        }
+      if (feature === 'DISHWASHER_V1_FOUNDATION') {
+        const dishwasher = this.accessory.getService(accessory.displayName) ?? this.accessory.addService(this.platform.Service.Lightbulb, accessory.displayName, 'Dishwasher')
+        dishwasher
+          .getCharacteristic(this.platform.Characteristic.On)
+          .onGet(async () => {
+            try {
+              return await this.readErd(ERD_TYPES.DISHWASHER_CYCLE).then(r => Number.parseInt(r) !== 0)
+            } catch (error: any) {
+              this.platform.warnLog?.(`Dishwasher handleGetOn error: ${error?.message ?? error}`)
+              return false
+            }
+          })
+          .onSet(async (value) => {
+            try {
+              await this.writeErd(ERD_TYPES.DISHWASHER_CYCLE, value as boolean)
+            } catch (error: any) {
+              this.platform.warnLog?.(`Dishwasher handleSetOn error: ${error?.message ?? error}`)
+            }
+          })
+      } else {
+        this.debugLog(`Feature not supported: ${feature}`)
       }
     })
 

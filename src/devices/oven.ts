@@ -24,38 +24,53 @@ export class SmartHQOven extends deviceBase {
 
     this.debugLog(`Oven Features: ${JSON.stringify(accessory.context.device.features)}`)
     accessory.context.device.features.forEach((feature) => {
-      switch (feature) {
-        case 'COOKING_V1_UPPER_OVEN_FOUNDATION': {
-          const ovenLight = this.accessory.getService(accessory.displayName) ?? this.accessory.addService(this.platform.Service.Lightbulb, accessory.displayName, 'Oven')
-
-          ovenLight
-            .getCharacteristic(this.platform.Characteristic.On)
-            .onGet(() => this.readErd(ERD_TYPES.UPPER_OVEN_LIGHT).then(r => Number.parseInt(r) !== 0))
-            .onSet(value => this.writeErd(ERD_TYPES.UPPER_OVEN_LIGHT, value as boolean))
-          break
-        }
-        case 'COOKING_V1_EXTENDED_COOKTOP_FOUNDATION': {
-          this.accessory.getService(accessory.displayName) ?? this.accessory.addService(this.platform.Service.StatefulProgrammableSwitch, accessory.displayName, 'Oven')
-            .getCharacteristic(this.platform.Characteristic.TargetTemperature)
-            .onGet(async () => {
+      if (feature === 'COOKING_V1_UPPER_OVEN_FOUNDATION') {
+        const ovenLight = this.accessory.getService(accessory.displayName) ?? this.accessory.addService(this.platform.Service.Lightbulb, accessory.displayName, 'Oven')
+        ovenLight
+          .getCharacteristic(this.platform.Characteristic.On)
+          .onGet(async () => {
+            try {
+              return await this.readErd(ERD_TYPES.UPPER_OVEN_LIGHT).then(r => Number.parseInt(r) !== 0)
+            } catch (error: any) {
+              this.platform.warnLog?.(`Oven handleGetOn error: ${error?.message ?? error}`)
+              return false
+            }
+          })
+          .onSet(async (value) => {
+            try {
+              await this.writeErd(ERD_TYPES.UPPER_OVEN_LIGHT, value as boolean)
+            } catch (error: any) {
+              this.platform.warnLog?.(`Oven handleSetOn error: ${error?.message ?? error}`)
+            }
+          })
+      } else if (feature === 'COOKING_V1_EXTENDED_COOKTOP_FOUNDATION') {
+        this.accessory.getService(accessory.displayName) ?? this.accessory.addService(this.platform.Service.StatefulProgrammableSwitch, accessory.displayName, 'Oven')
+          .getCharacteristic(this.platform.Characteristic.TargetTemperature)
+          .onGet(async () => {
+            try {
               const erdVal = await this.readErd(ERD_TYPES.UPPER_OVEN_COOK_MODE)
-
               const b = Buffer.from(erdVal, 'hex')
               return fToC(b.readUint16BE(1))
-            })
-            .onSet(async (value) => {
+            } catch (error: any) {
+              this.platform.warnLog?.(`Oven handleGetTargetTemperature error: ${error?.message ?? error}`)
+              return 0
+            }
+          })
+          .onSet(async (value) => {
+            try {
               const fTarget = cToF(value as number)
-
               const erdVal = await this.readErd(ERD_TYPES.UPPER_OVEN_COOK_MODE)
               const b = Buffer.from(erdVal, 'hex')
               b.writeUint16BE(fTarget, 1)
-
               return this.writeErd(ERD_TYPES.UPPER_OVEN_COOK_MODE, b.toString('hex'))
-            })
-        }
+            } catch (error: any) {
+              this.platform.warnLog?.(`Oven handleSetTargetTemperature error: ${error?.message ?? error}`)
+            }
+          })
+      } else {
+        this.debugLog(`Feature not supported: ${feature}`)
       }
     })
-  }
 
   async readErd(erd: string): Promise<string> {
     const d = await axios
