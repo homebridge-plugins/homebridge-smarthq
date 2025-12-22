@@ -4,7 +4,7 @@
 import type { CharacteristicValue, PlatformAccessory, Service } from 'homebridge'
 
 import type { SmartHQPlatform } from '../platform.js'
-import type { devicesConfig, SmartHqContext, SmartHqERDResponse } from '../settings.js'
+import type { devicesConfig, SmartHqContext } from '../settings.js'
 
 import axios from 'axios'
 import { interval, startWith } from 'rxjs'
@@ -159,18 +159,11 @@ export class SmartHQAirConditioner extends deviceBase {
   // API
 
   private async getErdValue(erd: string): Promise<string> {
-    try {
-      const response = await axios.get<SmartHqERDResponse>(`/appliance/${this.accessory.context.device.applianceId}/erd/${erd}`)
-
-      return response.data.value
-    } catch (cause) {
-      throw new Error(
-        axios.isAxiosError(cause) && cause.response
-          ? `Failed to fetch ERD: ${cause.response.data.message}`
-          : `Failed to fetch ERD: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`,
-        { cause },
-      )
+    const value = await this.readErd(erd)
+    if (!value) {
+      throw new Error(`Failed to fetch ERD ${erd}: No value returned`)
     }
+    return value
   }
 
   private async setErdValue(erd: string, value: string): Promise<void> {

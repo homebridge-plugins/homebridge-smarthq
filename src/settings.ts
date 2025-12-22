@@ -292,6 +292,17 @@ export const ERD_TYPES = {
   DISHWASHER_V2_SMART_ASSIST: '0x700f' as const,
   RESOURCE_MANAGEMENT_V1_ELECTRICAL_ENERGY_USAGE_V2: '0x7010' as const,
 
+  // Laundry (Washer/Dryer)
+  LAUNDRY_MACHINE_STATE: '0x2000' as const,
+  LAUNDRY_CYCLE: '0x2001' as const,
+  LAUNDRY_SUB_CYCLE: '0x2002' as const,
+  LAUNDRY_END_OF_CYCLE: '0x2003' as const,
+  LAUNDRY_TIME_REMAINING: '0x2007' as const,
+  LAUNDRY_DELAY_TIME_REMAINING: '0x2008' as const,
+  LAUNDRY_DOOR: '0x2009' as const,
+  LAUNDRY_DOOR_LOCK: '0x200a' as const,
+  LAUNDRY_REMOTE_STATUS: '0x200d' as const,
+
   // Air Conditioner
   AIR_CONDITIONER_AMBIENT_TEMPERATURE: '0x7A02' as const,
   AIR_CONDITIONER_FAN_SETTING: '0x7A00' as const,

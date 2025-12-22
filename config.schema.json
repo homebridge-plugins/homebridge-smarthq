@@ -130,14 +130,13 @@
                 }
               ],
               "condition": {
-                "functionBody": "return (model.options && model.options.devices && model.options.devices[arrayIndices].applianceId && !model.options.devices[arrayIndices].hide_device);"
+                "functionBody": "return (model.devices && model.devices[arrayIndices].applianceId && !model.devices[arrayIndices].hide_device);"
               }
             }
           },
           "required": [
-            "id",
-            "configDeviceName",
-            "logging"
+            "applianceId",
+            "configDeviceName"
           ]
         }
       },

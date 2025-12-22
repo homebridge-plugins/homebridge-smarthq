@@ -30,8 +30,10 @@ export class OpalStatusBase extends OpalDeviceBase {
 
   async getOpalCurrentStatus(): Promise<void> {
     const rawStatusResponse = await this.readErd(ERD_TYPES.OIM_STATUS)
-    const opalIceMakerStatus = Number.parseInt(rawStatusResponse)
-    this.setOpalCurrentStatus(opalIceMakerStatus)
+    if (rawStatusResponse) {
+      const opalIceMakerStatus = Number.parseInt(rawStatusResponse)
+      this.setOpalCurrentStatus(opalIceMakerStatus)
+    }
   }
 
   async setOpalCurrentStatus(newStatus: number): Promise<void> {
