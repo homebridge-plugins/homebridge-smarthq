@@ -23,54 +23,75 @@ export class SmartHQOven extends deviceBase {
     super(platform, accessory, device)
 
     this.debugLog(`Oven Features: ${JSON.stringify(accessory.context.device.features)}`)
-    accessory.context.device.features.forEach((feature) => {
-      if (feature === 'COOKING_V1_UPPER_OVEN_FOUNDATION') {
-        const ovenLight = this.accessory.getService(accessory.displayName) ?? this.accessory.addService(this.platform.Service.Lightbulb, accessory.displayName, 'Oven')
-        ovenLight
-          .getCharacteristic(this.platform.Characteristic.On)
-          .onGet(async () => {
-            try {
-              return await this.readErd(ERD_TYPES.UPPER_OVEN_LIGHT).then(r => Number.parseInt(r) !== 0)
-            } catch (error: any) {
-              this.warnLog?.(`Oven handleGetOn error: ${error?.message ?? error}`)
-              return false
-            }
-          })
-          .onSet(async (value) => {
-            try {
-              await this.writeErd(ERD_TYPES.UPPER_OVEN_LIGHT, value as boolean)
-            } catch (error: any) {
-              this.warnLog?.(`Oven handleSetOn error: ${error?.message ?? error}`)
-            }
-          })
-      } else if (feature === 'COOKING_V1_EXTENDED_COOKTOP_FOUNDATION') {
-        this.accessory.getService(accessory.displayName) ?? this.accessory.addService(this.platform.Service.StatefulProgrammableSwitch, accessory.displayName, 'Oven')
-          .getCharacteristic(this.platform.Characteristic.TargetTemperature)
-          .onGet(async () => {
-            try {
-              const erdVal = await this.readErd(ERD_TYPES.UPPER_OVEN_COOK_MODE)
-              const b = Buffer.from(erdVal, 'hex')
-              return fToC(b.readUint16BE(1))
-            } catch (error: any) {
-              this.warnLog?.(`Oven handleGetTargetTemperature error: ${error?.message ?? error}`)
-              return 0
-            }
-          })
-          .onSet(async (value) => {
-            try {
-              const fTarget = cToF(value as number)
-              const erdVal = await this.readErd(ERD_TYPES.UPPER_OVEN_COOK_MODE)
-              const b = Buffer.from(erdVal, 'hex')
-              b.writeUint16BE(fTarget, 1)
-              return this.writeErd(ERD_TYPES.UPPER_OVEN_COOK_MODE, b.toString('hex'))
-            } catch (error: any) {
-              this.warnLog?.(`Oven handleSetTargetTemperature error: ${error?.message ?? error}`)
-            }
-          })
-      } else {
-        this.debugLog(`Feature not supported: ${feature}`)
-      }
-    })
+
+    // Oven Light
+    const ovenLight = this.accessory.getService('Oven Light') ?? this.accessory.addService(this.platform.Service.Lightbulb, 'Oven Light', 'OvenLight')
+    ovenLight
+      .getCharacteristic(this.platform.Characteristic.On)
+      .onGet(async () => {
+        try {
+          return await this.readErd(ERD_TYPES.UPPER_OVEN_LIGHT).then(r => Number.parseInt(r) !== 0)
+        } catch (error: any) {
+          this.warnLog?.(`Oven Light handleGetOn error: ${error?.message ?? error}`)
+          return false
+        }
+      })
+      .onSet(async (value) => {
+        try {
+          await this.writeErd(ERD_TYPES.UPPER_OVEN_LIGHT, value as boolean)
+        } catch (error: any) {
+          this.warnLog?.(`Oven Light handleSetOn error: ${error?.message ?? error}`)
+        }
+      })
+
+    // Oven Current Temperature Sensor
+    const ovenTempSensor = this.accessory.getService('Oven Temperature') ?? this.accessory.addService(this.platform.Service.TemperatureSensor, 'Oven Temperature', 'OvenTemp')
+    ovenTempSensor
+      .getCharacteristic(this.platform.Characteristic.CurrentTemperature)
+      .onGet(async () => {
+        try {
+          const erdVal = await this.readErd(ERD_TYPES.UPPER_OVEN_COOK_MODE)
+          const b = Buffer.from(erdVal, 'hex')
+          return fToC(b.readUint16BE(1))
+        } catch (error: any) {
+          this.warnLog?.(`Oven Temperature error: ${error?.message ?? error}`)
+          return 0
+        }
+      })
+
+    // Oven Door Lock (Security System for lock state)
+    const ovenDoorLock = this.accessory.getService('Oven Door Lock') ?? this.accessory.addService(this.platform.Service.LockMechanism, 'Oven Door Lock', 'OvenDoorLock')
+    ovenDoorLock
+      .getCharacteristic(this.platform.Characteristic.LockCurrentState)
+      .onGet(async () => {
+        try {
+          // TODO: Use actual ERD for door lock state when available
+          return this.platform.Characteristic.LockCurrentState.UNSECURED
+        } catch (error: any) {
+          this.warnLog?.(`Oven Door Lock error: ${error?.message ?? error}`)
+          return this.platform.Characteristic.LockCurrentState.UNSECURED
+        }
+      })
+
+    ovenDoorLock
+      .getCharacteristic(this.platform.Characteristic.LockTargetState)
+      .onGet(async () => {
+        try {
+          // TODO: Use actual ERD for door lock state when available
+          return this.platform.Characteristic.LockTargetState.UNSECURED
+        } catch (error: any) {
+          this.warnLog?.(`Oven Door Lock error: ${error?.message ?? error}`)
+          return this.platform.Characteristic.LockTargetState.UNSECURED
+        }
+      })
+      .onSet(async (value) => {
+        try {
+          // TODO: Implement door lock control when ERD is available
+          this.debugLog(`Oven Door Lock set to: ${value}`)
+        } catch (error: any) {
+          this.warnLog?.(`Oven Door Lock set error: ${error?.message ?? error}`)
+        }
+      })
   }
 
   async readErd(erd: string): Promise<string> {
@@ -89,11 +110,11 @@ export class SmartHQOven extends deviceBase {
     return undefined
   }
 }
-
+/*
 function cToF(celsius: number) {
   return (celsius * 9) / 5 + 32
 }
-
+*/
 function fToC(fahrenheit: number) {
   return ((fahrenheit - 32) * 5) / 9
 }

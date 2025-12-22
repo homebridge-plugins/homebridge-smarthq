@@ -26,7 +26,6 @@ export class SmartHQRefrigerator extends deviceBase {
     super(platform, accessory, device)
 
     this.debugLog(`Refrigerator Features: ${JSON.stringify(accessory.context.device.features)}`)
-    // Add separate contact sensors for refrigerator and door status
 
     // Refrigerator Door Sensor
     const doorSensorService = this.accessory.getService('Refrigerator Door') ?? this.accessory.addService(this.platform.Service.ContactSensor, 'Refrigerator Door', 'RefrigeratorDoor')
@@ -42,17 +41,96 @@ export class SmartHQRefrigerator extends deviceBase {
         }
       })
 
-    // Refrigerator Main Sensor (if you want a separate one, e.g. for overall status)
-    const fridgeSensorService = this.accessory.getService('Refrigerator') ?? this.accessory.addService(this.platform.Service.ContactSensor, 'Refrigerator', 'RefrigeratorMain')
-    fridgeSensorService
-      .getCharacteristic(this.platform.Characteristic.ContactSensorState)
+    // Fridge Temperature Sensor
+    const fridgeTempService = this.accessory.getService('Fridge Temperature') ?? this.accessory.addService(this.platform.Service.TemperatureSensor, 'Fridge Temperature', 'FridgeTemp')
+    fridgeTempService
+      .getCharacteristic(this.platform.Characteristic.CurrentTemperature)
       .onGet(async () => {
         try {
-          const r = await this.readErd(ERD_TYPES.FRIDGE_MODEL_INFO)
+          const r = await this.readErd(ERD_TYPES.CURRENT_TEMPERATURE)
+          return Number.parseInt(r, 16) || 0
+        } catch (error: any) {
+          this.warnLog?.(`Fridge Temperature readErd error: ${error?.message ?? error}`)
+          return 0
+        }
+      })
+
+    // Air Filter Status
+    const filterService = this.accessory.getService('Air Filter') ?? this.accessory.addService(this.platform.Service.FilterMaintenance, 'Air Filter', 'AirFilter')
+    filterService
+      .getCharacteristic(this.platform.Characteristic.FilterChangeIndication)
+      .onGet(async () => {
+        try {
+          const r = await this.readErd(ERD_TYPES.AIR_FILTER_STATUS)
+          return Number.parseInt(r) === 1
+            ? this.platform.Characteristic.FilterChangeIndication.CHANGE_FILTER
+            : this.platform.Characteristic.FilterChangeIndication.FILTER_OK
+        } catch (error: any) {
+          this.warnLog?.(`Air Filter Status readErd error: ${error?.message ?? error}`)
+          return this.platform.Characteristic.FilterChangeIndication.FILTER_OK
+        }
+      })
+
+    // Ice Maker Control (Switch)
+    const iceMakerService = this.accessory.getService('Ice Maker') ?? this.accessory.addService(this.platform.Service.Switch, 'Ice Maker', 'IceMaker')
+    iceMakerService
+      .getCharacteristic(this.platform.Characteristic.On)
+      .onGet(async () => {
+        try {
+          const r = await this.readErd(ERD_TYPES.ICE_MAKER_CONTROL)
           return Number.parseInt(r) !== 0
         } catch (error: any) {
-          this.warnLog?.(`Refrigerator Main Sensor readErd error: ${error?.message ?? error}`)
+          this.warnLog?.(`Ice Maker Control readErd error: ${error?.message ?? error}`)
           return false
+        }
+      })
+      .onSet(async (value) => {
+        try {
+          await this.writeErd(ERD_TYPES.ICE_MAKER_CONTROL, value as boolean)
+        } catch (error: any) {
+          this.warnLog?.(`Ice Maker Control writeErd error: ${error?.message ?? error}`)
+        }
+      })
+
+    // Turbo Cool Switch
+    const turboCoolService = this.accessory.getService('Turbo Cool') ?? this.accessory.addService(this.platform.Service.Switch, 'Turbo Cool', 'TurboCool')
+    turboCoolService
+      .getCharacteristic(this.platform.Characteristic.On)
+      .onGet(async () => {
+        try {
+          const r = await this.readErd(ERD_TYPES.TURBO_COOL_STATUS)
+          return Number.parseInt(r) !== 0
+        } catch (error: any) {
+          this.warnLog?.(`Turbo Cool Status readErd error: ${error?.message ?? error}`)
+          return false
+        }
+      })
+      .onSet(async (value) => {
+        try {
+          await this.writeErd(ERD_TYPES.TURBO_COOL_STATUS, value as boolean)
+        } catch (error: any) {
+          this.warnLog?.(`Turbo Cool Status writeErd error: ${error?.message ?? error}`)
+        }
+      })
+
+    // Turbo Freeze Switch
+    const turboFreezeService = this.accessory.getService('Turbo Freeze') ?? this.accessory.addService(this.platform.Service.Switch, 'Turbo Freeze', 'TurboFreeze')
+    turboFreezeService
+      .getCharacteristic(this.platform.Characteristic.On)
+      .onGet(async () => {
+        try {
+          const r = await this.readErd(ERD_TYPES.TURBO_FREEZE_STATUS)
+          return Number.parseInt(r) !== 0
+        } catch (error: any) {
+          this.warnLog?.(`Turbo Freeze Status readErd error: ${error?.message ?? error}`)
+          return false
+        }
+      })
+      .onSet(async (value) => {
+        try {
+          await this.writeErd(ERD_TYPES.TURBO_FREEZE_STATUS, value as boolean)
+        } catch (error: any) {
+          this.warnLog?.(`Turbo Freeze Status writeErd error: ${error?.message ?? error}`)
         }
       })
 
