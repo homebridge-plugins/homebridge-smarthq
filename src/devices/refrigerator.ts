@@ -26,22 +26,18 @@ export class SmartHQRefrigerator extends deviceBase {
     super(platform, accessory, device)
 
     this.debugLog(`Refrigerator Features: ${JSON.stringify(accessory.context.device.features)}`)
-    accessory.context.device.features.forEach((feature) => {
-      /* [
-      "DOOR_STATUS"
-      ] */
-      switch (feature) {
-        case 'DOOR_STATUS': {
-          const refrigerator = this.accessory.getService(accessory.displayName) ?? this.accessory.addService(this.platform.Service.ContactSensor, accessory.displayName, 'Refrigerator')
+    // Add separate contact sensors for refrigerator and door status
+    // Refrigerator Door Sensor
+    const doorSensorService = this.accessory.getService('Refrigerator Door') ?? this.accessory.addService(this.platform.Service.ContactSensor, 'Refrigerator Door', 'RefrigeratorDoor')
+    doorSensorService
+      .getCharacteristic(this.platform.Characteristic.ContactSensorState)
+      .onGet(() => this.readErd(ERD_TYPES.DOOR_STATUS).then(r => Number.parseInt(r) !== 0))
 
-          refrigerator
-            .getCharacteristic(this.platform.Characteristic.ContactSensorState)
-            .onGet(() => this.readErd(ERD_TYPES.DOOR_STATUS).then(r => Number.parseInt(r) !== 0))
-            .onSet(value => this.writeErd(ERD_TYPES.DOOR_STATUS, value as boolean))
-          break
-        }
-      }
-    })
+    // Refrigerator Main Sensor (if you want a separate one, e.g. for overall status)
+    const fridgeSensorService = this.accessory.getService('Refrigerator') ?? this.accessory.addService(this.platform.Service.ContactSensor, 'Refrigerator', 'RefrigeratorMain')
+    fridgeSensorService
+      .getCharacteristic(this.platform.Characteristic.ContactSensorState)
+      .onGet(() => this.readErd(ERD_TYPES.FRIDGE_MODEL_INFO).then(r => Number.parseInt(r) !== 0))
 
     // this is subject we use to track when we need to POST changes to the SmartHQ API
     this.SensorUpdateInProgress = false
