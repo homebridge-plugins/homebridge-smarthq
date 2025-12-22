@@ -17,6 +17,11 @@ export class SmartHQClothesDryer extends deviceBase {
     super(platform, accessory, device)
     this.debugLog(`Clothes Dryer Features: ${JSON.stringify(accessory.context.device.features)}`)
 
+    // Initialize ClothesDryer state (restore from cache if available)
+    this.ClothesDryer = {
+      On: accessory.context.ClothesDryer?.On ?? false,
+    }
+
     // Dryer Running State (Valve)
     const dryerValve = this.accessory.getService('Dryer') ?? this.accessory.addService(this.platform.Service.Valve, 'Dryer', 'Dryer')
     dryerValve.setCharacteristic(this.platform.Characteristic.ValveType, this.platform.Characteristic.ValveType.GENERIC_VALVE)
@@ -82,6 +87,7 @@ export class SmartHQClothesDryer extends deviceBase {
       // TODO: Replace with actual ERD code for dryer On state if available
       // await this.writeErd(ERD_TYPES.CLOTHES_DRYER_ON, value as boolean)
       this.ClothesDryer.On = value
+      this.accessory.context.ClothesDryer = this.ClothesDryer
     } catch (error: any) {
       this.warnLog?.(`ClothesDryer handleSetOn error: ${error?.message ?? error}`)
     }

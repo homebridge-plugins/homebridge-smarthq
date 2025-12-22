@@ -32,6 +32,13 @@ export class SmartHQDishWasher extends deviceBase {
   ) {
     super(platform, accessory, device)
 
+    // Initialize DishWasher state (restore from cache if available)
+    this.DishWasher = {
+      Service: this.accessory.getService('Dishwasher') ?? this.accessory.addService(this.platform.Service.Valve, 'Dishwasher', 'Dishwasher'),
+      Name: this.accessory.displayName,
+      On: accessory.context.DishWasher?.On ?? false,
+    }
+
     this.debugLog(`Dishwasher Features: ${JSON.stringify(accessory.context.device.features)}`)
 
     // Dishwasher Running State (Valve for active/inactive)

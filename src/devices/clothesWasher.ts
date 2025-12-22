@@ -17,6 +17,11 @@ export class SmartHQClothesWasher extends deviceBase {
     super(platform, accessory, device)
     this.debugLog(`Clothes Washer Features: ${JSON.stringify(accessory.context.device.features)}`)
 
+    // Initialize ClothesWasher state (restore from cache if available)
+    this.ClothesWasher = {
+      On: accessory.context.ClothesWasher?.On ?? false,
+    }
+
     // Washer Running State (Valve)
     const washerValve = this.accessory.getService('Washer') ?? this.accessory.addService(this.platform.Service.Valve, 'Washer', 'Washer')
     washerValve.setCharacteristic(this.platform.Characteristic.ValveType, this.platform.Characteristic.ValveType.GENERIC_VALVE)
@@ -82,6 +87,7 @@ export class SmartHQClothesWasher extends deviceBase {
       // TODO: Replace with actual ERD code for washer On state if available
       // await this.writeErd(ERD_TYPES.CLOTHES_WASHER_ON, value as boolean)
       this.ClothesWasher.On = value
+      this.accessory.context.ClothesWasher = this.ClothesWasher
     } catch (error: any) {
       this.warnLog(`ClothesWasher handleSetOn error: ${error?.message ?? error}`)
     }

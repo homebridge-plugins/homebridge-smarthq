@@ -115,6 +115,18 @@ export interface SmartHqContext {
     firmware: string
     features: string[]
   }
+  // Cached device states
+  DishWasher?: {
+    Service?: any
+    Name?: any
+    On?: any
+  }
+  ClothesWasher?: {
+    On?: any
+  }
+  ClothesDryer?: {
+    On?: any
+  }
 }
 
 export interface SmartHqERDResponse {
