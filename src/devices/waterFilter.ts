@@ -20,6 +20,7 @@ export class SmartHQWaterFilter extends deviceBase {
 
     // Water Filter Maintenance
     const filterService = this.accessory.getService('Water Filter') ?? this.accessory.addService(this.platform.Service.FilterMaintenance, 'Water Filter', 'WaterFilter')
+    filterService.setCharacteristic(this.platform.Characteristic.Name, 'Water Filter')
     filterService
       .getCharacteristic(this.platform.Characteristic.FilterChangeIndication)
       .onGet(async () => {
@@ -46,6 +47,7 @@ export class SmartHQWaterFilter extends deviceBase {
 
     // Water Flow Valve
     const valveService = this.accessory.getService('Water Flow') ?? this.accessory.addService(this.platform.Service.Valve, 'Water Flow', 'WaterFlow')
+    valveService.setCharacteristic(this.platform.Characteristic.Name, 'Water Flow')
     valveService.setCharacteristic(this.platform.Characteristic.ValveType, this.platform.Characteristic.ValveType.WATER_FAUCET)
     valveService
       .getCharacteristic(this.platform.Characteristic.Active)

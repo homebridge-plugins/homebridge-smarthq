@@ -26,6 +26,7 @@ export class SmartHQOven extends deviceBase {
 
     // Oven Light
     const ovenLight = this.accessory.getService('Oven Light') ?? this.accessory.addService(this.platform.Service.Lightbulb, 'Oven Light', 'OvenLight')
+    ovenLight.setCharacteristic(this.platform.Characteristic.Name, 'Oven Light')
     ovenLight
       .getCharacteristic(this.platform.Characteristic.On)
       .onGet(async () => {
@@ -46,6 +47,7 @@ export class SmartHQOven extends deviceBase {
 
     // Oven Current Temperature Sensor
     const ovenTempSensor = this.accessory.getService('Oven Temperature') ?? this.accessory.addService(this.platform.Service.TemperatureSensor, 'Oven Temperature', 'OvenTemp')
+    ovenTempSensor.setCharacteristic(this.platform.Characteristic.Name, 'Oven Temperature')
     ovenTempSensor
       .getCharacteristic(this.platform.Characteristic.CurrentTemperature)
       .onGet(async () => {
@@ -61,6 +63,7 @@ export class SmartHQOven extends deviceBase {
 
     // Oven Door Lock (Security System for lock state)
     const ovenDoorLock = this.accessory.getService('Oven Door Lock') ?? this.accessory.addService(this.platform.Service.LockMechanism, 'Oven Door Lock', 'OvenDoorLock')
+    ovenDoorLock.setCharacteristic(this.platform.Characteristic.Name, 'Oven Door Lock')
     ovenDoorLock
       .getCharacteristic(this.platform.Characteristic.LockCurrentState)
       .onGet(async () => {

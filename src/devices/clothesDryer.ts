@@ -24,6 +24,7 @@ export class SmartHQClothesDryer extends deviceBase {
 
     // Dryer Running State (Valve)
     const dryerValve = this.accessory.getService('Dryer') ?? this.accessory.addService(this.platform.Service.Valve, 'Dryer', 'Dryer')
+    dryerValve.setCharacteristic(this.platform.Characteristic.Name, 'Dryer')
     dryerValve.setCharacteristic(this.platform.Characteristic.ValveType, this.platform.Characteristic.ValveType.GENERIC_VALVE)
     dryerValve
       .getCharacteristic(this.platform.Characteristic.Active)
@@ -50,6 +51,7 @@ export class SmartHQClothesDryer extends deviceBase {
 
     // Door Lock
     const doorLock = this.accessory.getService('Dryer Door Lock') ?? this.accessory.addService(this.platform.Service.LockMechanism, 'Dryer Door Lock', 'DryerDoorLock')
+    doorLock.setCharacteristic(this.platform.Characteristic.Name, 'Dryer Door Lock')
     doorLock
       .getCharacteristic(this.platform.Characteristic.LockCurrentState)
       .onGet(async () => {

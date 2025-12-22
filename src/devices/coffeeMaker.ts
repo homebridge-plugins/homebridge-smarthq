@@ -20,6 +20,7 @@ export class SmartHQCoffeeMaker extends deviceBase {
 
     // Coffee Maker Brewing State (Valve)
     const brewValve = this.accessory.getService('Coffee Maker') ?? this.accessory.addService(this.platform.Service.Valve, 'Coffee Maker', 'CoffeeMaker')
+    brewValve.setCharacteristic(this.platform.Characteristic.Name, 'Coffee Maker')
     brewValve.setCharacteristic(this.platform.Characteristic.ValveType, this.platform.Characteristic.ValveType.GENERIC_VALVE)
     brewValve
       .getCharacteristic(this.platform.Characteristic.Active)
@@ -55,6 +56,7 @@ export class SmartHQCoffeeMaker extends deviceBase {
 
     // Water Level Sensor (Humidity as proxy)
     const waterLevel = this.accessory.getService('Water Level') ?? this.accessory.addService(this.platform.Service.HumiditySensor, 'Water Level', 'WaterLevel')
+    waterLevel.setCharacteristic(this.platform.Characteristic.Name, 'Water Level')
     waterLevel
       .getCharacteristic(this.platform.Characteristic.CurrentRelativeHumidity)
       .onGet(async () => {
@@ -69,6 +71,7 @@ export class SmartHQCoffeeMaker extends deviceBase {
 
     // Filter/Cleaning Status
     const filterService = this.accessory.getService('Coffee Filter') ?? this.accessory.addService(this.platform.Service.FilterMaintenance, 'Coffee Filter', 'CoffeeFilter')
+    filterService.setCharacteristic(this.platform.Characteristic.Name, 'Coffee Filter')
     filterService
       .getCharacteristic(this.platform.Characteristic.FilterChangeIndication)
       .onGet(async () => {

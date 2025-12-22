@@ -2,7 +2,7 @@
  *
  * oven.ts: @homebridge-plugins/homebridge-smarthq.
  */
-import type { CharacteristicValue, PlatformAccessory, Service } from 'homebridge'
+import type { PlatformAccessory } from 'homebridge'
 
 import type { SmartHQPlatform } from '../platform.js'
 import type { devicesConfig, SmartHqContext } from '../settings.js'
@@ -14,13 +14,6 @@ import { ERD_TYPES } from '../settings.js'
 import { deviceBase } from './device.js'
 
 export class SmartHQDishWasher extends deviceBase {
-  // Service
-  private DishWasher!: {
-    Service: Service
-    Name: CharacteristicValue
-    On: CharacteristicValue
-  }
-
   // Updates
   SensorUpdateInProgress!: boolean
   deviceStatus: any
@@ -32,17 +25,11 @@ export class SmartHQDishWasher extends deviceBase {
   ) {
     super(platform, accessory, device)
 
-    // Initialize DishWasher state (restore from cache if available)
-    this.DishWasher = {
-      Service: this.accessory.getService('Dishwasher') ?? this.accessory.addService(this.platform.Service.Valve, 'Dishwasher', 'Dishwasher'),
-      Name: this.accessory.displayName,
-      On: accessory.context.DishWasher?.On ?? false,
-    }
-
     this.debugLog(`Dishwasher Features: ${JSON.stringify(accessory.context.device.features)}`)
 
     // Dishwasher Running State (Valve for active/inactive)
     const dishwasherValve = this.accessory.getService('Dishwasher') ?? this.accessory.addService(this.platform.Service.Valve, 'Dishwasher', 'Dishwasher')
+    dishwasherValve.setCharacteristic(this.platform.Characteristic.Name, 'Dishwasher')
     dishwasherValve.setCharacteristic(this.platform.Characteristic.ValveType, this.platform.Characteristic.ValveType.GENERIC_VALVE)
     dishwasherValve
       .getCharacteristic(this.platform.Characteristic.Active)
@@ -75,6 +62,7 @@ export class SmartHQDishWasher extends deviceBase {
 
     // Dishwasher Door Sensor
     const doorSensor = this.accessory.getService('Dishwasher Door') ?? this.accessory.addService(this.platform.Service.ContactSensor, 'Dishwasher Door', 'DishwasherDoor')
+    doorSensor.setCharacteristic(this.platform.Characteristic.Name, 'Dishwasher Door')
     doorSensor
       .getCharacteristic(this.platform.Characteristic.ContactSensorState)
       .onGet(async () => {

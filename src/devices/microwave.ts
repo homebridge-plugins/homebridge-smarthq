@@ -20,6 +20,7 @@ export class SmartHQMicrowave extends deviceBase {
 
     // Microwave Light
     const light = this.accessory.getService('Microwave Light') ?? this.accessory.addService(this.platform.Service.Lightbulb, 'Microwave Light', 'MicrowaveLight')
+    light.setCharacteristic(this.platform.Characteristic.Name, 'Microwave Light')
     light
       .getCharacteristic(this.platform.Characteristic.On)
       .onGet(async () => {
@@ -42,6 +43,7 @@ export class SmartHQMicrowave extends deviceBase {
 
     // Microwave Running State (Switch)
     const runningSwitch = this.accessory.getService('Microwave') ?? this.accessory.addService(this.platform.Service.Switch, 'Microwave', 'Microwave')
+    runningSwitch.setCharacteristic(this.platform.Characteristic.Name, 'Microwave')
     runningSwitch
       .getCharacteristic(this.platform.Characteristic.On)
       .onGet(async () => {
@@ -64,6 +66,7 @@ export class SmartHQMicrowave extends deviceBase {
 
     // Ventilation Fan (if applicable)
     const fan = this.accessory.getService('Microwave Fan') ?? this.accessory.addService(this.platform.Service.Fanv2, 'Microwave Fan', 'MicrowaveFan')
+    fan.setCharacteristic(this.platform.Characteristic.Name, 'Microwave Fan')
     fan
       .getCharacteristic(this.platform.Characteristic.Active)
       .onGet(async () => {

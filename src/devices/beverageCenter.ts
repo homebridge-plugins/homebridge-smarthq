@@ -20,6 +20,7 @@ export class SmartHQBeverageCenter extends deviceBase {
 
     // Beverage Center Temperature Sensor
     const tempSensor = this.accessory.getService('Beverage Temperature') ?? this.accessory.addService(this.platform.Service.TemperatureSensor, 'Beverage Temperature', 'BeverageTemp')
+    tempSensor.setCharacteristic(this.platform.Characteristic.Name, 'Beverage Temperature')
     tempSensor
       .getCharacteristic(this.platform.Characteristic.CurrentTemperature)
       .onGet(async () => {
@@ -34,6 +35,7 @@ export class SmartHQBeverageCenter extends deviceBase {
 
     // Beverage Center Door Sensor
     const doorSensor = this.accessory.getService('Beverage Door') ?? this.accessory.addService(this.platform.Service.ContactSensor, 'Beverage Door', 'BeverageDoor')
+    doorSensor.setCharacteristic(this.platform.Characteristic.Name, 'Beverage Door')
     doorSensor
       .getCharacteristic(this.platform.Characteristic.ContactSensorState)
       .onGet(async () => {
@@ -48,6 +50,7 @@ export class SmartHQBeverageCenter extends deviceBase {
 
     // Beverage Center Thermostat Control
     const thermostat = this.accessory.getService('Beverage Thermostat') ?? this.accessory.addService(this.platform.Service.Thermostat, 'Beverage Thermostat', 'BeverageThermostat')
+    thermostat.setCharacteristic(this.platform.Characteristic.Name, 'Beverage Thermostat')
     thermostat
       .getCharacteristic(this.platform.Characteristic.CurrentHeatingCoolingState)
       .onGet(async () => {

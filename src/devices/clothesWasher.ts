@@ -24,6 +24,7 @@ export class SmartHQClothesWasher extends deviceBase {
 
     // Washer Running State (Valve)
     const washerValve = this.accessory.getService('Washer') ?? this.accessory.addService(this.platform.Service.Valve, 'Washer', 'Washer')
+    washerValve.setCharacteristic(this.platform.Characteristic.Name, 'Washer')
     washerValve.setCharacteristic(this.platform.Characteristic.ValveType, this.platform.Characteristic.ValveType.GENERIC_VALVE)
     washerValve
       .getCharacteristic(this.platform.Characteristic.Active)
@@ -50,6 +51,7 @@ export class SmartHQClothesWasher extends deviceBase {
 
     // Door Lock
     const doorLock = this.accessory.getService('Washer Door Lock') ?? this.accessory.addService(this.platform.Service.LockMechanism, 'Washer Door Lock', 'WasherDoorLock')
+    doorLock.setCharacteristic(this.platform.Characteristic.Name, 'Washer Door Lock')
     doorLock
       .getCharacteristic(this.platform.Characteristic.LockCurrentState)
       .onGet(async () => {
