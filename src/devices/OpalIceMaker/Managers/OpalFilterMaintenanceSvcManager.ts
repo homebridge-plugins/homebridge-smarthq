@@ -22,7 +22,9 @@ export class OpalFilterMaintenanceSvcManager extends OpalDeviceBase {
 
   async getFilterMaintenanceStatus() {
     const currentFilterStatus = await this.readErd(ERD_TYPES.OIM_FILTER_STATUS)
-    this.setFilterMaintenanceStatus(Number.parseInt(currentFilterStatus) as 0 | 1)
+    if (currentFilterStatus) {
+      this.setFilterMaintenanceStatus(Number.parseInt(currentFilterStatus) as 0 | 1)
+    }
   }
 
   setFilterMaintenanceStatus(updateValue: 0 | 1) {

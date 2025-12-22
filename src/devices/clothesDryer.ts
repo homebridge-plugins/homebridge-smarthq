@@ -1,26 +1,25 @@
-import type { CharacteristicValue, PlatformAccessory } from 'homebridge'
+import type { PlatformAccessory } from 'homebridge'
 
-import type { SmartHqContext } from '../settings.js'
+import type { SmartHQPlatform } from '../platform.js'
+import type { devicesConfig, SmartHqContext } from '../settings.js'
 
+import { interval, skipWhile } from 'rxjs'
+
+import { ERD_TYPES } from '../settings.js'
 import { deviceBase } from './device.js'
 
 export class SmartHQClothesDryer extends deviceBase {
-  private ClothesDryer!: {
-    On: CharacteristicValue
-  }
+  // Updates
+  SensorUpdateInProgress!: boolean
+  deviceStatus: any
 
   constructor(
-    platform: any,
+    readonly platform: SmartHQPlatform,
     accessory: PlatformAccessory<SmartHqContext>,
-    device: any,
+    readonly device: SmartHqContext['device'] & devicesConfig,
   ) {
     super(platform, accessory, device)
     this.debugLog(`Clothes Dryer Features: ${JSON.stringify(accessory.context.device.features)}`)
-
-    // Initialize ClothesDryer state (restore from cache if available)
-    this.ClothesDryer = {
-      On: accessory.context.ClothesDryer?.On ?? false,
-    }
 
     // Dryer Running State (Valve)
     const dryerValve = this.accessory.getService('Dryer') ?? this.accessory.addService(this.platform.Service.Valve, 'Dryer', 'Dryer')
@@ -29,24 +28,31 @@ export class SmartHQClothesDryer extends deviceBase {
     dryerValve
       .getCharacteristic(this.platform.Characteristic.Active)
       .onGet(async () => {
-        try {
-          return this.ClothesDryer?.On ? this.platform.Characteristic.Active.ACTIVE : this.platform.Characteristic.Active.INACTIVE
-        } catch (error: any) {
-          this.warnLog?.(`Dryer Active error: ${error?.message ?? error}`)
-          return this.platform.Characteristic.Active.INACTIVE
-        }
+        const r = await this.readErd(ERD_TYPES.LAUNDRY_MACHINE_STATE)
+        // Machine state: 0=idle, 1=running
+        return r && Number.parseInt(r) !== 0 ? this.platform.Characteristic.Active.ACTIVE : this.platform.Characteristic.Active.INACTIVE
       })
-      .onSet(this.handleSetOn.bind(this))
 
     dryerValve
       .getCharacteristic(this.platform.Characteristic.InUse)
       .onGet(async () => {
-        try {
-          return this.ClothesDryer?.On ? this.platform.Characteristic.InUse.IN_USE : this.platform.Characteristic.InUse.NOT_IN_USE
-        } catch (error: any) {
-          this.warnLog?.(`Dryer InUse error: ${error?.message ?? error}`)
-          return this.platform.Characteristic.InUse.NOT_IN_USE
+        const r = await this.readErd(ERD_TYPES.LAUNDRY_MACHINE_STATE)
+        return r && Number.parseInt(r) !== 0 ? this.platform.Characteristic.InUse.IN_USE : this.platform.Characteristic.InUse.NOT_IN_USE
+      })
+
+    dryerValve
+      .getCharacteristic(this.platform.Characteristic.RemainingDuration)
+      .onGet(async () => {
+        const r = await this.readErd(ERD_TYPES.LAUNDRY_TIME_REMAINING)
+        if (!r) {
+          return 0
         }
+        // Value is in hex, convert to decimal (appears to be in deciseconds or needs /10)
+        const value = Number.parseInt(r, 16)
+        const minutes = value / 10
+        const seconds = Math.min(minutes * 60, 3600) // Cap at 3600 seconds (HomeKit max)
+        this.debugLog(`Time Remaining - Hex: ${r}, Decimal: ${value}, Minutes: ${minutes}, Seconds: ${seconds}`)
+        return seconds
       })
 
     // Door Lock
@@ -55,43 +61,103 @@ export class SmartHQClothesDryer extends deviceBase {
     doorLock
       .getCharacteristic(this.platform.Characteristic.LockCurrentState)
       .onGet(async () => {
-        try {
-          // TODO: Implement door lock state when ERD available
-          return this.platform.Characteristic.LockCurrentState.UNSECURED
-        } catch (error: any) {
-          this.warnLog?.(`Dryer Door Lock error: ${error?.message ?? error}`)
-          return this.platform.Characteristic.LockCurrentState.UNSECURED
-        }
+        const r = await this.readErd(ERD_TYPES.LAUNDRY_DOOR_LOCK)
+        // 0=unlocked, 1=locked
+        return r && Number.parseInt(r) === 1
+          ? this.platform.Characteristic.LockCurrentState.SECURED
+          : this.platform.Characteristic.LockCurrentState.UNSECURED
       })
 
     doorLock
       .getCharacteristic(this.platform.Characteristic.LockTargetState)
-      .onGet(async () => this.platform.Characteristic.LockTargetState.UNSECURED)
-      .onSet(async (value) => {
-        this.debugLog(`Dryer Door Lock set to: ${value}`)
+      .onGet(async () => {
+        const r = await this.readErd(ERD_TYPES.LAUNDRY_DOOR_LOCK)
+        return r && Number.parseInt(r) === 1
+          ? this.platform.Characteristic.LockTargetState.SECURED
+          : this.platform.Characteristic.LockTargetState.UNSECURED
       })
-  }
 
-  async handleGetOn(): Promise<CharacteristicValue> {
-    try {
-      // TODO: Replace with actual ERD code for dryer On state if available
-      // const erdValue = await this.readErd(ERD_TYPES.CLOTHES_DRYER_ON)
-      // return Number.parseInt(erdValue) !== 0
-      return this.ClothesDryer?.On ?? false
-    } catch (error: any) {
-      this.warnLog?.(`ClothesDryer handleGetOn error: ${error?.message ?? error}`)
-      return false
-    }
-  }
+    // Door Sensor
+    const doorSensor = this.accessory.getService('Dryer Door') ?? this.accessory.addService(this.platform.Service.ContactSensor, 'Dryer Door', 'DryerDoor')
+    doorSensor.setCharacteristic(this.platform.Characteristic.Name, 'Dryer Door')
+    doorSensor
+      .getCharacteristic(this.platform.Characteristic.ContactSensorState)
+      .onGet(async () => {
+        const r = await this.readErd(ERD_TYPES.LAUNDRY_DOOR)
+        // 0=closed, 1=open
+        return r && Number.parseInt(r) === 1
+          ? this.platform.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED
+          : this.platform.Characteristic.ContactSensorState.CONTACT_DETECTED
+      })
 
-  async handleSetOn(value: CharacteristicValue): Promise<void> {
-    try {
-      // TODO: Replace with actual ERD code for dryer On state if available
-      // await this.writeErd(ERD_TYPES.CLOTHES_DRYER_ON, value as boolean)
-      this.ClothesDryer.On = value
-      this.accessory.context.ClothesDryer = this.ClothesDryer
-    } catch (error: any) {
-      this.warnLog?.(`ClothesDryer handleSetOn error: ${error?.message ?? error}`)
+    // Cycle Name (using a motion sensor to display cycle info)
+    const cycleCodeToName = (code: number): string => {
+      const cycleMap: { [key: number]: string } = {
+        0: 'Not Defined',
+        128: 'Cottons',
+        129: 'Easy Care',
+        130: 'Active Wear',
+        131: 'Timed Dry',
+        132: 'Dewrinkle',
+        133: 'Air Fluff',
+        134: 'Steam Refresh',
+        135: 'Steam Dewrinkle',
+        136: 'Speed Dry',
+        137: 'Mixed',
+        138: 'Quick Dry',
+        139: 'Casuals',
+        140: 'Warm Up',
+        141: 'Energy Saver',
+        142: 'Antibacterial',
+        143: 'Rack Dry',
+        144: 'Baby Care',
+        145: 'Auto Dry',
+        146: 'Auto Extra',
+        147: 'Perm Press',
+        148: 'Washer Link',
+      }
+      return cycleMap[code] || `Cycle ${code}`
     }
+
+    const cycleSensor = this.accessory.getService('Cycle Status') ?? this.accessory.addService(this.platform.Service.MotionSensor, 'Cycle Status', 'DryerCycle')
+    cycleSensor.setCharacteristic(this.platform.Characteristic.Name, 'Cycle Status')
+    cycleSensor
+      .getCharacteristic(this.platform.Characteristic.MotionDetected)
+      .onGet(async () => {
+        const cycleCode = await this.readErd(ERD_TYPES.LAUNDRY_CYCLE)
+        const subCycleCode = await this.readErd(ERD_TYPES.LAUNDRY_SUB_CYCLE)
+
+        if (cycleCode && cycleCode !== '00') {
+          const code = Number.parseInt(cycleCode, 16)
+          const cycleName = cycleCodeToName(code)
+
+          const subCycleMap: { [key: number]: string } = {
+            0: 'None',
+            128: 'Drying',
+            129: 'Mist Steam',
+            130: 'Cool Down',
+            131: 'Extended Tumble',
+            132: 'Damp',
+            133: 'Air Fluff',
+          }
+
+          const subCode = subCycleCode ? Number.parseInt(subCycleCode, 16) : 0
+          const subCycleName = subCycleMap[subCode] || ''
+
+          this.infoLog(`Dryer Cycle: ${cycleName}${subCycleName !== 'None' ? ` - ${subCycleName}` : ''}`)
+          return true // Motion detected when cycle is running
+        }
+        return false
+      })
+
+    // this is subject we use to track when we need to POST changes to the SmartHQ API
+    this.SensorUpdateInProgress = false
+
+    // Start an update interval
+    interval(this.deviceRefreshRate * 10000)
+      .pipe(skipWhile(() => this.SensorUpdateInProgress))
+      .subscribe(async () => {
+        // await this.refreshStatus()
+      })
   }
 }

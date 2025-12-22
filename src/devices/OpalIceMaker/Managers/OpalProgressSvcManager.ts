@@ -112,6 +112,9 @@ export class OpalProgressSvcManager extends OpalDeviceBase {
   private async getProductionValue(): Promise<[number, number]> {
     try {
       const erdVal = await this.readErd(ERD_TYPES.OIM_PRODUCTION)
+      if (!erdVal) {
+        return [0, 0]
+      }
       const productionValueMinutes = Buffer.from(erdVal, 'hex').readUInt8(0)
 
       const completionistMsg = productionValueMinutes > 100 ? `, Completion: ${productionValueMinutes}` : ''

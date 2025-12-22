@@ -7,6 +7,8 @@ import type { API, CharacteristicValue, HAP, Logging, PlatformAccessory, Service
 import type { SmartHQPlatform } from '../platform.js'
 import type { devicesConfig, SmartHqContext, SmartHQPlatformConfig } from '../settings.js'
 
+import axios from 'axios'
+
 export abstract class deviceBase {
   public readonly api: API
   public readonly log: Logging
@@ -19,6 +21,9 @@ export abstract class deviceBase {
   protected deviceUpdateRate!: number
   protected devicePushRate!: number
   protected deviceFirmwareVersion!: string
+
+  // ERD capability tracking - remember which ERDs are not supported
+  private unsupportedErds: Set<string> = new Set()
 
   constructor(
     protected readonly platform: SmartHQPlatform,
@@ -202,5 +207,110 @@ export abstract class deviceBase {
 
   async enablingDeviceLogging(): Promise<boolean> {
     return this.deviceLogging === 'debugMode' || this.deviceLogging === 'debug' || this.deviceLogging === 'standard'
+  }
+
+  /**
+   * Check if an ERD code is supported by this appliance
+   * @param erd - The ERD code to check
+   * @returns true if the ERD is available, false otherwise
+   */
+  async has_erd_code(erd: string): Promise<boolean> {
+    try {
+      const value = await this.readErd(erd)
+      return value !== undefined
+    } catch {
+      return false
+    }
+  }
+
+  /**
+   * Try to get an ERD value without throwing errors
+   * @param erd - The ERD code to read
+   * @returns The ERD value or undefined if not available
+   */
+  async try_get_erd_value(erd: string): Promise<string | undefined> {
+    try {
+      return await this.readErd(erd)
+    } catch {
+      return undefined
+    }
+  }
+
+  /**
+   * Read an ERD (Electronic Refrigerator Descriptor) value from the SmartHQ API
+   * @param erd - The ERD code to read
+   * @returns The ERD value as a string (JSON stringified if object), or undefined if not supported/error
+   */
+  async readErd(erd: string): Promise<string | undefined> {
+    // Check if we already know this ERD is not supported
+    if (this.unsupportedErds.has(erd)) {
+      return undefined
+    }
+
+    try {
+      await this.debugLog(`Reading ERD ${erd}`)
+      const d = await axios
+        .get(`/appliance/${this.accessory.context.device.applianceId}/erd/${erd}`)
+
+      // If API returns undefined/null, return undefined without logging
+      if (d.data.value === undefined || d.data.value === null) {
+        return undefined
+      }
+
+      // Check if value is an object (like temperature data with fridge/freezer properties)
+      // If so, stringify it so it can be parsed as JSON later
+      if (typeof d.data.value === 'object') {
+        const jsonValue = JSON.stringify(d.data.value)
+        await this.debugLog(`ERD ${erd} returned object: ${jsonValue}`)
+        return jsonValue
+      }
+
+      await this.debugLog(`ERD ${erd} value: ${d.data.value}`)
+      return String(d.data.value)
+    } catch (error: any) {
+      // 400 means ERD not supported by this appliance model - cache and return undefined
+      if (error?.response?.status === 400) {
+        this.unsupportedErds.add(erd)
+        await this.debugLog(`ERD ${erd} not supported by this appliance (400) - will not retry`)
+        return undefined
+      }
+      // For other errors, log warning and return undefined
+      this.warnLog?.(`readErd ${erd} error: ${error?.message ?? error}`)
+      return undefined
+    }
+  }
+
+  /**
+   * Write an ERD (Electronic Refrigerator Descriptor) value to the SmartHQ API
+   * @param erd - The ERD code to write
+   * @param value - The value to write (boolean or string)
+   */
+  async writeErd(erd: string, value: string | boolean): Promise<void> {
+    // Check if we already know this ERD is not supported
+    if (this.unsupportedErds.has(erd)) {
+      await this.debugLog(`Skipping write to unsupported ERD ${erd}`)
+      return
+    }
+
+    try {
+      await this.debugLog(`Writing ERD ${erd} with value: ${value}`)
+      await axios
+        .post(`/appliance/${this.accessory.context.device.applianceId}/erd/${erd}`, {
+          kind: 'appliance#erdListEntry',
+          userId: this.accessory.context.userId,
+          applianceId: this.accessory.context.device.applianceId,
+          erd,
+          value: typeof value === 'boolean' ? (value ? '01' : '00') : value,
+        })
+      await this.debugLog(`Successfully wrote ERD ${erd}`)
+    } catch (error: any) {
+      // 400 means ERD not supported or invalid value - cache it
+      if (error?.response?.status === 400) {
+        this.unsupportedErds.add(erd)
+        await this.debugLog(`ERD ${erd} write failed - not supported or invalid value (400) - will not retry`)
+      } else {
+        this.warnLog?.(`writeErd ${erd} error: ${error?.message ?? error}`)
+      }
+    }
   }
 }
