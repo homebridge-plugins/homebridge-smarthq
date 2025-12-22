@@ -286,9 +286,84 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
             case 'Hood':
               await this.createSmartHQHood(userId, device, details, features)
               break
+            case 'Clothes Washer':
+              await this.createSmartHQClothesWasher(userId, device, details, features)
+              break
+            case 'Clothes Dryer':
+              await this.createSmartHQClothesDryer(userId, device, details, features)
+              break
             default:
               await this.warnLog(`Device Type Not Supported: ${device.type}`)
               break
+            private async createSmartHQClothesWasher(userId: any, device: any, details: any, features: any) {
+              const uuid = this.api.hap.uuid.generate(device.applianceId)
+
+              const existingAccessory = this.accessories.find(accessory => accessory.UUID === uuid)
+
+              if (existingAccessory) {
+                if (!device.hide_device) {
+                  existingAccessory.context.device = device
+                  existingAccessory.context = { device: { brand: 'GE', ...details, ...features }, userId }
+                  existingAccessory.displayName = await this.validateAndCleanDisplayName(device.nickname, 'nickname', device.nickname)
+                  existingAccessory.context.device.firmware = device.firmware ?? await this.getVersion()
+                  this.api.updatePlatformAccessories([existingAccessory])
+                  this.infoLog(`Restoring existing accessory from cache: ${existingAccessory.displayName}`)
+                  // create the accessory handler for the restored accessory
+                  new (await import('./devices/clothesWasher')).SmartHQClothesWasher(this, existingAccessory, device)
+                  this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
+                } else {
+                  this.unregisterPlatformAccessories(existingAccessory)
+                }
+              } else if (!device.hide_device && !existingAccessory) {
+                this.infoLog(`Adding new accessory: ${device.nickname}`)
+                const accessory = new this.api.platformAccessory<SmartHqContext>(device.nickname, uuid)
+                accessory.context.device = device
+                accessory.context = { device: { brand: 'GE', ...details, ...features }, userId }
+                accessory.displayName = await this.validateAndCleanDisplayName(device.nickname, 'nickname', device.nickname)
+                accessory.context.device.firmware = device.firmware ?? await this.getVersion()
+                new (await import('./devices/clothesWasher')).SmartHQClothesWasher(this, accessory, device)
+                this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
+                this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
+                this.accessories.push(accessory)
+              } else {
+                this.debugErrorLog(`Unable to Register new device: ${JSON.stringify(device.nickname)}`)
+              }
+            }
+
+            private async createSmartHQClothesDryer(userId: any, device: any, details: any, features: any) {
+              const uuid = this.api.hap.uuid.generate(device.applianceId)
+
+              const existingAccessory = this.accessories.find(accessory => accessory.UUID === uuid)
+
+              if (existingAccessory) {
+                if (!device.hide_device) {
+                  existingAccessory.context.device = device
+                  existingAccessory.context = { device: { brand: 'GE', ...details, ...features }, userId }
+                  existingAccessory.displayName = await this.validateAndCleanDisplayName(device.nickname, 'nickname', device.nickname)
+                  existingAccessory.context.device.firmware = device.firmware ?? await this.getVersion()
+                  this.api.updatePlatformAccessories([existingAccessory])
+                  this.infoLog(`Restoring existing accessory from cache: ${existingAccessory.displayName}`)
+                  // create the accessory handler for the restored accessory
+                  new (await import('./devices/clothesDryer')).SmartHQClothesDryer(this, existingAccessory, device)
+                  this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
+                } else {
+                  this.unregisterPlatformAccessories(existingAccessory)
+                }
+              } else if (!device.hide_device && !existingAccessory) {
+                this.infoLog(`Adding new accessory: ${device.nickname}`)
+                const accessory = new this.api.platformAccessory<SmartHqContext>(device.nickname, uuid)
+                accessory.context.device = device
+                accessory.context = { device: { brand: 'GE', ...details, ...features }, userId }
+                accessory.displayName = await this.validateAndCleanDisplayName(device.nickname, 'nickname', device.nickname)
+                accessory.context.device.firmware = device.firmware ?? await this.getVersion()
+                new (await import('./devices/clothesDryer')).SmartHQClothesDryer(this, accessory, device)
+                this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
+                this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
+                this.accessories.push(accessory)
+              } else {
+                this.debugErrorLog(`Unable to Register new device: ${JSON.stringify(device.nickname)}`)
+              }
+            }
           }
         }
       } catch (e: any) {
