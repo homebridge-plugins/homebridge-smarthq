@@ -16,16 +16,53 @@ export class SmartHQClothesWasher extends deviceBase {
   ) {
     super(platform, accessory, device)
     this.debugLog(`Clothes Washer Features: ${JSON.stringify(accessory.context.device.features)}`)
-    accessory.context.device.features.forEach((feature: string) => {
-      if (feature === 'CLOTHES_WASHER_V1_FOUNDATION') {
-        const washer = this.accessory.getService(accessory.displayName) ?? this.accessory.addService(this.platform.Service.Switch, accessory.displayName, 'Clothes Washer')
-        washer.getCharacteristic(this.platform.Characteristic.On)
-          .onGet(this.handleGetOn.bind(this))
-          .onSet(this.handleSetOn.bind(this))
-      } else {
-        this.debugLog(`Feature not supported: ${feature}`)
-      }
-    })
+
+    // Washer Running State (Valve)
+    const washerValve = this.accessory.getService('Washer') ?? this.accessory.addService(this.platform.Service.Valve, 'Washer', 'Washer')
+    washerValve.setCharacteristic(this.platform.Characteristic.ValveType, this.platform.Characteristic.ValveType.GENERIC_VALVE)
+    washerValve
+      .getCharacteristic(this.platform.Characteristic.Active)
+      .onGet(async () => {
+        try {
+          return this.ClothesWasher?.On ? this.platform.Characteristic.Active.ACTIVE : this.platform.Characteristic.Active.INACTIVE
+        } catch (error: any) {
+          this.warnLog(`Washer Active error: ${error?.message ?? error}`)
+          return this.platform.Characteristic.Active.INACTIVE
+        }
+      })
+      .onSet(this.handleSetOn.bind(this))
+
+    washerValve
+      .getCharacteristic(this.platform.Characteristic.InUse)
+      .onGet(async () => {
+        try {
+          return this.ClothesWasher?.On ? this.platform.Characteristic.InUse.IN_USE : this.platform.Characteristic.InUse.NOT_IN_USE
+        } catch (error: any) {
+          this.warnLog(`Washer InUse error: ${error?.message ?? error}`)
+          return this.platform.Characteristic.InUse.NOT_IN_USE
+        }
+      })
+
+    // Door Lock
+    const doorLock = this.accessory.getService('Washer Door Lock') ?? this.accessory.addService(this.platform.Service.LockMechanism, 'Washer Door Lock', 'WasherDoorLock')
+    doorLock
+      .getCharacteristic(this.platform.Characteristic.LockCurrentState)
+      .onGet(async () => {
+        try {
+          // TODO: Implement door lock state when ERD available
+          return this.platform.Characteristic.LockCurrentState.UNSECURED
+        } catch (error: any) {
+          this.warnLog(`Washer Door Lock error: ${error?.message ?? error}`)
+          return this.platform.Characteristic.LockCurrentState.UNSECURED
+        }
+      })
+
+    doorLock
+      .getCharacteristic(this.platform.Characteristic.LockTargetState)
+      .onGet(async () => this.platform.Characteristic.LockTargetState.UNSECURED)
+      .onSet(async (value) => {
+        this.debugLog(`Washer Door Lock set to: ${value}`)
+      })
   }
 
   async handleGetOn(): Promise<CharacteristicValue> {

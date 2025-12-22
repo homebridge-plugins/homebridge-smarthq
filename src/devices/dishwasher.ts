@@ -33,30 +33,52 @@ export class SmartHQDishWasher extends deviceBase {
     super(platform, accessory, device)
 
     this.debugLog(`Dishwasher Features: ${JSON.stringify(accessory.context.device.features)}`)
-    accessory.context.device.features.forEach((feature) => {
-      if (feature === 'DISHWASHER_V1_FOUNDATION') {
-        const dishwasher = this.accessory.getService(accessory.displayName) ?? this.accessory.addService(this.platform.Service.Lightbulb, accessory.displayName, 'Dishwasher')
-        dishwasher
-          .getCharacteristic(this.platform.Characteristic.On)
-          .onGet(async () => {
-            try {
-              return await this.readErd(ERD_TYPES.DISHWASHER_CYCLE).then(r => Number.parseInt(r) !== 0)
-            } catch (error: any) {
-              this.warnLog?.(`Dishwasher handleGetOn error: ${error?.message ?? error}`)
-              return false
-            }
-          })
-          .onSet(async (value) => {
-            try {
-              await this.writeErd(ERD_TYPES.DISHWASHER_CYCLE, value as boolean)
-            } catch (error: any) {
-              this.warnLog?.(`Dishwasher handleSetOn error: ${error?.message ?? error}`)
-            }
-          })
-      } else {
-        this.debugLog(`Feature not supported: ${feature}`)
-      }
-    })
+
+    // Dishwasher Running State (Valve for active/inactive)
+    const dishwasherValve = this.accessory.getService('Dishwasher') ?? this.accessory.addService(this.platform.Service.Valve, 'Dishwasher', 'Dishwasher')
+    dishwasherValve.setCharacteristic(this.platform.Characteristic.ValveType, this.platform.Characteristic.ValveType.GENERIC_VALVE)
+    dishwasherValve
+      .getCharacteristic(this.platform.Characteristic.Active)
+      .onGet(async () => {
+        try {
+          return await this.readErd(ERD_TYPES.DISHWASHER_CYCLE).then(r => Number.parseInt(r) !== 0 ? this.platform.Characteristic.Active.ACTIVE : this.platform.Characteristic.Active.INACTIVE)
+        } catch (error: any) {
+          this.warnLog?.(`Dishwasher Active error: ${error?.message ?? error}`)
+          return this.platform.Characteristic.Active.INACTIVE
+        }
+      })
+      .onSet(async (value) => {
+        try {
+          await this.writeErd(ERD_TYPES.DISHWASHER_CYCLE, value === this.platform.Characteristic.Active.ACTIVE)
+        } catch (error: any) {
+          this.warnLog?.(`Dishwasher Active set error: ${error?.message ?? error}`)
+        }
+      })
+
+    dishwasherValve
+      .getCharacteristic(this.platform.Characteristic.InUse)
+      .onGet(async () => {
+        try {
+          return await this.readErd(ERD_TYPES.DISHWASHER_CYCLE).then(r => Number.parseInt(r) !== 0 ? this.platform.Characteristic.InUse.IN_USE : this.platform.Characteristic.InUse.NOT_IN_USE)
+        } catch (error: any) {
+          this.warnLog?.(`Dishwasher InUse error: ${error?.message ?? error}`)
+          return this.platform.Characteristic.InUse.NOT_IN_USE
+        }
+      })
+
+    // Dishwasher Door Sensor
+    const doorSensor = this.accessory.getService('Dishwasher Door') ?? this.accessory.addService(this.platform.Service.ContactSensor, 'Dishwasher Door', 'DishwasherDoor')
+    doorSensor
+      .getCharacteristic(this.platform.Characteristic.ContactSensorState)
+      .onGet(async () => {
+        try {
+          // TODO: Use actual door status ERD when available
+          return this.platform.Characteristic.ContactSensorState.CONTACT_DETECTED
+        } catch (error: any) {
+          this.warnLog?.(`Dishwasher Door error: ${error?.message ?? error}`)
+          return this.platform.Characteristic.ContactSensorState.CONTACT_DETECTED
+        }
+      })
 
     // this is subject we use to track when we need to POST changes to the SmartHQ API
     this.SensorUpdateInProgress = false
