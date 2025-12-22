@@ -60,7 +60,7 @@
     "access": "public"
   },
   "dependencies": {
-    "@homebridge/plugin-ui-utils": "^2.1.0",
+    "@homebridge/plugin-ui-utils": "^2.1.2",
     "axios": "^1.11.0",
     "axios-cookiejar-support": "^6.0.4",
     "axios-form-data": "^1.1.1",
@@ -84,10 +84,11 @@
     "@types/node": "^24.3.0",
     "@types/semver": "^7.7.0",
     "@types/ws": "^8.18.1",
-    "@vitest/coverage-v8": "^3.2.4",
+    "@vitest/coverage-v8": "^4.0.16",
     "eslint": "^9.34.0",
+    "eslint-plugin-format": "^1.1.0",
     "eslint-plugin-import": "^2.32.0",
-    "homebridge": "^1.11.0",
+    "homebridge": "^1.11.1",
     "nodemon": "^3.1.10",
     "rimraf": "^6.0.1",
     "shx": "^0.4.0",
@@ -95,6 +96,6 @@
     "tsc-alias": "^1.8.16",
     "typedoc": "^0.28.12",
     "typescript": "^5.9.2",
-    "vitest": "^3.2.4"
+    "vitest": "^4.0.16"
   }
 }

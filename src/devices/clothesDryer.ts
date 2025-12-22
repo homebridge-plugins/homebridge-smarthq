@@ -35,7 +35,7 @@ export class SmartHQClothesDryer extends deviceBase {
       // return Number.parseInt(erdValue) !== 0
       return this.ClothesDryer?.On ?? false
     } catch (error: any) {
-      this.platform.warnLog?.(`ClothesDryer handleGetOn error: ${error?.message ?? error}`)
+      this.warnLog?.(`ClothesDryer handleGetOn error: ${error?.message ?? error}`)
       return false
     }
   }
@@ -46,7 +46,7 @@ export class SmartHQClothesDryer extends deviceBase {
       // await this.writeErd(ERD_TYPES.CLOTHES_DRYER_ON, value as boolean)
       this.ClothesDryer.On = value
     } catch (error: any) {
-      this.platform.warnLog?.(`ClothesDryer handleSetOn error: ${error?.message ?? error}`)
+      this.warnLog?.(`ClothesDryer handleSetOn error: ${error?.message ?? error}`)
     }
   }
 }

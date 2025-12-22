@@ -32,7 +32,7 @@ export class SmartHQOven extends deviceBase {
             try {
               return await this.readErd(ERD_TYPES.UPPER_OVEN_LIGHT).then(r => Number.parseInt(r) !== 0)
             } catch (error: any) {
-              this.platform.warnLog?.(`Oven handleGetOn error: ${error?.message ?? error}`)
+              this.warnLog?.(`Oven handleGetOn error: ${error?.message ?? error}`)
               return false
             }
           })
@@ -40,7 +40,7 @@ export class SmartHQOven extends deviceBase {
             try {
               await this.writeErd(ERD_TYPES.UPPER_OVEN_LIGHT, value as boolean)
             } catch (error: any) {
-              this.platform.warnLog?.(`Oven handleSetOn error: ${error?.message ?? error}`)
+              this.warnLog?.(`Oven handleSetOn error: ${error?.message ?? error}`)
             }
           })
       } else if (feature === 'COOKING_V1_EXTENDED_COOKTOP_FOUNDATION') {
@@ -52,7 +52,7 @@ export class SmartHQOven extends deviceBase {
               const b = Buffer.from(erdVal, 'hex')
               return fToC(b.readUint16BE(1))
             } catch (error: any) {
-              this.platform.warnLog?.(`Oven handleGetTargetTemperature error: ${error?.message ?? error}`)
+              this.warnLog?.(`Oven handleGetTargetTemperature error: ${error?.message ?? error}`)
               return 0
             }
           })
@@ -64,29 +64,28 @@ export class SmartHQOven extends deviceBase {
               b.writeUint16BE(fTarget, 1)
               return this.writeErd(ERD_TYPES.UPPER_OVEN_COOK_MODE, b.toString('hex'))
             } catch (error: any) {
-              this.platform.warnLog?.(`Oven handleSetTargetTemperature error: ${error?.message ?? error}`)
+              this.warnLog?.(`Oven handleSetTargetTemperature error: ${error?.message ?? error}`)
             }
           })
       } else {
         this.debugLog(`Feature not supported: ${feature}`)
       }
     })
+  }
 
   async readErd(erd: string): Promise<string> {
-    const d = await axios
-      .get(`/appliance/${this.accessory.context.device.applianceId}/erd/${erd}`)
+    const d = await axios.get(`/appliance/${this.accessory.context.device.applianceId}/erd/${erd}`)
     return String(d.data.value)
   }
 
   async writeErd(erd: string, value: string | boolean) {
-    await axios
-      .post(`/appliance/${this.accessory.context.device.applianceId}/erd/${erd}`, {
-        kind: 'appliance#erdListEntry',
-        userId: this.accessory.context.userId,
-        applianceId: this.accessory.context.device.applianceId,
-        erd,
-        value: typeof value === 'boolean' ? (value ? '01' : '00') : value,
-      })
+    await axios.post(`/appliance/${this.accessory.context.device.applianceId}/erd/${erd}`, {
+      kind: 'appliance#erdListEntry',
+      userId: this.accessory.context.userId,
+      applianceId: this.accessory.context.device.applianceId,
+      erd,
+      value: typeof value === 'boolean' ? (value ? '01' : '00') : value,
+    })
     return undefined
   }
 }

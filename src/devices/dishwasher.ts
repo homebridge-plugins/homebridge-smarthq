@@ -42,7 +42,7 @@ export class SmartHQDishWasher extends deviceBase {
             try {
               return await this.readErd(ERD_TYPES.DISHWASHER_CYCLE).then(r => Number.parseInt(r) !== 0)
             } catch (error: any) {
-              this.platform.warnLog?.(`Dishwasher handleGetOn error: ${error?.message ?? error}`)
+              this.warnLog?.(`Dishwasher handleGetOn error: ${error?.message ?? error}`)
               return false
             }
           })
@@ -50,7 +50,7 @@ export class SmartHQDishWasher extends deviceBase {
             try {
               await this.writeErd(ERD_TYPES.DISHWASHER_CYCLE, value as boolean)
             } catch (error: any) {
-              this.platform.warnLog?.(`Dishwasher handleSetOn error: ${error?.message ?? error}`)
+              this.warnLog?.(`Dishwasher handleSetOn error: ${error?.message ?? error}`)
             }
           })
       } else {
