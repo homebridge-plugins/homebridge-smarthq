@@ -16,6 +16,8 @@ import pkg from 'lodash'
 import ws from 'ws'
 
 import { SmartHQAirConditioner } from './devices/airConditioner.js'
+import { SmartHQClothesDryer } from './devices/clothesDryer.js'
+import { SmartHQClothesWasher } from './devices/clothesWasher.js'
 import { SmartHQDishWasher } from './devices/dishwasher.js'
 import { SmartHQHood } from './devices/hood.js'
 import { SmartHQOven } from './devices/oven.js'
@@ -143,7 +145,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
     if (!this.tokenSet) {
       throw new Error('Token set is undefined')
     }
-    
+
     if (this.tokenSet.refresh_token) {
       try {
         this.tokenSet = await refreshAccessToken(this.tokenSet.refresh_token)
@@ -186,7 +188,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
         await this.errorLog(`discoverDevices, Failed to get Access Token, Error Message: ${e.message ?? e}, Submit Bugs Here: https://bit.ly/smarthq-bug-report`)
         return // Stop execution if authentication fails
       }
-      
+
       try {
         await this.startRefreshTokenLogic()
       } catch (e: any) {
@@ -599,7 +601,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
         this.api.updatePlatformAccessories([existingAccessory])
         this.infoLog(`Restoring existing accessory from cache: ${existingAccessory.displayName}`)
         // create the accessory handler for the restored accessory
-        new (await import('./devices/clothesWasher')).SmartHQClothesWasher(this, existingAccessory, device)
+        new SmartHQClothesWasher(this, existingAccessory, device)
         this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
       } else {
         this.unregisterPlatformAccessories(existingAccessory)
@@ -611,7 +613,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       accessory.context = { device: { brand: 'GE', ...details, ...features }, userId }
       accessory.displayName = await this.validateAndCleanDisplayName(device.nickname, 'nickname', device.nickname)
       accessory.context.device.firmware = device.firmware ?? await this.getVersion()
-      new (await import('./devices/clothesWasher')).SmartHQClothesWasher(this, accessory, device)
+      new SmartHQClothesWasher(this, accessory, device)
       this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
       this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
       this.accessories.push(accessory)
@@ -634,7 +636,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
         this.api.updatePlatformAccessories([existingAccessory])
         this.infoLog(`Restoring existing accessory from cache: ${existingAccessory.displayName}`)
         // create the accessory handler for the restored accessory
-        new (await import('./devices/clothesDryer')).SmartHQClothesDryer(this, existingAccessory, device)
+        new SmartHQClothesDryer(this, existingAccessory, device)
         this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
       } else {
         this.unregisterPlatformAccessories(existingAccessory)
@@ -646,7 +648,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       accessory.context = { device: { brand: 'GE', ...details, ...features }, userId }
       accessory.displayName = await this.validateAndCleanDisplayName(device.nickname, 'nickname', device.nickname)
       accessory.context.device.firmware = device.firmware ?? await this.getVersion()
-      new (await import('./devices/clothesDryer')).SmartHQClothesDryer(this, accessory, device)
+      new SmartHQClothesDryer(this, accessory, device)
       this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
       this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
       this.accessories.push(accessory)
