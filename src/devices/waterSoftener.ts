@@ -19,7 +19,7 @@ export class SmartHQWaterSoftener extends deviceBase {
     this.debugLog(`Water Softener Features: ${JSON.stringify(accessory.context.device.features)}`)
 
     // Water Softener Filter/Salt Status
-    const filterService = this.accessory.getService('Softener Salt') ?? this.accessory.addService(this.platform.Service.FilterMaintenance, 'Softener Salt', 'SoftenerSalt')
+    const filterService = this.accessory!.getService('Softener Salt') ?? this.accessory!.addService(this.platform.Service.FilterMaintenance, 'Softener Salt', 'SoftenerSalt')
     filterService.setCharacteristic(this.platform.Characteristic.Name, 'Softener Salt')
     filterService
       .getCharacteristic(this.platform.Characteristic.FilterChangeIndication)
@@ -46,7 +46,7 @@ export class SmartHQWaterSoftener extends deviceBase {
       })
 
     // Water Valve
-    const valveService = this.accessory.getService('Water Softener') ?? this.accessory.addService(this.platform.Service.Valve, 'Water Softener', 'WaterSoftener')
+    const valveService = this.accessory!.getService('Water Softener') ?? this.accessory!.addService(this.platform.Service.Valve, 'Water Softener', 'WaterSoftener')
     valveService.setCharacteristic(this.platform.Characteristic.Name, 'Water Softener')
     valveService.setCharacteristic(this.platform.Characteristic.ValveType, this.platform.Characteristic.ValveType.WATER_FAUCET)
     valveService

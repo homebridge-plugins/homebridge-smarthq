@@ -13,6 +13,9 @@ import { ERD_TYPES } from '../settings.js'
 import { deviceBase } from './device.js'
 
 export class SmartHQOven extends deviceBase {
+  // Matter support override flag
+  private useMatterOverride: boolean = false
+
   constructor(
     readonly platform: SmartHQPlatform,
     accessory: PlatformAccessory<SmartHqContext>,
@@ -20,10 +23,145 @@ export class SmartHQOven extends deviceBase {
   ) {
     super(platform, accessory, device)
 
-    this.debugLog(`Oven Features: ${JSON.stringify(accessory.context.device.features)}`)
+    // Check if we should use Matter protocol
+    this.useMatterOverride = device.useMatter ?? false
 
+    this.debugLog(`Oven Features: ${JSON.stringify(accessory.context.device.features)}`)
+    this.debugLog(`Using protocol: ${this.useMatterOverride ? 'Matter' : 'HAP'}`)
+
+    // Initialize the appropriate protocol
+    if (this.useMatterOverride) {
+      this.initializeMatter().catch((error) => {
+        this.errorLog(`Failed to initialize Matter: ${error}`)
+      })
+    } else {
+      this.initializeHAP()
+    }
+  }
+
+  /**
+   * Initialize Matter protocol
+   */
+  private async initializeMatter(): Promise<void> {
+    const { valid, api: matterAPI } = this.validateMatterAPI()
+
+    if (!valid) {
+      if (this.device.matterOnly) {
+        this.errorLog('Matter API not available or incomplete - accessory will NOT be published (matterOnly mode enabled)')
+        this.errorLog('Reason: Matter API validation failed')
+        return
+      }
+      this.errorLog('Matter API not available or incomplete - falling back to HAP')
+      this.initializeHAP()
+      return
+    }
+
+    // Check if OvenDevice device type is available
+    if (!matterAPI.deviceTypes.OvenDevice) {
+      if (this.device.matterOnly) {
+        this.errorLog('Matter OvenDevice device type not available - accessory will NOT be published (matterOnly mode enabled)')
+        this.errorLog('Reason: Required Matter device type "OvenDevice" is not available in this Homebridge version')
+        this.errorLog(`Available Matter device types: ${Object.keys(matterAPI.deviceTypes).join(', ')}`)
+        return
+      }
+      this.warnLog('Matter OvenDevice device type not available in this Homebridge version - falling back to HAP')
+      this.warnLog(`Available Matter device types: ${Object.keys(matterAPI.deviceTypes).join(', ')}`)
+      this.useMatterOverride = false
+      this.initializeHAP()
+      return
+    }
+
+    const serialNumber = this.device.applianceId || 'unknown'
+    this.matterUuid = matterAPI.uuid.generate(serialNumber)
+
+    // Create Matter accessory configuration with oven-specific clusters
+    const matterAccessory = {
+      UUID: this.matterUuid,
+      displayName: this.device.nickname || 'SmartHQ Oven',
+      serialNumber,
+      manufacturer: this.device.brand && this.device.brand !== 'Unknown' ? this.device.brand : 'GE Appliances',
+      model: this.device.model || 'SmartHQ',
+      firmwareRevision: this.deviceFirmwareVersion,
+      hardwareRevision: this.deviceFirmwareVersion,
+      deviceType: matterAPI.deviceTypes.OvenDevice,
+      clusters: {
+        // On/Off cluster for oven light
+        onOff: {
+          onOff: false,
+        },
+        // Temperature Measurement for oven cavity (maps to UPPER_OVEN_DISPLAY_TEMPERATURE)
+        temperatureMeasurement: {
+          measuredValue: 2000, // 20°C in 0.01°C units
+          minMeasuredValue: 0,
+          maxMeasuredValue: 26000, // 260°C max
+        },
+        // Thermostat cluster for temperature setpoint control
+        thermostat: {
+          localTemperature: 2000,
+          occupiedHeatingSetpoint: 17500, // 175°C default
+          systemMode: 0, // 0=Off, 4=Heat
+          thermostatRunningMode: 0,
+          controlSequenceOfOperation: 2, // Heating only
+        },
+        // Oven Mode cluster for cooking modes (maps to UPPER_OVEN_COOK_MODE)
+        ovenMode: {
+          supportedModes: [
+            { label: 'Off', mode: 0 },
+            { label: 'Bake', mode: 1 },
+            { label: 'Convection Bake', mode: 2 },
+            { label: 'Broil High', mode: 3 },
+            { label: 'Broil Low', mode: 4 },
+            { label: 'Convection Multi', mode: 5 },
+          ],
+          currentMode: 0,
+        },
+        // Timer cluster for cook time remaining (maps to UPPER_OVEN_COOK_TIME_REMAINING)
+        timer: {
+          timerState: 0,
+          duration: 0,
+          remainingTime: 0,
+        },
+        // Alarm cluster for preheat complete, cooking done
+        alarm: {
+          mask: 0,
+          state: 0,
+          supported: 3, // Bits: 0=preheat complete, 1=cook complete
+        },
+        // Door Lock cluster for oven door
+        doorLock: {
+          lockState: 0, // 0=Unlocked, 1=Locked
+          lockType: 0,
+          actuatorEnabled: true,
+        },
+      },
+      handlers: {
+        onOff: {
+          on: async () => {
+            await this.writeErd(ERD_TYPES.UPPER_OVEN_LIGHT, true)
+          },
+          off: async () => {
+            await this.writeErd(ERD_TYPES.UPPER_OVEN_LIGHT, false)
+          },
+        },
+      },
+    }
+
+    // Register Matter accessory as external device
+    await matterAPI.registerPlatformAccessories(
+      '@homebridge-plugins/homebridge-smarthq',
+      'SmartHQ',
+      [matterAccessory],
+    )
+    this.matterRegistered = true
+    this.infoLog('Created Matter Oven with thermostat, mode selection, timer, alarm, and door lock clusters')
+  }
+
+  /**
+   * Initialize HAP (HomeKit) protocol
+   */
+  private initializeHAP(): void {
     // Oven Light
-    const ovenLight = this.accessory.getService('Oven Light') ?? this.accessory.addService(this.platform.Service.Lightbulb, 'Oven Light', 'OvenLight')
+    const ovenLight = this.accessory!.getService('Oven Light') ?? this.accessory!.addService(this.platform.Service.Lightbulb, 'Oven Light', 'OvenLight')
     ovenLight.setCharacteristic(this.platform.Characteristic.Name, 'Oven Light')
     ovenLight
       .getCharacteristic(this.platform.Characteristic.On)
@@ -45,7 +183,7 @@ export class SmartHQOven extends deviceBase {
       })
 
     // Oven Current Temperature Sensor
-    const ovenTempSensor = this.accessory.getService('Oven Temperature') ?? this.accessory.addService(this.platform.Service.TemperatureSensor, 'Oven Temperature', 'OvenTemp')
+    const ovenTempSensor = this.accessory!.getService('Oven Temperature') ?? this.accessory!.addService(this.platform.Service.TemperatureSensor, 'Oven Temperature', 'OvenTemp')
     ovenTempSensor.setCharacteristic(this.platform.Characteristic.Name, 'Oven Temperature')
     ovenTempSensor
       .getCharacteristic(this.platform.Characteristic.CurrentTemperature)
@@ -67,7 +205,7 @@ export class SmartHQOven extends deviceBase {
     ;(async () => {
       const probePresent = await this.has_erd_code(ERD_TYPES.UPPER_OVEN_PROBE_PRESENT)
       if (probePresent) {
-        const probeTempSensor = this.accessory.getService('Probe Temperature') ?? this.accessory.addService(this.platform.Service.TemperatureSensor, 'Probe Temperature', 'ProbeTemp')
+        const probeTempSensor = this.accessory!.getService('Probe Temperature') ?? this.accessory!.addService(this.platform.Service.TemperatureSensor, 'Probe Temperature', 'ProbeTemp')
         probeTempSensor.setCharacteristic(this.platform.Characteristic.Name, 'Probe Temperature')
         probeTempSensor
           .getCharacteristic(this.platform.Characteristic.CurrentTemperature)
@@ -83,7 +221,7 @@ export class SmartHQOven extends deviceBase {
     })()
 
     // Cook Time Remaining (using a valve to show remaining duration)
-    const cookTimeValve = this.accessory.getService('Cook Time') ?? this.accessory.addService(this.platform.Service.Valve, 'Cook Time', 'CookTime')
+    const cookTimeValve = this.accessory!.getService('Cook Time') ?? this.accessory!.addService(this.platform.Service.Valve, 'Cook Time', 'CookTime')
     cookTimeValve.setCharacteristic(this.platform.Characteristic.Name, 'Cook Time')
     cookTimeValve.setCharacteristic(this.platform.Characteristic.ValveType, this.platform.Characteristic.ValveType.GENERIC_VALVE)
     cookTimeValve
@@ -120,7 +258,7 @@ export class SmartHQOven extends deviceBase {
       })
 
     // Remote Enabled Status (binary sensor)
-    const remoteEnabledSensor = this.accessory.getService('Remote Enabled') ?? this.accessory.addService(this.platform.Service.ContactSensor, 'Remote Enabled', 'RemoteEnabled')
+    const remoteEnabledSensor = this.accessory!.getService('Remote Enabled') ?? this.accessory!.addService(this.platform.Service.ContactSensor, 'Remote Enabled', 'RemoteEnabled')
     remoteEnabledSensor.setCharacteristic(this.platform.Characteristic.Name, 'Remote Enabled')
     remoteEnabledSensor
       .getCharacteristic(this.platform.Characteristic.ContactSensorState)
@@ -133,7 +271,7 @@ export class SmartHQOven extends deviceBase {
       })
 
     // Oven Door Lock (Security System for lock state)
-    const ovenDoorLock = this.accessory.getService('Oven Door Lock') ?? this.accessory.addService(this.platform.Service.LockMechanism, 'Oven Door Lock', 'OvenDoorLock')
+    const ovenDoorLock = this.accessory!.getService('Oven Door Lock') ?? this.accessory!.addService(this.platform.Service.LockMechanism, 'Oven Door Lock', 'OvenDoorLock')
     ovenDoorLock.setCharacteristic(this.platform.Characteristic.Name, 'Oven Door Lock')
     ovenDoorLock
       .getCharacteristic(this.platform.Characteristic.LockCurrentState)

@@ -1,0 +1,130 @@
+/* Copyright(C) 2021-2024, donavanbecker (https://github.com/donavanbecker). All rights reserved.
+ *
+ * deviceMatter.ts: @homebridge-plugins/homebridge-smarthq - Matter device base class.
+ */
+import type { SmartHQPlatform } from '../platform.js'
+import type { devicesConfig, SmartHqContext } from '../settings.js'
+
+import { deviceBaseCommon } from './deviceBaseCommon.js'
+
+// Type for Matter accessory (will be properly typed in Homebridge 2.0)
+export interface MatterAccessory {
+  UUID: string
+  displayName: string
+  serialNumber: string
+  manufacturer: string
+  model: string
+  firmwareRevision: string
+  hardwareRevision: string
+  deviceType: any
+  clusters?: Record<string, unknown>
+  handlers?: Record<string, unknown>
+  parts?: Array<MatterAccessory>
+  context?: Record<string, unknown>
+}
+
+/**
+ * Base class for Matter devices
+ * Extends deviceBaseCommon with Matter-specific MatterAccessory handling
+ */
+export abstract class deviceBaseMatter extends deviceBaseCommon {
+  // Matter accessory instance
+  protected matterAccessory!: MatterAccessory
+  protected uuid!: string
+
+  // Device context
+  protected deviceContext: SmartHqContext
+
+  constructor(
+    protected readonly platform: SmartHQPlatform,
+    protected device: devicesConfig & SmartHqContext['device'],
+    protected userId: string,
+  ) {
+    super(platform, device)
+
+    // Store device context
+    this.deviceContext = {
+      device: this.device,
+      userId: this.userId,
+    }
+
+    this.getDeviceFirmwareVersion(device)
+  }
+
+  /**
+   * Implement abstract methods from deviceBaseCommon
+   */
+  protected getApplianceId(): string {
+    return this.device.applianceId
+  }
+
+  protected getUserId(): string {
+    return this.userId
+  }
+
+  protected getDisplayName(): string {
+    return `[Matter] ${this.device.nickname || 'SmartHQ Device'}`
+  }
+
+  async getDeviceFirmwareVersion(device: devicesConfig): Promise<void> {
+    const deviceFirmwareVersion = device.firmware ?? this.platform.version ?? '0.0.0'
+    this.deviceFirmwareVersion = await this.parseFirmwareVersion(deviceFirmwareVersion)
+    await this.debugLog(`deviceFirmwareVersion: ${this.deviceFirmwareVersion}`)
+  }
+
+  /**
+   * Create the Matter accessory configuration
+   * This should be overridden by device-specific implementations
+   */
+  abstract createMatterAccessory(): MatterAccessory
+
+  /**
+   * Get the Matter accessory instance
+   */
+  getMatterAccessory(): MatterAccessory {
+    if (!this.matterAccessory) {
+      this.matterAccessory = this.createMatterAccessory()
+    }
+    return this.matterAccessory
+  }
+
+  /**
+   * Helper to create base Matter accessory info
+   */
+  protected createBaseMatterConfig() {
+    const displayName = this.device.nickname || 'SmartHQ Device'
+    const serialNumber = this.device.applianceId || 'unknown'
+
+    // Type assertion for Matter API (will be properly typed in Homebridge 2.0)
+    const matterAPI = (this.api as any).matter
+
+    return {
+      UUID: matterAPI.uuid.generate(serialNumber),
+      displayName,
+      serialNumber,
+      manufacturer: this.device.brand && this.device.brand !== 'Unknown' ? this.device.brand : 'GE Appliances',
+      model: this.device.model || 'SmartHQ',
+      firmwareRevision: this.deviceFirmwareVersion,
+      hardwareRevision: this.deviceFirmwareVersion,
+    }
+  }
+
+  /**
+   * Update Matter cluster state
+   */
+  protected async updateMatterState(clusterName: string, attributes: Record<string, unknown>): Promise<void> {
+    if (!this.uuid) {
+      await this.errorLog('Cannot update Matter state - UUID not set')
+      return
+    }
+
+    try {
+      // Type assertion for Matter API (will be properly typed in Homebridge 2.0)
+      const matterAPI = (this.api as any).matter
+      await matterAPI.updateAccessoryState(this.uuid, clusterName, attributes)
+      await this.debugLog(`Updated Matter cluster ${clusterName}: ${JSON.stringify(attributes)}`)
+    } catch (error: any) {
+      await this.errorLog(`Failed to update Matter cluster ${clusterName}: ${error?.message ?? error}`)
+    }
+  }
+}

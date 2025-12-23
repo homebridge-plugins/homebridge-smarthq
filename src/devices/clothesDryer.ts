@@ -13,18 +13,168 @@ export class SmartHQClothesDryer extends deviceBase {
   SensorUpdateInProgress!: boolean
   deviceStatus: any
 
+  // Matter support override flag
+  private useMatterOverride: boolean = false
+
   constructor(
     readonly platform: SmartHQPlatform,
     accessory: PlatformAccessory<SmartHqContext>,
     readonly device: SmartHqContext['device'] & devicesConfig,
   ) {
     super(platform, accessory, device)
-    this.debugLog(`Clothes Dryer Features: ${JSON.stringify(accessory.context.device.features)}`)
 
+    // Check if we should use Matter protocol
+    this.useMatterOverride = device.useMatter ?? false
+
+    this.debugLog(`Clothes Dryer Features: ${JSON.stringify(accessory.context.device.features)}`)
+    this.debugLog(`Using protocol: ${this.useMatterOverride ? 'Matter' : 'HAP'}`)
+
+    // Initialize the appropriate protocol
+    if (this.useMatterOverride) {
+      this.initializeMatter().catch((error) => {
+        this.errorLog(`Failed to initialize Matter: ${error}`)
+      })
+    } else {
+      this.initializeHAP()
+    }
+
+    // Start periodic refresh
+    this.SensorUpdateInProgress = false
+    interval(this.deviceRefreshRate * 10000)
+      .pipe(skipWhile(() => this.SensorUpdateInProgress))
+      .subscribe(async () => {
+        // await this.refreshStatus()
+      })
+  }
+
+  /**
+   * Initialize Matter protocol
+   */
+  private async initializeMatter(): Promise<void> {
+    const { valid, api: matterAPI } = this.validateMatterAPI()
+
+    if (!valid) {
+      if (this.device.matterOnly) {
+        this.errorLog('Matter API not available or incomplete - accessory will NOT be published (matterOnly mode enabled)')
+        this.errorLog('Reason: Matter API validation failed')
+        return
+      }
+      this.errorLog('Matter API not available or incomplete - falling back to HAP')
+      this.initializeHAP()
+      return
+    }
+
+    // Check if LaundryDryerDevice device type is available
+    if (!matterAPI.deviceTypes.LaundryDryerDevice) {
+      if (this.device.matterOnly) {
+        this.errorLog('Matter LaundryDryerDevice device type not available - accessory will NOT be published (matterOnly mode enabled)')
+        this.errorLog('Reason: Required Matter device type "LaundryDryerDevice" is not available in this Homebridge version')
+        this.errorLog(`Available Matter device types: ${Object.keys(matterAPI.deviceTypes).join(', ')}`)
+        return
+      }
+      this.warnLog('Matter LaundryDryerDevice device type not available in this Homebridge version - falling back to HAP')
+      this.warnLog(`Available Matter device types: ${Object.keys(matterAPI.deviceTypes).join(', ')}`)
+      this.useMatterOverride = false
+      this.initializeHAP()
+      return
+    }
+
+    const serialNumber = this.device.applianceId || 'unknown'
+    this.matterUuid = matterAPI.uuid.generate(serialNumber)
+
+    // Create Matter accessory configuration with dryer-specific clusters
+    const matterAccessory = {
+      UUID: this.matterUuid,
+      displayName: this.device.nickname || 'SmartHQ Dryer',
+      serialNumber,
+      manufacturer: this.device.brand && this.device.brand !== 'Unknown' ? this.device.brand : 'GE Appliances',
+      model: this.device.model || 'SmartHQ',
+      firmwareRevision: this.deviceFirmwareVersion,
+      hardwareRevision: this.deviceFirmwareVersion,
+      deviceType: matterAPI.deviceTypes.LaundryDryerDevice,
+      clusters: {
+        // Operational State cluster (maps to LAUNDRY_MACHINE_STATE)
+        operationalState: {
+          operationalState: 0, // 0=Stopped, 1=Running, 2=Paused
+          operationalError: { errorStateID: 0 },
+          phaseList: ['Drying', 'Cooling', 'Anti-Wrinkle'],
+          currentPhase: 0,
+        },
+        // LaundryDryer Mode cluster for cycle selection (maps to LAUNDRY_CYCLE)
+        laundryDryerMode: {
+          supportedModes: [
+            { label: 'Normal', mode: 0 },
+            { label: 'Delicate', mode: 1 },
+            { label: 'Heavy Duty', mode: 2 },
+            { label: 'Quick Dry', mode: 3 },
+            { label: 'Air Fluff', mode: 4 },
+            { label: 'Sanitize', mode: 5 },
+          ],
+          currentMode: 0,
+        },
+        // Temperature Control for heat settings
+        temperatureControl: {
+          supportedTemperatureLevels: ['No Heat', 'Low', 'Medium', 'High'],
+          selectedTemperatureLevel: 0,
+        },
+        // Temperature Measurement for dryer temperature
+        temperatureMeasurement: {
+          measuredValue: 2000, // 20°C in 0.01°C units
+          minMeasuredValue: 0,
+          maxMeasuredValue: 8000, // 80°C max
+        },
+        // Timer cluster for time remaining (maps to LAUNDRY_TIME_REMAINING)
+        timer: {
+          timerState: 0,
+          duration: 0,
+          remainingTime: 0,
+        },
+        // Alarm cluster for cycle complete (maps to LAUNDRY_END_OF_CYCLE)
+        alarm: {
+          mask: 0,
+          state: 0,
+          supported: 1, // Bit 0: Cycle complete
+        },
+        // Door Lock cluster (maps to LAUNDRY_DOOR_LOCK)
+        doorLock: {
+          lockState: 0, // 0=Unlocked, 1=Locked
+          lockType: 0,
+          actuatorEnabled: true,
+        },
+        // On/Off cluster for machine active state
+        onOff: {
+          onOff: false,
+        },
+      },
+      handlers: {},
+    }
+
+    // Register Matter accessory as external device
+    await matterAPI.registerPlatformAccessories(
+      '@homebridge-plugins/homebridge-smarthq',
+      'SmartHQ',
+      [matterAccessory],
+    )
+    this.matterRegistered = true
+    this.infoLog('Created Matter Dryer with operational state, mode selection, temperature control, timer, alarm, and door lock clusters')
+  }
+
+  /**
+   * Initialize HAP (HomeKit) protocol
+   */
+  private initializeHAP(): void {
     // Dryer Running State (Valve)
-    const dryerValve = this.accessory.getService('Dryer') ?? this.accessory.addService(this.platform.Service.Valve, 'Dryer', 'Dryer')
+    const dryerValve = this.accessory!.getService('Dryer') ?? this.accessory!.addService(this.platform.Service.Valve, 'Dryer', 'Dryer')
     dryerValve.setCharacteristic(this.platform.Characteristic.Name, 'Dryer')
     dryerValve.setCharacteristic(this.platform.Characteristic.ValveType, this.platform.Characteristic.ValveType.GENERIC_VALVE)
+
+    // Set maximum duration to a large value (e.g., 12 hours = 43200 seconds)
+    dryerValve.getCharacteristic(this.platform.Characteristic.SetDuration).setProps({
+      maxValue: 43200,
+      minValue: 0,
+      minStep: 60,
+    })
+
     dryerValve
       .getCharacteristic(this.platform.Characteristic.Active)
       .onGet(async () => {
@@ -43,6 +193,12 @@ export class SmartHQClothesDryer extends deviceBase {
     dryerValve
       .getCharacteristic(this.platform.Characteristic.RemainingDuration)
       .onGet(async () => {
+        // Check if machine is running first
+        const machineState = await this.readErd(ERD_TYPES.LAUNDRY_MACHINE_STATE)
+        if (!machineState || Number.parseInt(machineState) === 0) {
+          return 0 // Machine is idle, no time remaining
+        }
+
         const r = await this.readErd(ERD_TYPES.LAUNDRY_TIME_REMAINING)
         if (!r) {
           return 0
@@ -50,13 +206,13 @@ export class SmartHQClothesDryer extends deviceBase {
         // Value is in hex, convert to decimal (appears to be in deciseconds or needs /10)
         const value = Number.parseInt(r, 16)
         const minutes = value / 10
-        const seconds = Math.min(minutes * 60, 3600) // Cap at 3600 seconds (HomeKit max)
-        this.debugLog(`Time Remaining - Hex: ${r}, Decimal: ${value}, Minutes: ${minutes}, Seconds: ${seconds}`)
+        const seconds = Math.round(minutes * 60) // Don't cap, let it show actual time
+        this.infoLog(`Time Remaining - Hex: ${r}, Decimal: ${value}, Minutes: ${minutes}, Seconds: ${seconds}`)
         return seconds
       })
 
     // Door Lock
-    const doorLock = this.accessory.getService('Dryer Door Lock') ?? this.accessory.addService(this.platform.Service.LockMechanism, 'Dryer Door Lock', 'DryerDoorLock')
+    const doorLock = this.accessory!.getService('Dryer Door Lock') ?? this.accessory!.addService(this.platform.Service.LockMechanism, 'Dryer Door Lock', 'DryerDoorLock')
     doorLock.setCharacteristic(this.platform.Characteristic.Name, 'Dryer Door Lock')
     doorLock
       .getCharacteristic(this.platform.Characteristic.LockCurrentState)
@@ -78,7 +234,7 @@ export class SmartHQClothesDryer extends deviceBase {
       })
 
     // Door Sensor
-    const doorSensor = this.accessory.getService('Dryer Door') ?? this.accessory.addService(this.platform.Service.ContactSensor, 'Dryer Door', 'DryerDoor')
+    const doorSensor = this.accessory!.getService('Dryer Door') ?? this.accessory!.addService(this.platform.Service.ContactSensor, 'Dryer Door', 'DryerDoor')
     doorSensor.setCharacteristic(this.platform.Characteristic.Name, 'Dryer Door')
     doorSensor
       .getCharacteristic(this.platform.Characteristic.ContactSensorState)
@@ -119,7 +275,7 @@ export class SmartHQClothesDryer extends deviceBase {
       return cycleMap[code] || `Cycle ${code}`
     }
 
-    const cycleSensor = this.accessory.getService('Cycle Status') ?? this.accessory.addService(this.platform.Service.MotionSensor, 'Cycle Status', 'DryerCycle')
+    const cycleSensor = this.accessory!.getService('Cycle Status') ?? this.accessory!.addService(this.platform.Service.MotionSensor, 'Cycle Status', 'DryerCycle')
     cycleSensor.setCharacteristic(this.platform.Characteristic.Name, 'Cycle Status')
     cycleSensor
       .getCharacteristic(this.platform.Characteristic.MotionDetected)
@@ -148,16 +304,6 @@ export class SmartHQClothesDryer extends deviceBase {
           return true // Motion detected when cycle is running
         }
         return false
-      })
-
-    // this is subject we use to track when we need to POST changes to the SmartHQ API
-    this.SensorUpdateInProgress = false
-
-    // Start an update interval
-    interval(this.deviceRefreshRate * 10000)
-      .pipe(skipWhile(() => this.SensorUpdateInProgress))
-      .subscribe(async () => {
-        // await this.refreshStatus()
       })
   }
 }

@@ -60,6 +60,10 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
   debugMode!: boolean
   version!: string
 
+  // Matter support tracking
+  public matterEnabled = false
+  public matterAvailable = false
+
   constructor(
     log: Logging,
     config: SmartHQPlatformConfig,
@@ -93,7 +97,10 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
     // Finish initializing the platform
     this.Service = this.api.hap.Service
     this.Characteristic = this.api.hap.Characteristic
-    this.debugLog(`Finished initializing platform: ${config.name}`);
+    this.debugLog(`Finished initializing platform: ${config.name}`)
+
+    // Check Matter availability and enabled status
+    this.checkMatterSupport();
 
     // verify the config
     (async () => {
@@ -373,476 +380,648 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
   }
 
   private async createSmartHQDishWasher(userId: any, device: any, details: any, features: any) {
-    const uuid = this.api.hap.uuid.generate(device.applianceId)
+    // Merge device data
+    const deviceData = { brand: 'GE', ...details, ...features, ...device }
 
-    // see if an accessory with the same uuid has already been registered and restored from
-    // the cached devices we stored in the `configureAccessory` method above
+    // Determine protocol (Matter or HAP)
+    deviceData.useMatter = this.shouldUseMatter(deviceData)
+
+    const uuid = this.api.hap.uuid.generate(deviceData.applianceId)
     const existingAccessory = this.accessories.find(accessory => accessory.UUID === uuid)
+
+    const protocol = deviceData.useMatter ? 'Matter' : 'HAP'
 
     if (existingAccessory) {
       // the accessory already exists
-      if (!device.hide_device) {
-        // if you need to update the accessory.context then you should run `api.updatePlatformAccessories`. eg.:
-        existingAccessory.context.device = device
-        existingAccessory.context = { device: { brand: 'GE', ...details, ...features }, userId }
-        existingAccessory.displayName = await this.validateAndCleanDisplayName(device.nickname, 'nickname', device.nickname)
-        existingAccessory.context.device.firmware = device.firmware ?? await this.getVersion()
-        this.api.updatePlatformAccessories([existingAccessory])
-        // Restore accessory
-        this.infoLog(`Restoring existing accessory from cache: ${existingAccessory.displayName}`)
-        // create the accessory handler for the restored accessory
-        // this is imported from `platformAccessory.ts`
-        new SmartHQDishWasher(this, existingAccessory, device)
-        this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
+      if (!deviceData.hide_device) {
+        // Check if protocol changed to Matter - if so, remove from HAP bridge
+        if (this.shouldUnregisterForMatter(existingAccessory, deviceData)) {
+          // Device removed from HAP, will be registered as Matter accessory in device class
+          const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+          accessory.context.device = deviceData
+          accessory.context = { device: deviceData, userId }
+          accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
+          new SmartHQDishWasher(this, accessory, deviceData)
+          this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
+        } else {
+          // Still using HAP, restore normally
+          existingAccessory.context.device = deviceData
+          existingAccessory.context = { device: deviceData, userId }
+          existingAccessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          existingAccessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
+          this.api.updatePlatformAccessories([existingAccessory])
+          this.infoLog(`[${protocol}] Restoring existing accessory from cache: ${existingAccessory.displayName}`)
+          new SmartHQDishWasher(this, existingAccessory, deviceData)
+          await this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
+        }
       } else {
         this.unregisterPlatformAccessories(existingAccessory)
       }
-    } else if (!device.hide_device && !existingAccessory) {
-      this.infoLog(`Adding new accessory: ${device.nickname}`)
-      const accessory = new this.api.platformAccessory<SmartHqContext>(device.nickname, uuid)
-
-      // store a copy of the device object in the `accessory.context`
-      // the `context` property can be used to store any data about the accessory you may need
-      accessory.context.device = device
-      accessory.context = { device: { brand: 'GE', ...details, ...features }, userId }
-      accessory.displayName = await this.validateAndCleanDisplayName(device.nickname, 'nickname', device.nickname)
-      accessory.context.device.firmware = device.firmware ?? await this.getVersion()
-      // the accessory does not yet exist, so we need to create it
-      // create the accessory handler for the newly create accessory
-      // this is imported from `platformAccessory.ts`
-      new SmartHQDishWasher(this, accessory, device)
-      this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
-
-      // link the accessory to your platform
+    } else if (!deviceData.hide_device && !existingAccessory) {
+      this.infoLog(`[${protocol}] Adding new accessory: ${deviceData.nickname}`)
+      const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+      accessory.context.device = deviceData
+      accessory.context = { device: deviceData, userId }
+      accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+      accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
+      new SmartHQDishWasher(this, accessory, deviceData)
+      this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
       this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
       this.accessories.push(accessory)
     } else {
-      this.debugErrorLog(`Unable to Register new device: ${JSON.stringify(device.nickname)}`)
+      this.debugErrorLog(`Unable to Register new device: ${JSON.stringify(deviceData.nickname)}`)
     }
   }
 
   private async createSmartHQOven(userId: any, device: any, details: any, features: any) {
-    const uuid = this.api.hap.uuid.generate(device.applianceId)
+    // Merge device data
+    const deviceData = { brand: 'GE', ...details, ...features, ...device }
 
-    // see if an accessory with the same uuid has already been registered and restored from
-    // the cached devices we stored in the `configureAccessory` method above
+    // Determine protocol (Matter or HAP)
+    deviceData.useMatter = this.shouldUseMatter(deviceData)
+
+    const uuid = this.api.hap.uuid.generate(deviceData.applianceId)
     const existingAccessory = this.accessories.find(accessory => accessory.UUID === uuid)
+
+    const protocol = deviceData.useMatter ? 'Matter' : 'HAP'
 
     if (existingAccessory) {
       // the accessory already exists
-      if (!device.hide_device) {
-        // if you need to update the accessory.context then you should run `api.updatePlatformAccessories`. eg.:
-        existingAccessory.context.device = device
-        existingAccessory.context = { device: { brand: 'GE', ...details, ...features }, userId }
-        existingAccessory.displayName = await this.validateAndCleanDisplayName(device.nickname, 'nickname', device.nickname)
-        existingAccessory.context.device.firmware = device.firmware ?? await this.getVersion()
-        this.api.updatePlatformAccessories([existingAccessory])
-        // Restore accessory
-        this.infoLog(`Restoring existing accessory from cache: ${existingAccessory.displayName}`)
-        // create the accessory handler for the restored accessory
-        // this is imported from `platformAccessory.ts`
-        new SmartHQOven(this, existingAccessory, device)
-        await this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
+      if (!deviceData.hide_device) {
+        // Check if protocol changed to Matter - if so, remove from HAP bridge
+        if (this.shouldUnregisterForMatter(existingAccessory, deviceData)) {
+          const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+          accessory.context.device = deviceData
+          accessory.context = { device: deviceData, userId }
+          accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
+          new SmartHQOven(this, accessory, deviceData)
+          this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
+        } else {
+          existingAccessory.context.device = deviceData
+          existingAccessory.context = { device: deviceData, userId }
+          existingAccessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          existingAccessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
+          this.api.updatePlatformAccessories([existingAccessory])
+          this.infoLog(`[${protocol}] Restoring existing accessory from cache: ${existingAccessory.displayName}`)
+          new SmartHQOven(this, existingAccessory, deviceData)
+          await this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
+        }
       } else {
         this.unregisterPlatformAccessories(existingAccessory)
       }
-    } else if (!device.hide_device && !existingAccessory) {
-      this.infoLog(`Adding new accessory: ${device.nickname}`)
-      const accessory = new this.api.platformAccessory<SmartHqContext>(device.nickname, uuid)
-
-      // store a copy of the device object in the `accessory.context`
-      // the `context` property can be used to store any data about the accessory you may need
-      accessory.context.device = device
-      accessory.context = { device: { brand: 'GE', ...details, ...features }, userId }
-      accessory.displayName = await this.validateAndCleanDisplayName(device.nickname, 'nickname', device.nickname)
-      accessory.context.device.firmware = device.firmware ?? await this.getVersion()
-      // the accessory does not yet exist, so we need to create it
-      // create the accessory handler for the newly create accessory
-      // this is imported from `platformAccessory.ts`
-      new SmartHQOven(this, accessory, device)
-      this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
-
-      // link the accessory to your platform
+    } else if (!deviceData.hide_device && !existingAccessory) {
+      this.infoLog(`[${protocol}] Adding new accessory: ${deviceData.nickname}`)
+      const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+      accessory.context.device = deviceData
+      accessory.context = { device: deviceData, userId }
+      accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+      accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
+      new SmartHQOven(this, accessory, deviceData)
+      this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
       this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
       this.accessories.push(accessory)
     } else {
-      this.debugErrorLog(`Unable to Register new device: ${JSON.stringify(device.nickname)}`)
+      this.debugErrorLog(`Unable to Register new device: ${JSON.stringify(deviceData.nickname)}`)
     }
   }
 
   private async createSmartHQIceMaker(userId: any, device: any, details: any, features: any) {
-    const uuid = this.api.hap.uuid.generate(device.applianceId)
+    // Merge device data
+    const deviceData = { brand: 'GE', ...details, ...features, ...device }
+
+    // Determine protocol (Matter or HAP)
+    deviceData.useMatter = this.shouldUseMatter(deviceData)
+
+    const uuid = this.api.hap.uuid.generate(deviceData.applianceId)
 
     // see if an accessory with the same uuid has already been registered and restored from
     // the cached devices we stored in the `configureAccessory` method above
     const existingAccessory = this.accessories.find(accessory => accessory.UUID === uuid)
 
+    const protocol = deviceData.useMatter ? 'Matter' : 'HAP'
+
     if (existingAccessory) {
       // the accessory already exists
-      if (!device.hide_device) {
-        // if you need to update the accessory.context then you should run `api.updatePlatformAccessories`. eg.:
-        existingAccessory.context.device = device
-        existingAccessory.context = { device: { brand: 'GE', ...details, ...features }, userId }
-        existingAccessory.displayName = await this.validateAndCleanDisplayName(device.nickname, 'nickname', device.nickname)
-        existingAccessory.context.device.firmware = device.firmware ?? await this.getVersion()
-        this.api.updatePlatformAccessories([existingAccessory])
-        // Restore accessory
-        // create the accessory handler for the restored accessory
-        // this is imported from `platformAccessory.ts`
-        new SmartHQIceMaker(this, existingAccessory, device)
-        this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
+      if (!deviceData.hide_device) {
+        // Check if protocol changed to Matter - if so, remove from HAP bridge
+        if (this.shouldUnregisterForMatter(existingAccessory, deviceData)) {
+          const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+          accessory.context.device = deviceData
+          accessory.context = { device: deviceData, userId }
+          accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
+          new SmartHQIceMaker(this, accessory, deviceData)
+          this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
+        } else {
+          // if you need to update the accessory.context then you should run `api.updatePlatformAccessories`. eg.:
+          existingAccessory.context.device = deviceData
+          existingAccessory.context = { device: deviceData, userId }
+          existingAccessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          existingAccessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
+          this.api.updatePlatformAccessories([existingAccessory])
+          // Restore accessory
+          // create the accessory handler for the restored accessory
+          // this is imported from `platformAccessory.ts`
+          this.infoLog(`[${protocol}] Restoring existing accessory from cache: ${existingAccessory.displayName}`)
+          new SmartHQIceMaker(this, existingAccessory, deviceData)
+          this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
+        }
       } else {
         this.unregisterPlatformAccessories(existingAccessory)
       }
-    } else if (!device.hide_device && !existingAccessory) {
-      this.infoLog(`Adding new accessory: ${device.nickname}`)
-      const accessory = new this.api.platformAccessory<SmartHqContext>(device.nickname, uuid)
+    } else if (!deviceData.hide_device && !existingAccessory) {
+      this.infoLog(`[${protocol}] Adding new accessory: ${deviceData.nickname}`)
+      const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
 
       // store a copy of the device object in the `accessory.context`
       // the `context` property can be used to store any data about the accessory you may need
-      accessory.context.device = device
-      accessory.context = { device: { brand: 'GE', ...details, ...features }, userId }
-      accessory.displayName = await this.validateAndCleanDisplayName(device.nickname, 'nickname', device.nickname)
-      accessory.context.device.firmware = device.firmware ?? await this.getVersion()
+      accessory.context.device = deviceData
+      accessory.context = { device: deviceData, userId }
+      accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+      accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
       // the accessory does not yet exist, so we need to create it
       // create the accessory handler for the newly create accessory
       // this is imported from `platformAccessory.ts`
-      new SmartHQIceMaker(this, accessory, device)
-      this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
+      new SmartHQIceMaker(this, accessory, deviceData)
+      this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
 
       // link the accessory to your platform
       this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
       this.accessories.push(accessory)
     } else {
-      this.debugErrorLog(`Unable to Register new device: ${JSON.stringify(device.nickname)}`)
+      this.debugErrorLog(`Unable to Register new device: ${JSON.stringify(deviceData.nickname)}`)
     }
   }
 
+  /**
+   * Create Refrigerator accessory (unified HAP/Matter)
+   * The SmartHQRefrigerator class now handles both protocols internally
+   */
   private async createSmartHQRefrigerator(userId: any, device: any, details: any, features: any) {
-    const uuid = this.api.hap.uuid.generate(device.applianceId)
+    // Merge device data
+    const deviceData = { brand: 'GE', ...details, ...features, ...device }
 
-    // see if an accessory with the same uuid has already been registered and restored from
-    // the cached devices we stored in the `configureAccessory` method above
+    // Determine protocol (Matter or HAP)
+    deviceData.useMatter = this.shouldUseMatter(deviceData)
+
+    const uuid = this.api.hap.uuid.generate(deviceData.applianceId)
     const existingAccessory = this.accessories.find(accessory => accessory.UUID === uuid)
+
+    const protocol = deviceData.useMatter ? 'Matter' : 'HAP'
 
     if (existingAccessory) {
       // the accessory already exists
-      if (!device.hide_device) {
-        // if you need to update the accessory.context then you should run `api.updatePlatformAccessories`. eg.:
-        existingAccessory.context.device = device
-        existingAccessory.context = { device: { brand: 'GE', ...details, ...features }, userId }
-        existingAccessory.displayName = await this.validateAndCleanDisplayName(device.nickname, 'nickname', device.nickname)
-        existingAccessory.context.device.firmware = device.firmware ?? await this.getVersion()
-        this.api.updatePlatformAccessories([existingAccessory])
-        // Restore accessory
-        this.infoLog(`Restoring existing accessory from cache: ${existingAccessory.displayName}`)
-        // create the accessory handler for the restored accessory
-        // this is imported from `platformAccessory.ts`
-        new SmartHQRefrigerator(this, existingAccessory, device)
-        await this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
+      if (!deviceData.hide_device) {
+        // Check if protocol changed to Matter - if so, remove from HAP bridge
+        if (this.shouldUnregisterForMatter(existingAccessory, deviceData)) {
+          const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+          accessory.context.device = deviceData
+          accessory.context = { device: deviceData, userId }
+          accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
+          new SmartHQRefrigerator(this, accessory, deviceData)
+          this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
+        } else {
+          existingAccessory.context.device = deviceData
+          existingAccessory.context = { device: deviceData, userId }
+          existingAccessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          existingAccessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
+          this.api.updatePlatformAccessories([existingAccessory])
+          this.infoLog(`[${protocol}] Restoring existing accessory from cache: ${existingAccessory.displayName}`)
+          new SmartHQRefrigerator(this, existingAccessory, deviceData)
+          await this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
+        }
       } else {
         this.unregisterPlatformAccessories(existingAccessory)
       }
-    } else if (!device.hide_device && !existingAccessory) {
-      this.infoLog(`Adding new accessory: ${device.nickname}`)
-      const accessory = new this.api.platformAccessory<SmartHqContext>(device.nickname, uuid)
-
-      // store a copy of the device object in the `accessory.context`
-      // the `context` property can be used to store any data about the accessory you may need
-      accessory.context.device = device
-      accessory.context = { device: { brand: 'GE', ...details, ...features }, userId }
-      accessory.displayName = await this.validateAndCleanDisplayName(device.nickname, 'nickname', device.nickname)
-      accessory.context.device.firmware = device.firmware ?? await this.getVersion()
-      // the accessory does not yet exist, so we need to create it
-      // create the accessory handler for the newly create accessory
-      // this is imported from `platformAccessory.ts`
-      new SmartHQRefrigerator(this, accessory, device)
-      this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
-
-      // link the accessory to your platform
+    } else if (!deviceData.hide_device && !existingAccessory) {
+      this.infoLog(`[${protocol}] Adding new accessory: ${deviceData.nickname}`)
+      const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+      accessory.context.device = deviceData
+      accessory.context = { device: deviceData, userId }
+      accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+      accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
+      new SmartHQRefrigerator(this, accessory, deviceData)
+      this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
       this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
       this.accessories.push(accessory)
     } else {
-      this.debugErrorLog(`Unable to Register new device: ${JSON.stringify(device.nickname)}`)
+      this.debugErrorLog(`Unable to Register new device: ${JSON.stringify(deviceData.nickname)}`)
     }
   }
 
   private async createSmartHQAirConditioner(userId: any, device: any, details: any, features: any) {
-    const uuid = this.api.hap.uuid.generate(device.applianceId)
+    // Merge device data
+    const deviceData = { brand: 'GE', ...details, ...features, ...device }
 
-    // see if an accessory with the same uuid has already been registered and restored from
-    // the cached devices we stored in the `configureAccessory` method above
+    // Determine protocol (Matter or HAP)
+    deviceData.useMatter = this.shouldUseMatter(deviceData)
+
+    const uuid = this.api.hap.uuid.generate(deviceData.applianceId)
     const existingAccessory = this.accessories.find(accessory => accessory.UUID === uuid)
+
+    const protocol = deviceData.useMatter ? 'Matter' : 'HAP'
 
     if (existingAccessory) {
       // the accessory already exists
-      if (!device.hide_device) {
-        // if you need to update the accessory.context then you should run `api.updatePlatformAccessories`. eg.:
-        existingAccessory.context.device = device
-        existingAccessory.context = { device: { brand: 'GE', ...details, ...features }, userId }
-        existingAccessory.displayName = await this.validateAndCleanDisplayName(device.nickname, 'nickname', device.nickname)
-        existingAccessory.context.device.firmware = device.firmware ?? await this.getVersion()
-        this.api.updatePlatformAccessories([existingAccessory])
-        // Restore accessory
-        this.infoLog(`Restoring existing accessory from cache: ${existingAccessory.displayName}`)
-        // create the accessory handler for the restored accessory
-        // this is imported from `platformAccessory.ts`
-        new SmartHQAirConditioner(this, existingAccessory, device)
-        this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
+      if (!deviceData.hide_device) {
+        // Check if protocol changed to Matter - if so, remove from HAP bridge
+        if (this.shouldUnregisterForMatter(existingAccessory, deviceData)) {
+          const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+          accessory.context.device = deviceData
+          accessory.context = { device: deviceData, userId }
+          accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
+          new SmartHQAirConditioner(this, accessory, deviceData)
+          this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
+        } else {
+          existingAccessory.context.device = deviceData
+          existingAccessory.context = { device: deviceData, userId }
+          existingAccessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          existingAccessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
+          this.api.updatePlatformAccessories([existingAccessory])
+          this.infoLog(`[${protocol}] Restoring existing accessory from cache: ${existingAccessory.displayName}`)
+          new SmartHQAirConditioner(this, existingAccessory, deviceData)
+          this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
+        }
       } else {
         this.unregisterPlatformAccessories(existingAccessory)
       }
-    } else if (!device.hide_device && !existingAccessory) {
-      this.infoLog(`Adding new accessory: ${device.nickname}`)
-      const accessory = new this.api.platformAccessory<SmartHqContext>(device.nickname, uuid)
-
-      // store a copy of the device object in the `accessory.context`
-      // the `context` property can be used to store any data about the accessory you may need
-      accessory.context.device = device
-      accessory.context = { device: { brand: 'GE', ...details, ...features }, userId }
-      accessory.displayName = await this.validateAndCleanDisplayName(device.nickname, 'nickname', device.nickname)
-      accessory.context.device.firmware = device.firmware ?? await this.getVersion()
-      // the accessory does not yet exist, so we need to create it
-      // create the accessory handler for the newly create accessory
-      // this is imported from `platformAccessory.ts`
-      new SmartHQAirConditioner(this, accessory, device)
-      this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
-
-      // link the accessory to your platform
+    } else if (!deviceData.hide_device && !existingAccessory) {
+      this.infoLog(`[${protocol}] Adding new accessory: ${deviceData.nickname}`)
+      const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+      accessory.context.device = deviceData
+      accessory.context = { device: deviceData, userId }
+      accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+      accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
+      new SmartHQAirConditioner(this, accessory, deviceData)
+      this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
       this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
       this.accessories.push(accessory)
     } else {
-      this.debugErrorLog(`Unable to Register new device: ${JSON.stringify(device.nickname)}`)
+      this.debugErrorLog(`Unable to Register new device: ${JSON.stringify(deviceData.nickname)}`)
     }
   }
 
   private async createSmartHQHood(userId: any, device: any, details: any, features: any) {
-    const uuid = this.api.hap.uuid.generate(device.applianceId)
+    // Merge device data
+    const deviceData = { brand: 'GE', ...details, ...features, ...device }
 
+    // Determine protocol (Matter or HAP)
+    deviceData.useMatter = this.shouldUseMatter(deviceData)
+
+    const uuid = this.api.hap.uuid.generate(deviceData.applianceId)
     const existingAccessory = this.accessories.find(accessory => accessory.UUID === uuid)
 
+    const protocol = deviceData.useMatter ? 'Matter' : 'HAP'
+
     if (existingAccessory) {
-      if (!device.hide_device) {
-        existingAccessory.context.device = device
-        existingAccessory.context = { device: { brand: 'GE', ...details, ...features }, userId }
-        existingAccessory.displayName = await this.validateAndCleanDisplayName(device.nickname, 'nickname', device.nickname)
-        existingAccessory.context.device.firmware = device.firmware ?? await this.getVersion()
-        this.api.updatePlatformAccessories([existingAccessory])
-        this.infoLog(`Restoring existing accessory from cache: ${existingAccessory.displayName}`)
-        new SmartHQHood(this, existingAccessory, device)
-        this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
+      if (!deviceData.hide_device) {
+        // Check if protocol changed to Matter - if so, remove from HAP bridge
+        if (this.shouldUnregisterForMatter(existingAccessory, deviceData)) {
+          const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+          accessory.context.device = deviceData
+          accessory.context = { device: deviceData, userId }
+          accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
+          new SmartHQHood(this, accessory, deviceData)
+          this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
+        } else {
+          existingAccessory.context.device = deviceData
+          existingAccessory.context = { device: deviceData, userId }
+          existingAccessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          existingAccessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
+          this.api.updatePlatformAccessories([existingAccessory])
+          this.infoLog(`[${protocol}] Restoring existing accessory from cache: ${existingAccessory.displayName}`)
+          new SmartHQHood(this, existingAccessory, deviceData)
+          this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
+        }
       } else {
         this.unregisterPlatformAccessories(existingAccessory)
       }
-    } else if (!device.hide_device && !existingAccessory) {
-      this.infoLog(`Adding new accessory: ${device.nickname}`)
-      const accessory = new this.api.platformAccessory<SmartHqContext>(device.nickname, uuid)
-
-      accessory.context.device = device
-      accessory.context = { device: { brand: 'GE', ...details, ...features }, userId }
-      accessory.displayName = await this.validateAndCleanDisplayName(device.nickname, 'nickname', device.nickname)
-      accessory.context.device.firmware = device.firmware ?? await this.getVersion()
-      new SmartHQHood(this, accessory, device)
-      this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
-
+    } else if (!deviceData.hide_device && !existingAccessory) {
+      this.infoLog(`[${protocol}] Adding new accessory: ${deviceData.nickname}`)
+      const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+      accessory.context.device = deviceData
+      accessory.context = { device: deviceData, userId }
+      accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+      accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
+      new SmartHQHood(this, accessory, deviceData)
+      this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
       this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
       this.accessories.push(accessory)
     } else {
-      this.debugErrorLog(`Unable to Register new device: ${JSON.stringify(device.nickname)}`)
+      this.debugErrorLog(`Unable to Register new device: ${JSON.stringify(deviceData.nickname)}`)
     }
   }
 
   private async createSmartHQClothesWasher(userId: any, device: any, details: any, features: any) {
-    const uuid = this.api.hap.uuid.generate(device.applianceId)
+    // Merge device data
+    const deviceData = { brand: 'GE', ...details, ...features, ...device }
 
+    // Determine protocol (Matter or HAP)
+    deviceData.useMatter = this.shouldUseMatter(deviceData)
+
+    const uuid = this.api.hap.uuid.generate(deviceData.applianceId)
     const existingAccessory = this.accessories.find(accessory => accessory.UUID === uuid)
 
+    const protocol = deviceData.useMatter ? 'Matter' : 'HAP'
+
     if (existingAccessory) {
-      if (!device.hide_device) {
-        existingAccessory.context.device = device
-        existingAccessory.context = { device: { brand: 'GE', ...details, ...features }, userId }
-        existingAccessory.displayName = await this.validateAndCleanDisplayName(device.nickname, 'nickname', device.nickname)
-        existingAccessory.context.device.firmware = device.firmware ?? await this.getVersion()
-        this.api.updatePlatformAccessories([existingAccessory])
-        this.infoLog(`Restoring existing accessory from cache: ${existingAccessory.displayName}`)
-        // create the accessory handler for the restored accessory
-        new SmartHQClothesWasher(this, existingAccessory, device)
-        this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
+      if (!deviceData.hide_device) {
+        // Check if protocol changed to Matter - if so, remove from HAP bridge
+        if (this.shouldUnregisterForMatter(existingAccessory, deviceData)) {
+          const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+          accessory.context.device = deviceData
+          accessory.context = { device: deviceData, userId }
+          accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
+          new SmartHQClothesWasher(this, accessory, deviceData)
+          this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
+        } else {
+          existingAccessory.context.device = deviceData
+          existingAccessory.context = { device: deviceData, userId }
+          existingAccessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          existingAccessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
+          this.api.updatePlatformAccessories([existingAccessory])
+          this.infoLog(`[${protocol}] Restoring existing accessory from cache: ${existingAccessory.displayName}`)
+          new SmartHQClothesWasher(this, existingAccessory, deviceData)
+          this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
+        }
       } else {
         this.unregisterPlatformAccessories(existingAccessory)
       }
-    } else if (!device.hide_device && !existingAccessory) {
-      this.infoLog(`Adding new accessory: ${device.nickname}`)
-      const accessory = new this.api.platformAccessory<SmartHqContext>(device.nickname, uuid)
-      accessory.context.device = device
-      accessory.context = { device: { brand: 'GE', ...details, ...features }, userId }
-      accessory.displayName = await this.validateAndCleanDisplayName(device.nickname, 'nickname', device.nickname)
-      accessory.context.device.firmware = device.firmware ?? await this.getVersion()
-      new SmartHQClothesWasher(this, accessory, device)
-      this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
+    } else if (!deviceData.hide_device && !existingAccessory) {
+      this.infoLog(`[${protocol}] Adding new accessory: ${deviceData.nickname}`)
+      const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+      accessory.context.device = deviceData
+      accessory.context = { device: deviceData, userId }
+      accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+      accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
+      new SmartHQClothesWasher(this, accessory, deviceData)
+      this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
       this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
       this.accessories.push(accessory)
     } else {
-      this.debugErrorLog(`Unable to Register new device: ${JSON.stringify(device.nickname)}`)
+      this.debugErrorLog(`Unable to Register new device: ${JSON.stringify(deviceData.nickname)}`)
     }
   }
 
   private async createSmartHQClothesDryer(userId: any, device: any, details: any, features: any) {
-    const uuid = this.api.hap.uuid.generate(device.applianceId)
+    // Merge device data
+    const deviceData = { brand: 'GE', ...details, ...features, ...device }
 
+    // Determine protocol (Matter or HAP)
+    deviceData.useMatter = this.shouldUseMatter(deviceData)
+
+    const uuid = this.api.hap.uuid.generate(deviceData.applianceId)
     const existingAccessory = this.accessories.find(accessory => accessory.UUID === uuid)
 
+    const protocol = deviceData.useMatter ? 'Matter' : 'HAP'
+
     if (existingAccessory) {
-      if (!device.hide_device) {
-        existingAccessory.context.device = device
-        existingAccessory.context = { device: { brand: 'GE', ...details, ...features }, userId }
-        existingAccessory.displayName = await this.validateAndCleanDisplayName(device.nickname, 'nickname', device.nickname)
-        existingAccessory.context.device.firmware = device.firmware ?? await this.getVersion()
-        this.api.updatePlatformAccessories([existingAccessory])
-        this.infoLog(`Restoring existing accessory from cache: ${existingAccessory.displayName}`)
-        // create the accessory handler for the restored accessory
-        new SmartHQClothesDryer(this, existingAccessory, device)
-        this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
+      if (!deviceData.hide_device) {
+        // Check if protocol changed to Matter - if so, remove from HAP bridge
+        if (this.shouldUnregisterForMatter(existingAccessory, deviceData)) {
+          const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+          accessory.context.device = deviceData
+          accessory.context = { device: deviceData, userId }
+          accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
+          new SmartHQClothesDryer(this, accessory, deviceData)
+          this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
+        } else {
+          existingAccessory.context.device = deviceData
+          existingAccessory.context = { device: deviceData, userId }
+          existingAccessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          existingAccessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
+          this.api.updatePlatformAccessories([existingAccessory])
+          this.infoLog(`[${protocol}] Restoring existing accessory from cache: ${existingAccessory.displayName}`)
+          new SmartHQClothesDryer(this, existingAccessory, deviceData)
+          this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
+        }
       } else {
         this.unregisterPlatformAccessories(existingAccessory)
       }
-    } else if (!device.hide_device && !existingAccessory) {
-      this.infoLog(`Adding new accessory: ${device.nickname}`)
-      const accessory = new this.api.platformAccessory<SmartHqContext>(device.nickname, uuid)
-      accessory.context.device = device
-      accessory.context = { device: { brand: 'GE', ...details, ...features }, userId }
-      accessory.displayName = await this.validateAndCleanDisplayName(device.nickname, 'nickname', device.nickname)
-      accessory.context.device.firmware = device.firmware ?? await this.getVersion()
-      new SmartHQClothesDryer(this, accessory, device)
-      this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
+    } else if (!deviceData.hide_device && !existingAccessory) {
+      this.infoLog(`[${protocol}] Adding new accessory: ${deviceData.nickname}`)
+      const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+      accessory.context.device = deviceData
+      accessory.context = { device: deviceData, userId }
+      accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+      accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
+      new SmartHQClothesDryer(this, accessory, deviceData)
+      this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
       this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
       this.accessories.push(accessory)
     } else {
-      this.debugErrorLog(`Unable to Register new device: ${JSON.stringify(device.nickname)}`)
+      this.debugErrorLog(`Unable to Register new device: ${JSON.stringify(deviceData.nickname)}`)
     }
   }
 
   private async createSmartHQWaterFilter(userId: any, device: any, details: any, features: any) {
-    const uuid = this.api.hap.uuid.generate(device.applianceId)
+    // Merge device data
+    const deviceData = { brand: 'GE', ...details, ...features, ...device }
+
+    // Determine protocol (Matter or HAP)
+    deviceData.useMatter = this.shouldUseMatter(deviceData)
+
+    const uuid = this.api.hap.uuid.generate(deviceData.applianceId)
     const existingAccessory = this.accessories.find(accessory => accessory.UUID === uuid)
+
+    const protocol = deviceData.useMatter ? 'Matter' : 'HAP'
+
     if (existingAccessory) {
-      if (!device.hide_device) {
-        existingAccessory.context.device = device
-        existingAccessory.context = { device: { brand: 'GE', ...details, ...features }, userId }
-        existingAccessory.displayName = await this.validateAndCleanDisplayName(device.nickname, 'nickname', device.nickname)
-        existingAccessory.context.device.firmware = device.firmware ?? await this.getVersion()
-        this.api.updatePlatformAccessories([existingAccessory])
-        this.infoLog(`Restoring existing accessory from cache: ${existingAccessory.displayName}`)
-        new SmartHQWaterFilter(this, existingAccessory, device)
-        this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
+      if (!deviceData.hide_device) {
+        // Check if protocol changed to Matter - if so, remove from HAP bridge
+        if (this.shouldUnregisterForMatter(existingAccessory, deviceData)) {
+          const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+          accessory.context.device = deviceData
+          accessory.context = { device: deviceData, userId }
+          accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
+          new SmartHQWaterFilter(this, accessory, deviceData)
+          this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
+        } else {
+          existingAccessory.context.device = deviceData
+          existingAccessory.context = { device: deviceData, userId }
+          existingAccessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          existingAccessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
+          this.api.updatePlatformAccessories([existingAccessory])
+          this.infoLog(`[${protocol}] Restoring existing accessory from cache: ${existingAccessory.displayName}`)
+          new SmartHQWaterFilter(this, existingAccessory, deviceData)
+          this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
+        }
       } else {
         this.unregisterPlatformAccessories(existingAccessory)
       }
-    } else if (!device.hide_device && !existingAccessory) {
-      this.infoLog(`Adding new accessory: ${device.nickname}`)
-      const accessory = new this.api.platformAccessory<SmartHqContext>(device.nickname, uuid)
-      accessory.context.device = device
-      accessory.context = { device: { brand: 'GE', ...details, ...features }, userId }
-      accessory.displayName = await this.validateAndCleanDisplayName(device.nickname, 'nickname', device.nickname)
-      accessory.context.device.firmware = device.firmware ?? await this.getVersion()
-      new SmartHQWaterFilter(this, accessory, device)
-      this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
+    } else if (!deviceData.hide_device && !existingAccessory) {
+      this.infoLog(`[${protocol}] Adding new accessory: ${deviceData.nickname}`)
+      const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+      accessory.context.device = deviceData
+      accessory.context = { device: deviceData, userId }
+      accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+      accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
+      new SmartHQWaterFilter(this, accessory, deviceData)
+      this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
       this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
       this.accessories.push(accessory)
     } else {
-      this.debugErrorLog(`Unable to Register new device: ${JSON.stringify(device.nickname)}`)
+      this.debugErrorLog(`Unable to Register new device: ${JSON.stringify(deviceData.nickname)}`)
     }
   }
 
   private async createSmartHQWaterSoftener(userId: any, device: any, details: any, features: any) {
-    const uuid = this.api.hap.uuid.generate(device.applianceId)
+    // Merge device data
+    const deviceData = { brand: 'GE', ...details, ...features, ...device }
+
+    // Determine protocol (Matter or HAP)
+    deviceData.useMatter = this.shouldUseMatter(deviceData)
+
+    const uuid = this.api.hap.uuid.generate(deviceData.applianceId)
     const existingAccessory = this.accessories.find(accessory => accessory.UUID === uuid)
+
+    const protocol = deviceData.useMatter ? 'Matter' : 'HAP'
+
     if (existingAccessory) {
-      if (!device.hide_device) {
-        existingAccessory.context.device = device
-        existingAccessory.context = { device: { brand: 'GE', ...details, ...features }, userId }
-        existingAccessory.displayName = await this.validateAndCleanDisplayName(device.nickname, 'nickname', device.nickname)
-        existingAccessory.context.device.firmware = device.firmware ?? await this.getVersion()
-        this.api.updatePlatformAccessories([existingAccessory])
-        this.infoLog(`Restoring existing accessory from cache: ${existingAccessory.displayName}`)
-        new SmartHQWaterSoftener(this, existingAccessory, device)
-        this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
+      if (!deviceData.hide_device) {
+        // Check if protocol changed to Matter - if so, remove from HAP bridge
+        if (this.shouldUnregisterForMatter(existingAccessory, deviceData)) {
+          const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+          accessory.context.device = deviceData
+          accessory.context = { device: deviceData, userId }
+          accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
+          new SmartHQWaterSoftener(this, accessory, deviceData)
+          this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
+        } else {
+          existingAccessory.context.device = deviceData
+          existingAccessory.context = { device: deviceData, userId }
+          existingAccessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          existingAccessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
+          this.api.updatePlatformAccessories([existingAccessory])
+          this.infoLog(`[${protocol}] Restoring existing accessory from cache: ${existingAccessory.displayName}`)
+          new SmartHQWaterSoftener(this, existingAccessory, deviceData)
+          this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
+        }
       } else {
         this.unregisterPlatformAccessories(existingAccessory)
       }
-    } else if (!device.hide_device && !existingAccessory) {
-      this.infoLog(`Adding new accessory: ${device.nickname}`)
-      const accessory = new this.api.platformAccessory<SmartHqContext>(device.nickname, uuid)
-      accessory.context.device = device
-      accessory.context = { device: { brand: 'GE', ...details, ...features }, userId }
-      accessory.displayName = await this.validateAndCleanDisplayName(device.nickname, 'nickname', device.nickname)
-      accessory.context.device.firmware = device.firmware ?? await this.getVersion()
-      new SmartHQWaterSoftener(this, accessory, device)
-      this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
+    } else if (!deviceData.hide_device && !existingAccessory) {
+      this.infoLog(`[${protocol}] Adding new accessory: ${deviceData.nickname}`)
+      const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+      accessory.context.device = deviceData
+      accessory.context = { device: deviceData, userId }
+      accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+      accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
+      new SmartHQWaterSoftener(this, accessory, deviceData)
+      this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
       this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
       this.accessories.push(accessory)
     } else {
-      this.debugErrorLog(`Unable to Register new device: ${JSON.stringify(device.nickname)}`)
+      this.debugErrorLog(`Unable to Register new device: ${JSON.stringify(deviceData.nickname)}`)
     }
   }
 
   private async createSmartHQWaterHeater(userId: any, device: any, details: any, features: any) {
-    const uuid = this.api.hap.uuid.generate(device.applianceId)
+    // Merge device data
+    const deviceData = { brand: 'GE', ...details, ...features, ...device }
+
+    // Determine protocol (Matter or HAP)
+    deviceData.useMatter = this.shouldUseMatter(deviceData)
+
+    const uuid = this.api.hap.uuid.generate(deviceData.applianceId)
     const existingAccessory = this.accessories.find(accessory => accessory.UUID === uuid)
+
+    const protocol = deviceData.useMatter ? 'Matter' : 'HAP'
+
     if (existingAccessory) {
-      if (!device.hide_device) {
-        existingAccessory.context.device = device
-        existingAccessory.context = { device: { brand: 'GE', ...details, ...features }, userId }
-        existingAccessory.displayName = await this.validateAndCleanDisplayName(device.nickname, 'nickname', device.nickname)
-        existingAccessory.context.device.firmware = device.firmware ?? await this.getVersion()
-        this.api.updatePlatformAccessories([existingAccessory])
-        this.infoLog(`Restoring existing accessory from cache: ${existingAccessory.displayName}`)
-        new SmartHQWaterHeater(this, existingAccessory, device)
-        this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
+      if (!deviceData.hide_device) {
+        // Check if protocol changed to Matter - if so, remove from HAP bridge
+        if (this.shouldUnregisterForMatter(existingAccessory, deviceData)) {
+          const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+          accessory.context.device = deviceData
+          accessory.context = { device: deviceData, userId }
+          accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
+          new SmartHQWaterHeater(this, accessory, deviceData)
+          this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
+        } else {
+          existingAccessory.context.device = deviceData
+          existingAccessory.context = { device: deviceData, userId }
+          existingAccessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          existingAccessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
+          this.api.updatePlatformAccessories([existingAccessory])
+          this.infoLog(`[${protocol}] Restoring existing accessory from cache: ${existingAccessory.displayName}`)
+          new SmartHQWaterHeater(this, existingAccessory, deviceData)
+          this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
+        }
       } else {
         this.unregisterPlatformAccessories(existingAccessory)
       }
-    } else if (!device.hide_device && !existingAccessory) {
-      this.infoLog(`Adding new accessory: ${device.nickname}`)
-      const accessory = new this.api.platformAccessory<SmartHqContext>(device.nickname, uuid)
-      accessory.context.device = device
-      accessory.context = { device: { brand: 'GE', ...details, ...features }, userId }
-      accessory.displayName = await this.validateAndCleanDisplayName(device.nickname, 'nickname', device.nickname)
-      accessory.context.device.firmware = device.firmware ?? await this.getVersion()
-      new SmartHQWaterHeater(this, accessory, device)
-      this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
+    } else if (!deviceData.hide_device && !existingAccessory) {
+      this.infoLog(`[${protocol}] Adding new accessory: ${deviceData.nickname}`)
+      const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+      accessory.context.device = deviceData
+      accessory.context = { device: deviceData, userId }
+      accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+      accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
+      new SmartHQWaterHeater(this, accessory, deviceData)
+      this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
       this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
       this.accessories.push(accessory)
     } else {
-      this.debugErrorLog(`Unable to Register new device: ${JSON.stringify(device.nickname)}`)
+      this.debugErrorLog(`Unable to Register new device: ${JSON.stringify(deviceData.nickname)}`)
     }
   }
 
   private async createSmartHQAdvantium(userId: any, device: any, details: any, features: any) {
-    const uuid = this.api.hap.uuid.generate(device.applianceId)
+    // Merge device data
+    const deviceData = { brand: 'GE', ...details, ...features, ...device }
+
+    // Determine protocol (Matter or HAP)
+    deviceData.useMatter = this.shouldUseMatter(deviceData)
+
+    const uuid = this.api.hap.uuid.generate(deviceData.applianceId)
     const existingAccessory = this.accessories.find(accessory => accessory.UUID === uuid)
+
+    const protocol = deviceData.useMatter ? 'Matter' : 'HAP'
+
     if (existingAccessory) {
-      if (!device.hide_device) {
-        existingAccessory.context.device = device
-        existingAccessory.context = { device: { brand: 'GE', ...details, ...features }, userId }
-        existingAccessory.displayName = await this.validateAndCleanDisplayName(device.nickname, 'nickname', device.nickname)
-        existingAccessory.context.device.firmware = device.firmware ?? await this.getVersion()
-        this.api.updatePlatformAccessories([existingAccessory])
-        this.infoLog(`Restoring existing accessory from cache: ${existingAccessory.displayName}`)
-        new SmartHQAdvantium(this, existingAccessory, device)
-        this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
+      if (!deviceData.hide_device) {
+        // Check if protocol changed to Matter - if so, remove from HAP bridge
+        if (this.shouldUnregisterForMatter(existingAccessory, deviceData)) {
+          const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+          accessory.context.device = deviceData
+          accessory.context = { device: deviceData, userId }
+          accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
+          new SmartHQAdvantium(this, accessory, deviceData)
+          this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
+        } else {
+          existingAccessory.context.device = deviceData
+          existingAccessory.context = { device: deviceData, userId }
+          existingAccessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          existingAccessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
+          this.api.updatePlatformAccessories([existingAccessory])
+          this.infoLog(`[${protocol}] Restoring existing accessory from cache: ${existingAccessory.displayName}`)
+          new SmartHQAdvantium(this, existingAccessory, deviceData)
+          this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
+        }
       } else {
         this.unregisterPlatformAccessories(existingAccessory)
       }
-    } else if (!device.hide_device && !existingAccessory) {
-      this.infoLog(`Adding new accessory: ${device.nickname}`)
-      const accessory = new this.api.platformAccessory<SmartHqContext>(device.nickname, uuid)
-      accessory.context.device = device
-      accessory.context = { device: { brand: 'GE', ...details, ...features }, userId }
-      accessory.displayName = await this.validateAndCleanDisplayName(device.nickname, 'nickname', device.nickname)
-      accessory.context.device.firmware = device.firmware ?? await this.getVersion()
-      new SmartHQAdvantium(this, accessory, device)
-      this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
+    } else if (!deviceData.hide_device && !existingAccessory) {
+      this.infoLog(`[${protocol}] Adding new accessory: ${deviceData.nickname}`)
+      const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+      accessory.context.device = deviceData
+      accessory.context = { device: deviceData, userId }
+      accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+      accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
+      new SmartHQAdvantium(this, accessory, deviceData)
+      this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
       this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
       this.accessories.push(accessory)
     } else {
@@ -851,94 +1030,154 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
   }
 
   private async createSmartHQMicrowave(userId: any, device: any, details: any, features: any) {
-    const uuid = this.api.hap.uuid.generate(device.applianceId)
+    // Merge device data
+    const deviceData = { brand: 'GE', ...details, ...features, ...device }
+
+    // Determine protocol (Matter or HAP)
+    deviceData.useMatter = this.shouldUseMatter(deviceData)
+
+    const uuid = this.api.hap.uuid.generate(deviceData.applianceId)
     const existingAccessory = this.accessories.find(accessory => accessory.UUID === uuid)
+
+    const protocol = deviceData.useMatter ? 'Matter' : 'HAP'
+
     if (existingAccessory) {
-      if (!device.hide_device) {
-        existingAccessory.context.device = device
-        existingAccessory.context = { device: { brand: 'GE', ...details, ...features }, userId }
-        existingAccessory.displayName = await this.validateAndCleanDisplayName(device.nickname, 'nickname', device.nickname)
-        existingAccessory.context.device.firmware = device.firmware ?? await this.getVersion()
-        this.api.updatePlatformAccessories([existingAccessory])
-        this.infoLog(`Restoring existing accessory from cache: ${existingAccessory.displayName}`)
-        new SmartHQMicrowave(this, existingAccessory, device)
-        this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
+      if (!deviceData.hide_device) {
+        // Check if protocol changed to Matter - if so, remove from HAP bridge
+        if (this.shouldUnregisterForMatter(existingAccessory, deviceData)) {
+          const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+          accessory.context.device = deviceData
+          accessory.context = { device: deviceData, userId }
+          accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
+          new SmartHQMicrowave(this, accessory, deviceData)
+          this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
+        } else {
+          existingAccessory.context.device = deviceData
+          existingAccessory.context = { device: deviceData, userId }
+          existingAccessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          existingAccessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
+          this.api.updatePlatformAccessories([existingAccessory])
+          this.infoLog(`[${protocol}] Restoring existing accessory from cache: ${existingAccessory.displayName}`)
+          new SmartHQMicrowave(this, existingAccessory, deviceData)
+          this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
+        }
       } else {
         this.unregisterPlatformAccessories(existingAccessory)
       }
-    } else if (!device.hide_device && !existingAccessory) {
-      this.infoLog(`Adding new accessory: ${device.nickname}`)
-      const accessory = new this.api.platformAccessory<SmartHqContext>(device.nickname, uuid)
-      accessory.context.device = device
-      accessory.context = { device: { brand: 'GE', ...details, ...features }, userId }
-      accessory.displayName = await this.validateAndCleanDisplayName(device.nickname, 'nickname', device.nickname)
-      accessory.context.device.firmware = device.firmware ?? await this.getVersion()
-      new SmartHQMicrowave(this, accessory, device)
-      this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
+    } else if (!deviceData.hide_device && !existingAccessory) {
+      this.infoLog(`[${protocol}] Adding new accessory: ${deviceData.nickname}`)
+      const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+      accessory.context.device = deviceData
+      accessory.context = { device: deviceData, userId }
+      accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+      accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
+      new SmartHQMicrowave(this, accessory, deviceData)
+      this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
       this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
       this.accessories.push(accessory)
     } else {
-      this.debugErrorLog(`Unable to Register new device: ${JSON.stringify(device.nickname)}`)
+      this.debugErrorLog(`Unable to Register new device: ${JSON.stringify(deviceData.nickname)}`)
     }
   }
 
   private async createSmartHQCoffeeMaker(userId: any, device: any, details: any, features: any) {
-    const uuid = this.api.hap.uuid.generate(device.applianceId)
+    // Merge device data
+    const deviceData = { brand: 'GE', ...details, ...features, ...device }
+
+    // Determine protocol (Matter or HAP)
+    deviceData.useMatter = this.shouldUseMatter(deviceData)
+
+    const uuid = this.api.hap.uuid.generate(deviceData.applianceId)
     const existingAccessory = this.accessories.find(accessory => accessory.UUID === uuid)
+
+    const protocol = deviceData.useMatter ? 'Matter' : 'HAP'
+
     if (existingAccessory) {
-      if (!device.hide_device) {
-        existingAccessory.context.device = device
-        existingAccessory.context = { device: { brand: 'GE', ...details, ...features }, userId }
-        existingAccessory.displayName = await this.validateAndCleanDisplayName(device.nickname, 'nickname', device.nickname)
-        existingAccessory.context.device.firmware = device.firmware ?? await this.getVersion()
-        this.api.updatePlatformAccessories([existingAccessory])
-        this.infoLog(`Restoring existing accessory from cache: ${existingAccessory.displayName}`)
-        new SmartHQCoffeeMaker(this, existingAccessory, device)
-        this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
+      if (!deviceData.hide_device) {
+        // Check if protocol changed to Matter - if so, remove from HAP bridge
+        if (this.shouldUnregisterForMatter(existingAccessory, deviceData)) {
+          const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+          accessory.context.device = deviceData
+          accessory.context = { device: deviceData, userId }
+          accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
+          new SmartHQCoffeeMaker(this, accessory, deviceData)
+          this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
+        } else {
+          existingAccessory.context.device = deviceData
+          existingAccessory.context = { device: deviceData, userId }
+          existingAccessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          existingAccessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
+          this.api.updatePlatformAccessories([existingAccessory])
+          this.infoLog(`[${protocol}] Restoring existing accessory from cache: ${existingAccessory.displayName}`)
+          new SmartHQCoffeeMaker(this, existingAccessory, deviceData)
+          this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
+        }
       } else {
         this.unregisterPlatformAccessories(existingAccessory)
       }
-    } else if (!device.hide_device && !existingAccessory) {
-      this.infoLog(`Adding new accessory: ${device.nickname}`)
-      const accessory = new this.api.platformAccessory<SmartHqContext>(device.nickname, uuid)
-      accessory.context.device = device
-      accessory.context = { device: { brand: 'GE', ...details, ...features }, userId }
-      accessory.displayName = await this.validateAndCleanDisplayName(device.nickname, 'nickname', device.nickname)
-      accessory.context.device.firmware = device.firmware ?? await this.getVersion()
-      new SmartHQCoffeeMaker(this, accessory, device)
-      this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
+    } else if (!deviceData.hide_device && !existingAccessory) {
+      this.infoLog(`[${protocol}] Adding new accessory: ${deviceData.nickname}`)
+      const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+      accessory.context.device = deviceData
+      accessory.context = { device: deviceData, userId }
+      accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+      accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
+      new SmartHQCoffeeMaker(this, accessory, deviceData)
+      this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
       this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
       this.accessories.push(accessory)
     } else {
-      this.debugErrorLog(`Unable to Register new device: ${JSON.stringify(device.nickname)}`)
+      this.debugErrorLog(`Unable to Register new device: ${JSON.stringify(deviceData.nickname)}`)
     }
   }
 
   private async createSmartHQBeverageCenter(userId: any, device: any, details: any, features: any) {
-    const uuid = this.api.hap.uuid.generate(device.applianceId)
+    // Merge device data
+    const deviceData = { brand: 'GE', ...details, ...features, ...device }
+
+    // Determine protocol (Matter or HAP)
+    deviceData.useMatter = this.shouldUseMatter(deviceData)
+
+    const uuid = this.api.hap.uuid.generate(deviceData.applianceId)
     const existingAccessory = this.accessories.find(accessory => accessory.UUID === uuid)
+
+    const protocol = deviceData.useMatter ? 'Matter' : 'HAP'
+
     if (existingAccessory) {
-      if (!device.hide_device) {
-        existingAccessory.context.device = device
-        existingAccessory.context = { device: { brand: 'GE', ...details, ...features }, userId }
-        existingAccessory.displayName = await this.validateAndCleanDisplayName(device.nickname, 'nickname', device.nickname)
-        existingAccessory.context.device.firmware = device.firmware ?? await this.getVersion()
-        this.api.updatePlatformAccessories([existingAccessory])
-        this.infoLog(`Restoring existing accessory from cache: ${existingAccessory.displayName}`)
-        new SmartHQBeverageCenter(this, existingAccessory, device)
-        this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
+      if (!deviceData.hide_device) {
+        // Check if protocol changed to Matter - if so, remove from HAP bridge
+        if (this.shouldUnregisterForMatter(existingAccessory, deviceData)) {
+          const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+          accessory.context.device = deviceData
+          accessory.context = { device: deviceData, userId }
+          accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
+          new SmartHQBeverageCenter(this, accessory, deviceData)
+          this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
+        } else {
+          existingAccessory.context.device = deviceData
+          existingAccessory.context = { device: deviceData, userId }
+          existingAccessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          existingAccessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
+          this.api.updatePlatformAccessories([existingAccessory])
+          this.infoLog(`[${protocol}] Restoring existing accessory from cache: ${existingAccessory.displayName}`)
+          new SmartHQBeverageCenter(this, existingAccessory, deviceData)
+          this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
+        }
       } else {
         this.unregisterPlatformAccessories(existingAccessory)
       }
-    } else if (!device.hide_device && !existingAccessory) {
-      this.infoLog(`Adding new accessory: ${device.nickname}`)
-      const accessory = new this.api.platformAccessory<SmartHqContext>(device.nickname, uuid)
-      accessory.context.device = device
-      accessory.context = { device: { brand: 'GE', ...details, ...features }, userId }
-      accessory.displayName = await this.validateAndCleanDisplayName(device.nickname, 'nickname', device.nickname)
-      accessory.context.device.firmware = device.firmware ?? await this.getVersion()
-      new SmartHQBeverageCenter(this, accessory, device)
-      this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
+    } else if (!deviceData.hide_device && !existingAccessory) {
+      this.infoLog(`[${protocol}] Adding new accessory: ${deviceData.nickname}`)
+      const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+      accessory.context.device = deviceData
+      accessory.context = { device: deviceData, userId }
+      accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+      accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
+      new SmartHQBeverageCenter(this, accessory, deviceData)
+      this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
       this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
       this.accessories.push(accessory)
     } else {
@@ -1115,5 +1354,69 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
 
   async enablingPlatformLogging(): Promise<boolean> {
     return this.platformLogging === 'debugMode' || this.platformLogging === 'debug' || this.platformLogging === 'standard'
+  }
+
+  /**
+   * Check if Matter is available and enabled in Homebridge
+   */
+  checkMatterSupport(): void {
+    // Check if Matter API is available (Homebridge 2.0+)
+    const api = this.api as any
+    if (typeof api.isMatterAvailable === 'function') {
+      this.matterAvailable = api.isMatterAvailable()
+      if (!this.matterAvailable) {
+        this.log.warn('Matter is not available in this version of Homebridge. Please update to Homebridge 2.0.0-beta.63 or later to use Matter.')
+      }
+    } else {
+      this.log.debug('Matter API not detected - running on Homebridge < 2.0.0')
+    }
+
+    // Check if Matter is enabled by user
+    if (this.matterAvailable && typeof api.isMatterEnabled === 'function') {
+      this.matterEnabled = api.isMatterEnabled()
+      if (!this.matterEnabled) {
+        this.log.warn('Matter is available but not enabled. Please enable Matter in Homebridge settings to use Matter devices.')
+      } else {
+        this.log.info('✓ Matter is available and enabled - devices will use Matter protocol')
+      }
+    }
+
+    // Log final status
+    if (this.matterAvailable && this.matterEnabled) {
+      this.log.success('Matter support: ENABLED - Devices will register as Matter accessories')
+    } else {
+      this.log.info('Matter support: DISABLED - Devices will register as HAP accessories')
+    }
+  }
+
+  /**
+   * Determine if a device should use Matter based on platform and device config
+   */
+  shouldUseMatter(device: devicesConfig): boolean {
+    // If Matter isn't available or enabled, use HAP
+    if (!this.matterAvailable || !this.matterEnabled) {
+      return false
+    }
+
+    // Check per-device preference (if specified in config)
+    if (device.useMatter !== undefined) {
+      return device.useMatter
+    }
+
+    // Default: use Matter when available
+    return true
+  }
+
+  /**
+   * Handle accessory that needs to switch from HAP to Matter
+   * Returns true if accessory was unregistered and needs to be recreated
+   */
+  shouldUnregisterForMatter(existingAccessory: PlatformAccessory<SmartHqContext>, deviceData: devicesConfig & { useMatter?: boolean }): boolean {
+    if (deviceData.useMatter && existingAccessory) {
+      this.infoLog(`Removing ${existingAccessory.displayName} from HAP bridge (switching to Matter)`)
+      this.unregisterPlatformAccessories(existingAccessory)
+      return true
+    }
+    return false
   }
 }

@@ -1,0 +1,91 @@
+/* Copyright(C) 2021-2024, donavanbecker (https://github.com/donavanbecker). All rights reserved.
+ *
+ * device.ts: @homebridge-plugins/homebridge-smarthq - HAP device base class.
+ */
+import type { CharacteristicValue, PlatformAccessory, Service } from 'homebridge'
+
+import type { SmartHQPlatform } from '../platform.js'
+import type { devicesConfig, SmartHqContext } from '../settings.js'
+
+import { deviceBaseCommon } from './deviceBaseCommon.js'
+
+/**
+ * Base class for HAP (HomeKit Accessory Protocol) devices
+ * Extends deviceBaseCommon with HAP-specific PlatformAccessory handling
+ */
+export abstract class deviceBase extends deviceBaseCommon {
+  constructor(
+    protected readonly platform: SmartHQPlatform,
+    protected accessory: PlatformAccessory<SmartHqContext>,
+    protected device: devicesConfig,
+  ) {
+    super(platform, device)
+
+    this.getDeviceContext(accessory, device)
+
+    // Set accessory information
+    accessory
+      .getService(this.hap.Service.AccessoryInformation)!
+      .setCharacteristic(this.hap.Characteristic.Manufacturer, accessory.context.device.brand && accessory.context.device.brand !== 'Unknown' ? accessory.context.device.brand : 'GE Appliances')
+      .setCharacteristic(this.hap.Characteristic.Name, accessory.context.device.nickname)
+      .setCharacteristic(this.hap.Characteristic.ConfiguredName, accessory.context.device.nickname)
+      .setCharacteristic(this.hap.Characteristic.Model, accessory.context.device.model)
+      .setCharacteristic(this.hap.Characteristic.SerialNumber, accessory.context.device.serial)
+      .setCharacteristic(this.hap.Characteristic.HardwareRevision, this.deviceFirmwareVersion)
+      .setCharacteristic(this.hap.Characteristic.SoftwareRevision, this.deviceFirmwareVersion)
+      .setCharacteristic(this.hap.Characteristic.FirmwareRevision, this.deviceFirmwareVersion)
+      .getCharacteristic(this.hap.Characteristic.FirmwareRevision)
+      .updateValue(this.deviceFirmwareVersion)
+  }
+
+  /**
+   * Implement abstract methods from deviceBaseCommon
+   */
+  protected getApplianceId(): string {
+    return this.accessory.context.device.applianceId
+  }
+
+  protected getUserId(): string {
+    return this.accessory.context.userId
+  }
+
+  protected getDisplayName(): string {
+    return this.accessory.displayName
+  }
+
+  async getDeviceContext(accessory: PlatformAccessory, device: devicesConfig): Promise<void> {
+    const deviceFirmwareVersion = device.firmware ?? this.platform.version ?? '0.0.0'
+    this.deviceFirmwareVersion = await this.parseFirmwareVersion(deviceFirmwareVersion)
+    accessory.context.device.firmware = this.deviceFirmwareVersion
+    accessory
+      .getService(this.hap.Service.AccessoryInformation)!
+      .setCharacteristic(this.hap.Characteristic.HardwareRevision, this.deviceFirmwareVersion)
+      .setCharacteristic(this.hap.Characteristic.SoftwareRevision, this.deviceFirmwareVersion)
+      .setCharacteristic(this.hap.Characteristic.FirmwareRevision, this.deviceFirmwareVersion)
+      .getCharacteristic(this.hap.Characteristic.FirmwareRevision)
+      .updateValue(this.deviceFirmwareVersion)
+    this.debugSuccessLog(`deviceFirmwareVersion: ${this.deviceFirmwareVersion}`)
+  }
+
+  /**
+   * Update the characteristic value and log the change.
+   *
+   * @param Service Service
+   * @param Characteristic Characteristic
+   * @param CharacteristicValue CharacteristicValue | undefined
+   * @param CharacteristicName string
+   * @return: void
+   *
+   */
+  async updateCharacteristic(Service: Service, Characteristic: any, CharacteristicValue: CharacteristicValue | undefined, CharacteristicName: string): Promise<void> {
+    if (CharacteristicValue === undefined) {
+      this.debugLog(`${CharacteristicName}: ${CharacteristicValue}`)
+    } else {
+      Service.updateCharacteristic(Characteristic, CharacteristicValue)
+      this.debugLog(`updateCharacteristic ${CharacteristicName}: ${CharacteristicValue}`)
+      this.debugWarnLog(`${CharacteristicName} context before: ${this.accessory.context[CharacteristicName]}`)
+      this.accessory.context[CharacteristicName] = CharacteristicValue
+      this.debugWarnLog(`${CharacteristicName} context after: ${this.accessory.context[CharacteristicName]}`)
+    }
+  }
+}

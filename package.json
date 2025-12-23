@@ -37,7 +37,7 @@
   ],
   "main": "dist/index.js",
   "engines": {
-    "homebridge": "^1.9.0 || ^2.0.0 || ^2.0.0-beta.29",
+    "homebridge": "^1.9.0 || ^2.0.0-beta.66",
     "node": "^20 || ^22 || ^24"
   },
   "scripts": {
@@ -84,7 +84,7 @@
     "eslint": "^9.34.0",
     "eslint-plugin-format": "^1.1.0",
     "eslint-plugin-import": "^2.32.0",
-    "homebridge": "^1.11.1",
+    "homebridge": "^2.0.0-beta.66",
     "nodemon": "^3.1.10",
     "rimraf": "^6.0.1",
     "shx": "^0.4.0",

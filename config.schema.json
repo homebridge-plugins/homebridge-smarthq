@@ -71,6 +71,24 @@
                 "functionBody": "return (model.devices && model.devices[arrayIndices].applianceId);"
               }
             },
+            "useMatter": {
+              "title": "Enable Matter",
+              "type": "boolean",
+              "default": false,
+              "description": "If enabled, the device will use Matter for HomeKit integration (if supported).",
+              "condition": {
+                "functionBody": "return (model.devices && model.devices[arrayIndices].applianceId && !model.options.devices[arrayIndices].hide_device);"
+              }
+            },
+            "matterOnly": {
+              "title": "Matter Only (No HAP Fallback)",
+              "type": "boolean",
+              "default": false,
+              "description": "If enabled, the device will NOT fall back to HAP when Matter is unavailable. The accessory will not be published if Matter support is missing.",
+              "condition": {
+                "functionBody": "return (model.devices && model.devices[arrayIndices].applianceId && !model.devices[arrayIndices].hide_device && model.devices[arrayIndices].useMatter);"
+              }
+            },
             "firmware": {
               "title": "Firmware Override",
               "type": "string",
@@ -237,6 +255,8 @@
           "items": [
             "devices[].configDeviceName",
             "devices[].applianceId",
+            "devices[].useMatter",
+            "devices[].matterOnly",
             "devices[].hide_device",
             "devices[].firmware",
             "devices[].external",

@@ -49,6 +49,8 @@ export interface devicesConfig {
   pushRate?: number
   logging?: string
   hide_device?: boolean
+  useMatter?: boolean // Enable/disable Matter for this specific device
+  matterOnly?: boolean // If true, do not fall back to HAP when Matter is unavailable
 }
 
 export interface options {

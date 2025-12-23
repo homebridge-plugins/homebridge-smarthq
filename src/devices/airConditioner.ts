@@ -44,11 +44,14 @@ enum OperationMode {
 export class SmartHQAirConditioner extends deviceBase {
   // HeaterCooler service
   private readonly HEATER_COOLER_SVC_NAME = 'AIR_CONDITIONER'
-  private readonly heaterCoolerSvc!: Service
+  private heaterCoolerSvc!: Service
 
   // Mode SwitchServices
   private readonly MODE_SWITCH_SVC_PREFIX = 'AIR_CONDITIONER_MODE'
-  private readonly modeSwitchSvc: Record<OperationMode, Service>
+  private modeSwitchSvc!: Record<OperationMode, Service>
+
+  // Matter support override flag
+  private useMatterOverride: boolean = false
 
   constructor(
     protected readonly platform: SmartHQPlatform,
@@ -57,24 +60,136 @@ export class SmartHQAirConditioner extends deviceBase {
   ) {
     super(platform, accessory, device)
 
+    // Check if we should use Matter protocol
+    this.useMatterOverride = device.useMatter ?? false
+
+    this.debugLog(`Air Conditioner Features: ${JSON.stringify(accessory.context.device.features)}`)
+    this.debugLog(`Using protocol: ${this.useMatterOverride ? 'Matter' : 'HAP'}`)
+
+    // Initialize the appropriate protocol
+    if (this.useMatterOverride) {
+      this.initializeMatter().catch((error) => {
+        this.errorLog(`Failed to initialize Matter: ${error}`)
+      })
+      // Still need to initialize switch services for compatibility
+      this.modeSwitchSvc = {} as Record<OperationMode, Service>
+      return
+    } else {
+      this.initializeHAP()
+    }
+
+    // Start an update interval to refresh state
+    interval(this.deviceRefreshRate * 1000)
+      .pipe(startWith(0))
+      .subscribe(this.refreshState.bind(this))
+  }
+
+  /**
+   * Initialize Matter protocol
+   */
+  private async initializeMatter(): Promise<void> {
+    const { valid, api: matterAPI } = this.validateMatterAPI()
+
+    if (!valid) {
+      this.errorLog('Matter API not available or incomplete - falling back to HAP')
+      this.initializeHAP()
+      return
+    }
+
+    const serialNumber = this.device.applianceId || 'unknown'
+    this.matterUuid = matterAPI.uuid.generate(serialNumber)
+
+    // Create Matter accessory configuration with AC-specific clusters
+    const matterAccessory = {
+      UUID: this.matterUuid,
+      displayName: this.device.nickname || 'SmartHQ Air Conditioner',
+      serialNumber,
+      manufacturer: this.device.brand && this.device.brand !== 'Unknown' ? this.device.brand : 'GE Appliances',
+      model: this.device.model || 'SmartHQ',
+      firmwareRevision: this.deviceFirmwareVersion,
+      hardwareRevision: this.deviceFirmwareVersion,
+      deviceType: matterAPI.deviceTypes.AirConditioner,
+      clusters: {
+        // On/Off cluster for power state
+        onOff: {
+          onOff: false,
+        },
+        // Thermostat cluster for temperature control
+        thermostat: {
+          localTemperature: 2200, // 22°C
+          occupiedCoolingSetpoint: 2200,
+          systemMode: 3, // COOL
+          thermostatRunningMode: 3,
+          controlSequenceOfOperation: 2, // cooling only
+        },
+        // Fan Control cluster
+        fanControl: {
+          fanMode: 0, // 0=Off, 1=Low, 2=Medium, 3=High, 4=Auto
+          fanModeSequence: 4, // Support Off/Low/Med/High/Auto
+          percentSetting: 0,
+          percentCurrent: 0,
+        },
+        // Resource Monitoring for filter
+        resourceMonitoring: {
+          condition: 100, // 100% = OK, 0% = needs replacement
+          degradationDirection: 1, // 1 = down (degrades over time)
+          changeIndication: 0, // 0=OK, 1=Warning, 2=Critical
+        },
+        // Mode Select for operation modes
+        modeSelect: {
+          supportedModes: [
+            { label: 'Cool', mode: 0 },
+            { label: 'Fan Only', mode: 1 },
+            { label: 'Energy Saver', mode: 2 },
+            { label: 'Dry', mode: 3 },
+          ],
+          currentMode: 0,
+        },
+      },
+      handlers: {
+        onOff: {
+          on: async () => {
+            await this.setPowerState(PowerState.ON)
+          },
+          off: async () => {
+            await this.setPowerState(PowerState.OFF)
+          },
+        },
+      },
+    }
+
+    // Register Matter accessory as external device
+    await matterAPI.registerPlatformAccessories(
+      '@homebridge-plugins/homebridge-smarthq',
+      'SmartHQ',
+      [matterAccessory],
+    )
+    this.matterRegistered = true
+    this.infoLog('Created Matter Air Conditioner with thermostat, fan control, mode selection, and filter monitoring clusters')
+  }
+
+  /**
+   * Initialize HAP (HomeKit) protocol
+   */
+  private initializeHAP(): void {
     // HeaterCooler service
-    this.heaterCoolerSvc = this.accessory.getService(this.HEATER_COOLER_SVC_NAME)
-      ?? this.accessory.addService(
+    this.heaterCoolerSvc = this.accessory!.getService(this.HEATER_COOLER_SVC_NAME)
+      ?? this.accessory!.addService(
         this.platform.Service.HeaterCooler,
-        accessory.displayName,
+        this.accessory.displayName,
         this.HEATER_COOLER_SVC_NAME,
       )
 
     // Mode SwitchServices
     this.modeSwitchSvc = {
-      [OperationMode.COOL]: this.accessory.getService(`${this.MODE_SWITCH_SVC_PREFIX}_COOL`)
-        ?? this.accessory.addService(this.platform.Service.Switch, `${accessory.displayName} Cool Mode`, `${this.MODE_SWITCH_SVC_PREFIX}_COOL`),
-      [OperationMode.FAN_ONLY]: this.accessory.getService(`${this.MODE_SWITCH_SVC_PREFIX}_FAN_ONLY`)
-        ?? this.accessory.addService(this.platform.Service.Switch, `${accessory.displayName} Fan Only Mode`, `${this.MODE_SWITCH_SVC_PREFIX}_FAN_ONLY`),
-      [OperationMode.ENERGY_SAVER]: this.accessory.getService(`${this.MODE_SWITCH_SVC_PREFIX}_ENERGY_SAVER`)
-        ?? this.accessory.addService(this.platform.Service.Switch, `${accessory.displayName} Energy Saver Mode`, `${this.MODE_SWITCH_SVC_PREFIX}_ENERGY_SAVER`),
-      [OperationMode.DRY]: this.accessory.getService(`${this.MODE_SWITCH_SVC_PREFIX}_DRY`)
-        ?? this.accessory.addService(this.platform.Service.Switch, `${accessory.displayName} Dry Mode`, `${this.MODE_SWITCH_SVC_PREFIX}_DRY`),
+      [OperationMode.COOL]: this.accessory!.getService(`${this.MODE_SWITCH_SVC_PREFIX}_COOL`)
+        ?? this.accessory!.addService(this.platform.Service.Switch, `${this.accessory.displayName} Cool Mode`, `${this.MODE_SWITCH_SVC_PREFIX}_COOL`),
+      [OperationMode.FAN_ONLY]: this.accessory!.getService(`${this.MODE_SWITCH_SVC_PREFIX}_FAN_ONLY`)
+        ?? this.accessory!.addService(this.platform.Service.Switch, `${this.accessory.displayName} Fan Only Mode`, `${this.MODE_SWITCH_SVC_PREFIX}_FAN_ONLY`),
+      [OperationMode.ENERGY_SAVER]: this.accessory!.getService(`${this.MODE_SWITCH_SVC_PREFIX}_ENERGY_SAVER`)
+        ?? this.accessory!.addService(this.platform.Service.Switch, `${this.accessory.displayName} Energy Saver Mode`, `${this.MODE_SWITCH_SVC_PREFIX}_ENERGY_SAVER`),
+      [OperationMode.DRY]: this.accessory!.getService(`${this.MODE_SWITCH_SVC_PREFIX}_DRY`)
+        ?? this.accessory!.addService(this.platform.Service.Switch, `${this.accessory.displayName} Dry Mode`, `${this.MODE_SWITCH_SVC_PREFIX}_DRY`),
     }
 
     // Active
@@ -149,11 +264,6 @@ export class SmartHQAirConditioner extends deviceBase {
         .getCharacteristic(this.platform.Characteristic.Name)
         .onGet(this.handleGetOperationModeName.bind(this, mode))
     }
-
-    // Start an update interval to refresh state
-    interval(this.deviceRefreshRate * 1000)
-      .pipe(startWith(0))
-      .subscribe(this.refreshState.bind(this))
   }
 
   // API

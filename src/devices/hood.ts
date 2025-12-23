@@ -29,8 +29,11 @@ enum LightLevel {
 export class SmartHQHood extends deviceBase {
   private readonly FAN_SVC_NAME = 'HOOD_FAN'
   private readonly LIGHT_SVC_NAME = 'HOOD_LIGHT'
-  private readonly fanSvc!: Service
-  private readonly lightSvc!: Service
+  private fanSvc!: Service
+  private lightSvc!: Service
+
+  // Matter support override flag
+  private useMatterOverride: boolean = false
 
   constructor(
     protected readonly platform: SmartHQPlatform,
@@ -39,26 +42,101 @@ export class SmartHQHood extends deviceBase {
   ) {
     super(platform, accessory, device)
 
-    this.fanSvc = this.accessory.getService(this.FAN_SVC_NAME)
-      ?? this.accessory.addService(
+    // Check if we should use Matter protocol
+    this.useMatterOverride = device.useMatter ?? false
+
+    this.debugLog(`Hood Features: ${JSON.stringify(accessory.context.device.features)}`)
+    this.debugLog(`Using protocol: ${this.useMatterOverride ? 'Matter' : 'HAP'}`)
+
+    // Initialize the appropriate protocol
+    if (this.useMatterOverride) {
+      this.initializeMatter().catch((error) => {
+        this.errorLog(`Failed to initialize Matter: ${error}`)
+      })
+    } else {
+      this.initializeHAP()
+    }
+  }
+
+  /**
+   * Initialize Matter protocol
+   */
+  private async initializeMatter(): Promise<void> {
+    const { valid, api: matterAPI } = this.validateMatterAPI()
+
+    if (!valid) {
+      this.errorLog('Matter API not available or incomplete - falling back to HAP')
+      this.initializeHAP()
+      return
+    }
+
+    const serialNumber = this.device.applianceId || 'unknown'
+    this.matterUuid = matterAPI.uuid.generate(serialNumber)
+
+    const matterAccessory = {
+      UUID: this.matterUuid,
+      displayName: this.device.nickname || 'SmartHQ Hood',
+      serialNumber,
+      manufacturer: this.device.brand && this.device.brand !== 'Unknown' ? this.device.brand : 'GE Appliances',
+      model: this.device.model || 'SmartHQ',
+      firmwareRevision: this.deviceFirmwareVersion,
+      hardwareRevision: this.deviceFirmwareVersion,
+      deviceType: matterAPI.deviceTypes.CookTop, // Hood is part of cooktop
+      clusters: {
+        // Fan Control cluster for hood fan
+        fanControl: {
+          fanMode: 0, // 0=Off, 1=Low, 2=Medium, 3=High, 4=Boost
+          fanModeSequence: 4,
+          percentSetting: 0,
+          percentCurrent: 0,
+        },
+        // On/Off cluster for light
+        onOff: {
+          onOff: false,
+        },
+        // Level Control for light dimming
+        levelControl: {
+          currentLevel: 0,
+          minLevel: 0,
+          maxLevel: 254,
+        },
+      },
+      handlers: {},
+    }
+
+    await matterAPI.registerPlatformAccessories(
+      '@homebridge-plugins/homebridge-smarthq',
+      'SmartHQ',
+      [matterAccessory],
+    )
+    this.matterRegistered = true
+    this.infoLog('Registered Matter Hood as external accessory with fan control and dimmable light clusters')
+  }
+
+  /**
+   * Initialize HAP (HomeKit) protocol
+   */
+  private initializeHAP(): void {
+    this.fanSvc = this.accessory!.getService(this.FAN_SVC_NAME)
+      ?? this.accessory!.addService(
         this.platform.Service.Fanv2,
-        `${accessory.displayName} Fan`,
+        `${this.accessory.displayName} Fan`,
         this.FAN_SVC_NAME,
       )
 
-    this.lightSvc = this.accessory.getService(this.LIGHT_SVC_NAME)
-      ?? this.accessory.addService(
+    this.lightSvc = this.accessory!.getService(this.LIGHT_SVC_NAME)
+      ?? this.accessory!.addService(
         this.platform.Service.Lightbulb,
-        `${accessory.displayName} Light`,
+        `${this.accessory.displayName} Light`,
         this.LIGHT_SVC_NAME,
       )
 
-    const fanSwitchSvc = this.accessory.getService('HOOD_FAN_SWITCH')
+    const fanSwitchSvc = this.accessory!.getService('HOOD_FAN_SWITCH')
     if (fanSwitchSvc) {
       this.accessory.removeService(fanSwitchSvc)
     }
 
-    const lightSwitchSvc = this.accessory.getService('HOOD_LIGHT_SWITCH')
+    const lightSwitchSvc = this.accessory!.getService('HOOD_LIGHT_SWITCH')
     if (lightSwitchSvc) {
       this.accessory.removeService(lightSwitchSvc)
     }

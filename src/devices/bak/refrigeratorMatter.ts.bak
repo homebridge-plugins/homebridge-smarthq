@@ -1,0 +1,326 @@
+/* Copyright(C) 2021-2024, donavanbecker (https://github.com/donavanbecker). All rights reserved.
+ *
+ * refrigeratorMatter.ts: @homebridge-plugins/homebridge-smarthq - Matter refrigerator device.
+ */
+import type { SmartHQPlatform } from '../platform.js'
+import type { devicesConfig, SmartHqContext } from '../settings.js'
+import type { MatterAccessory } from './deviceMatter.js'
+
+import { interval, skipWhile } from 'rxjs'
+
+import { ERD_TYPES } from '../settings.js'
+import { deviceBaseMatter } from './deviceMatter.js'
+
+/**
+ * SmartHQ Refrigerator - Matter Implementation
+ *
+ * Maps GE SmartHQ refrigerator to Matter Thermostat device type for temperature control
+ * Includes contact sensors for doors and ice buckets
+ */
+export class SmartHQRefrigeratorMatter extends deviceBaseMatter {
+  // Updates
+  SensorUpdateInProgress!: boolean
+  deviceStatus: any
+
+  constructor(
+    readonly platform: SmartHQPlatform,
+    readonly device: SmartHqContext['device'] & devicesConfig,
+    readonly userId: string,
+  ) {
+    super(platform, device, userId)
+
+    this.debugLog(`[Matter] Refrigerator Features: ${JSON.stringify(device.features)}`)
+
+    // Start periodic refresh for ERD values
+    this.startPeriodicRefresh()
+  }
+
+  /**
+   * Create the Matter accessory configuration for the refrigerator
+   * Uses Thermostat device type for fridge/freezer temperature control
+   */
+  createMatterAccessory(): MatterAccessory {
+    const baseConfig = this.createBaseMatterConfig()
+    this.uuid = baseConfig.UUID
+
+    // Type assertion for Matter API (will be properly typed in Homebridge 2.0)
+    const matterAPI = (this.api as any).matter
+
+    // Create Matter accessory as Thermostat for temperature control
+    const matterAccessory: MatterAccessory = {
+      ...baseConfig,
+      deviceType: matterAPI.deviceTypes.Thermostat,
+      // Initial cluster states
+      clusters: {
+        // Thermostat cluster for fridge temperature
+        thermostat: {
+          localTemperature: 0, // Current temp in 0.01°C (will be updated)
+          occupiedCoolingSetpoint: 0, // Target temp in 0.01°C (will be updated)
+          systemMode: 3, // 3 = COOL (refrigerator is always cooling)
+          thermostatRunningMode: 3, // 3 = cool
+          controlSequenceOfOperation: 2, // 2 = cooling only
+        },
+        // Temperature measurement for current temperature
+        temperatureMeasurement: {
+          measuredValue: 0, // Will be updated with actual temp
+        },
+      },
+      // Handlers for thermostat control
+      handlers: {
+        thermostat: {
+          // Handle setpoint adjustments (target temperature)
+          setpointRaiseLower: async (request: any) => {
+            await this.handleSetpointRaiseLower(request)
+          },
+        },
+      },
+    }
+
+    this.matterAccessory = matterAccessory
+    this.infoLog(`Created Matter Refrigerator: ${baseConfig.displayName}`)
+
+    return matterAccessory
+  }
+
+  /**
+   * Handle Matter setpoint raise/lower command
+   */
+  private async handleSetpointRaiseLower(request: any): Promise<void> {
+    try {
+      const amount = request.amount as number // Amount in 0.1°C
+      const currentSetpoint = await this.getCurrentSetpoint()
+
+      // Calculate new setpoint (amount is in 0.1°C, API expects integer °C or °F)
+      const newSetpoint = currentSetpoint + (amount / 10)
+      await this.infoLog(`Setpoint adjust: ${amount * 0.1}°C (${currentSetpoint}°C -> ${newSetpoint}°C)`)
+
+      // Write new setpoint to appliance
+      await this.writeSetpoint(newSetpoint)
+    } catch (error: any) {
+      await this.errorLog(`Failed to adjust setpoint: ${error?.message ?? error}`)
+    }
+  }
+
+  /**
+   * Get current cooling setpoint from appliance
+   */
+  private async getCurrentSetpoint(): Promise<number> {
+    try {
+      const value = await this.readErd(ERD_TYPES.TEMPERATURE_SETTING)
+      if (!value) {
+        return 4 // Default to 4°C
+      }
+
+      // Parse temperature value - may be JSON object with fridge/freezer
+      try {
+        const parsed = JSON.parse(value)
+        if (parsed.fridge !== undefined) {
+          return Number(parsed.fridge)
+        }
+      } catch {
+        // Not JSON, treat as simple number
+      }
+
+      return Number(value)
+    } catch (error: any) {
+      await this.errorLog(`Failed to read current setpoint: ${error?.message ?? error}`)
+      return 4 // Default
+    }
+  }
+
+  /**
+   * Write new setpoint to appliance
+   */
+  private async writeSetpoint(temperature: number): Promise<void> {
+    try {
+      const value = Math.round(temperature).toString()
+      await this.writeErd(ERD_TYPES.TEMPERATURE_SETTING, value)
+      await this.successLog(`Set temperature to ${value}°C`)
+
+      // Type assertion for Matter API
+      const matterAPI = (this.api as any).matter
+
+      // Update Matter state
+      await this.updateMatterState(
+        matterAPI.clusterNames.Thermostat,
+        {
+          occupiedCoolingSetpoint: Math.round(temperature * 100), // Convert to 0.01°C
+        },
+      )
+    } catch (error: any) {
+      await this.errorLog(`Failed to write setpoint: ${error?.message ?? error}`)
+    }
+  }
+
+  /**
+   * Refresh temperature and door states periodically
+   */
+  private startPeriodicRefresh(): void {
+    // Refresh every deviceRefreshRate seconds
+    interval(this.deviceRefreshRate * 1000)
+      .pipe(skipWhile(() => this.SensorUpdateInProgress))
+      .subscribe(async () => {
+        await this.refreshDeviceStatus()
+      })
+
+    // Initial refresh after 2 seconds
+    setTimeout(() => this.refreshDeviceStatus(), 2000)
+  }
+
+  /**
+   * Refresh all device ERD values and update Matter clusters
+   */
+  private async refreshDeviceStatus(): Promise<void> {
+    try {
+      this.SensorUpdateInProgress = true
+
+      // Get fridge temperature
+      const tempValue = await this.readErd(ERD_TYPES.CURRENT_TEMPERATURE)
+      if (tempValue) {
+        await this.updateTemperature(tempValue)
+      }
+
+      // Get target temperature
+      const setpointValue = await this.readErd(ERD_TYPES.TEMPERATURE_SETTING)
+      if (setpointValue) {
+        await this.updateSetpoint(setpointValue)
+      }
+
+      // Get door status
+      const doorValue = await this.readErd(ERD_TYPES.DOOR_STATUS)
+      if (doorValue) {
+        await this.updateDoorStatus(doorValue)
+      }
+
+      // Get ice bucket status
+      const iceBucketValue = await this.readErd(ERD_TYPES.ICE_MAKER_BUCKET_STATUS)
+      if (iceBucketValue) {
+        await this.updateIceBucketStatus(iceBucketValue)
+      }
+
+      this.SensorUpdateInProgress = false
+    } catch (error: any) {
+      this.SensorUpdateInProgress = false
+      await this.errorLog(`Failed to refresh device status: ${error?.message ?? error}`)
+    }
+  }
+
+  /**
+   * Update Matter temperature clusters
+   */
+  private async updateTemperature(value: string): Promise<void> {
+    try {
+      let fridgeTemp = 4 // Default 4°C
+      let freezerTemp = -18 // Default -18°C
+
+      // Parse temperature - may be JSON object or simple value
+      try {
+        const parsed = JSON.parse(value)
+        if (parsed.fridge !== undefined) {
+          fridgeTemp = Number(parsed.fridge)
+        }
+        if (parsed.freezer !== undefined) {
+          freezerTemp = Number(parsed.freezer)
+        }
+      } catch {
+        // Not JSON, treat as fridge temp only
+        fridgeTemp = Number(value)
+      }
+
+      await this.debugLog(`Temperature: Fridge=${fridgeTemp}°C, Freezer=${freezerTemp}°C`)
+
+      // Type assertion for Matter API
+      const matterAPI = (this.api as any).matter
+
+      // Update thermostat cluster with fridge temperature (in 0.01°C)
+      await this.updateMatterState(
+        matterAPI.clusterNames.Thermostat,
+        {
+          localTemperature: Math.round(fridgeTemp * 100),
+        },
+      )
+
+      // Also update temperature measurement cluster
+      await this.updateMatterState(
+        'temperatureMeasurement',
+        {
+          measuredValue: Math.round(fridgeTemp * 100),
+        },
+      )
+    } catch (error: any) {
+      await this.errorLog(`Failed to update temperature: ${error?.message ?? error}`)
+    }
+  }
+
+  /**
+   * Update Matter setpoint cluster
+   */
+  private async updateSetpoint(value: string): Promise<void> {
+    try {
+      let setpoint = 4 // Default 4°C
+
+      // Parse setpoint value
+      try {
+        const parsed = JSON.parse(value)
+        if (parsed.fridge !== undefined) {
+          setpoint = Number(parsed.fridge)
+        }
+      } catch {
+        setpoint = Number(value)
+      }
+
+      await this.debugLog(`Setpoint: ${setpoint}°C`)
+
+      // Type assertion for Matter API
+      const matterAPI = (this.api as any).matter
+
+      // Update Matter thermostat occupied cooling setpoint (in 0.01°C)
+      await this.updateMatterState(
+        matterAPI.clusterNames.Thermostat,
+        {
+          occupiedCoolingSetpoint: Math.round(setpoint * 100),
+        },
+      )
+    } catch (error: any) {
+      await this.errorLog(`Failed to update setpoint: ${error?.message ?? error}`)
+    }
+  }
+
+  /**
+   * Update door status (for future multi-endpoint support)
+   * Matter doesn't have a direct door sensor in the main refrigerator device type
+   * This could be implemented as separate contact sensor endpoints
+   */
+  private async updateDoorStatus(value: string): Promise<void> {
+    try {
+      // Parse door status bytes
+      const byte0 = value.substring(0, 2) // Fridge Right
+      const byte1 = value.substring(2, 4) // Fridge Left
+      const byte2 = value.substring(4, 6) // Freezer
+
+      await this.debugLog(`Door status: RightDoor=${byte0}, LeftDoor=${byte1}, Freezer=${byte2}`)
+
+      // TODO: Implement multi-endpoint support for door sensors
+      // For now, just log the status
+    } catch (error: any) {
+      await this.errorLog(`Failed to update door status: ${error?.message ?? error}`)
+    }
+  }
+
+  /**
+   * Update ice bucket status (for future multi-endpoint support)
+   */
+  private async updateIceBucketStatus(value: string): Promise<void> {
+    try {
+      const fridgeIceBucket = value.charAt(0)
+      const freezerIceBucket = value.charAt(1)
+
+      await this.debugLog(`Ice Bucket: Fridge=${fridgeIceBucket}, Freezer=${freezerIceBucket}`)
+
+      // TODO: Implement multi-endpoint support for ice bucket sensors
+      // For now, just log the status
+    } catch (error: any) {
+      await this.errorLog(`Failed to update ice bucket status: ${error?.message ?? error}`)
+    }
+  }
+}
