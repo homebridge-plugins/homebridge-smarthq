@@ -157,8 +157,44 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       try {
         this.tokenSet = await refreshAccessToken(this.tokenSet.refresh_token)
       } catch (e: any) {
-        await this.errorLog(`Failed to refresh Access Token, Error Message: ${e.message ?? e}, Submit Bugs Here: https://bit.ly/smarthq-bug-report`)
-        throw e // Re-throw to stop execution
+        await this.errorLog(`Failed to refresh Access Token, Error Message: ${e.message ?? e}`)
+
+        // Handle invalid_grant error (expired/revoked refresh token)
+        if (e.error === 'invalid_grant' || e.message?.includes('invalid_grant') || e.message?.includes('Invalid refresh token')) {
+          await this.warnLog('Refresh token is invalid or expired. Attempting to re-authenticate with username and password...')
+
+          // Try to get a new token using username/password
+          const { username, password } = this.config.credentials ?? {}
+          if (username && password) {
+            try {
+              this.tokenSet = await getAccessToken(username, password)
+              await this.successLog('Successfully re-authenticated with credentials')
+
+              // Set up axios with new token
+              if (this.tokenSet.access_token) {
+                axios.defaults.headers.common = {
+                  Authorization: `Bearer ${this.tokenSet.access_token}`,
+                }
+
+                // Schedule next refresh
+                if (this.tokenSet.expires_in) {
+                  setTimeout(this.startRefreshTokenLogic.bind(this), 1000 * (this.tokenSet.expires_in - 2000))
+                }
+                return // Successfully recovered
+              }
+            } catch (reAuthError: any) {
+              await this.errorLog(`Failed to re-authenticate: ${reAuthError.message ?? reAuthError}`)
+              await this.errorLog('Please verify your SmartHQ credentials are correct in the Homebridge config')
+              await this.errorLog('You may need to log in to the GE SmartHQ app to ensure your account is active')
+            }
+          } else {
+            await this.errorLog('No credentials available for re-authentication')
+            await this.errorLog('Please ensure username and password are set in your Homebridge config')
+          }
+        }
+
+        await this.errorLog('Submit Bugs Here: https://bit.ly/smarthq-bug-report')
+        throw e // Re-throw to stop execution only if recovery failed
       }
     } else {
       throw new Error('Refresh token is undefined')
