@@ -10,16 +10,91 @@ import type { devicesConfig, SmartHqContext } from '../settings.js'
 import { deviceBase } from './device.js'
 
 export class SmartHQMicrowave extends deviceBase {
+  // Matter support override flag
+  private useMatterOverride: boolean = false
+
   constructor(
     readonly platform: SmartHQPlatform,
     accessory: PlatformAccessory<SmartHqContext>,
     readonly device: SmartHqContext['device'] & devicesConfig,
   ) {
     super(platform, accessory, device)
-    this.debugLog(`Microwave Features: ${JSON.stringify(accessory.context.device.features)}`)
 
+    // Check if we should use Matter protocol
+    this.useMatterOverride = device.useMatter ?? false
+
+    this.debugLog(`Microwave Features: ${JSON.stringify(accessory.context.device.features)}`)
+    this.debugLog(`Using protocol: ${this.useMatterOverride ? 'Matter' : 'HAP'}`)
+
+    // Initialize the appropriate protocol
+    if (this.useMatterOverride) {
+      this.initializeMatter().catch((error) => {
+        this.errorLog(`Failed to initialize Matter: ${error}`)
+      })
+    } else {
+      this.initializeHAP()
+    }
+  }
+
+  /**
+   * Initialize Matter protocol
+   */
+  private async initializeMatter(): Promise<void> {
+    const { valid, api: matterAPI } = this.validateMatterAPI()
+
+    if (!valid) {
+      this.errorLog('Matter API not available or incomplete - falling back to HAP')
+      this.initializeHAP()
+      return
+    }
+
+    const serialNumber = this.device.applianceId || 'unknown'
+    this.matterUuid = matterAPI.uuid.generate(serialNumber)
+
+    const matterAccessory = {
+      UUID: this.matterUuid,
+      displayName: this.device.nickname || 'SmartHQ Microwave',
+      serialNumber,
+      manufacturer: this.device.brand && this.device.brand !== 'Unknown' ? this.device.brand : 'GE Appliances',
+      model: this.device.model || 'SmartHQ',
+      firmwareRevision: this.deviceFirmwareVersion,
+      hardwareRevision: this.deviceFirmwareVersion,
+      deviceType: matterAPI.deviceTypes.MicrowaveOven,
+      clusters: {
+        // On/Off cluster for light
+        onOff: {
+          onOff: false,
+        },
+        // Operational State for microwave running
+        operationalState: {
+          operationalState: 0,
+          operationalError: { errorStateID: 0 },
+        },
+        // Timer cluster for cook time
+        timer: {
+          timerState: 0,
+          duration: 0,
+          remainingTime: 0,
+        },
+      },
+      handlers: {},
+    }
+
+    await matterAPI.registerPlatformAccessories(
+      '@homebridge-plugins/homebridge-smarthq',
+      'SmartHQ',
+      [matterAccessory],
+    )
+    this.matterRegistered = true
+    this.infoLog('Registered Matter Microwave as external accessory with operational state and timer clusters')
+  }
+
+  /**
+   * Initialize HAP (HomeKit) protocol
+   */
+  private initializeHAP(): void {
     // Microwave Light
-    const light = this.accessory.getService('Microwave Light') ?? this.accessory.addService(this.platform.Service.Lightbulb, 'Microwave Light', 'MicrowaveLight')
+    const light = this.accessory!.getService('Microwave Light') ?? this.accessory!.addService(this.platform.Service.Lightbulb, 'Microwave Light', 'MicrowaveLight')
     light.setCharacteristic(this.platform.Characteristic.Name, 'Microwave Light')
     light
       .getCharacteristic(this.platform.Characteristic.On)
@@ -42,7 +117,7 @@ export class SmartHQMicrowave extends deviceBase {
       })
 
     // Microwave Running State (Switch)
-    const runningSwitch = this.accessory.getService('Microwave') ?? this.accessory.addService(this.platform.Service.Switch, 'Microwave', 'Microwave')
+    const runningSwitch = this.accessory!.getService('Microwave') ?? this.accessory!.addService(this.platform.Service.Switch, 'Microwave', 'Microwave')
     runningSwitch.setCharacteristic(this.platform.Characteristic.Name, 'Microwave')
     runningSwitch
       .getCharacteristic(this.platform.Characteristic.On)
@@ -65,7 +140,7 @@ export class SmartHQMicrowave extends deviceBase {
       })
 
     // Ventilation Fan (if applicable)
-    const fan = this.accessory.getService('Microwave Fan') ?? this.accessory.addService(this.platform.Service.Fanv2, 'Microwave Fan', 'MicrowaveFan')
+    const fan = this.accessory!.getService('Microwave Fan') ?? this.accessory!.addService(this.platform.Service.Fanv2, 'Microwave Fan', 'MicrowaveFan')
     fan.setCharacteristic(this.platform.Characteristic.Name, 'Microwave Fan')
     fan
       .getCharacteristic(this.platform.Characteristic.Active)

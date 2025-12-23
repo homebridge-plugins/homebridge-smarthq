@@ -1,6 +1,6 @@
 /* Copyright(C) 2021-2024, donavanbecker (https://github.com/donavanbecker). All rights reserved.
  *
- * device.ts: @homebridge-plugins/homebridge-smarthq.
+ * device.ts: @homebridge-plugins/homebridge-smarthq - Unified device base class.
  */
 import type { API, CharacteristicValue, HAP, Logging, PlatformAccessory, Service } from 'homebridge'
 
@@ -9,6 +9,26 @@ import type { devicesConfig, SmartHqContext, SmartHQPlatformConfig } from '../se
 
 import axios from 'axios'
 
+// Type for Matter accessory (will be properly typed in Homebridge 2.0)
+export interface MatterAccessory {
+  UUID: string
+  displayName: string
+  serialNumber: string
+  manufacturer: string
+  model: string
+  firmwareRevision: string
+  hardwareRevision: string
+  deviceType: any
+  clusters?: Record<string, unknown>
+  handlers?: Record<string, unknown>
+  parts?: Array<MatterAccessory>
+  context?: Record<string, unknown>
+}
+
+/**
+ * Unified base class for SmartHQ devices supporting both HAP and Matter protocols
+ * Contains all shared functionality for ERD operations, logging, configuration, and protocol handling
+ */
 export abstract class deviceBase {
   public readonly api: API
   public readonly log: Logging
@@ -25,34 +45,73 @@ export abstract class deviceBase {
   // ERD capability tracking - remember which ERDs are not supported
   private unsupportedErds: Set<string> = new Set()
 
+  // HAP-specific properties
+  protected accessory?: PlatformAccessory<SmartHqContext>
+
+  // Matter-specific properties
+  protected matterAccessory?: MatterAccessory
+  protected matterUuid?: string
+  protected userId?: string
+  protected matterRegistered: boolean = false
+
+  // Protocol flag
+  protected useMatter: boolean = false
+
+  /**
+   * Get the HAP accessory (throws if not in HAP mode)
+   */
+  protected get hapAccessory(): PlatformAccessory<SmartHqContext> {
+    if (!this.accessory) {
+      throw new Error('Accessory is not available - not in HAP mode')
+    }
+    return this.accessory
+  }
+
   constructor(
     protected readonly platform: SmartHQPlatform,
-    protected accessory: PlatformAccessory<SmartHqContext>,
-    protected device: devicesConfig,
+    accessoryOrDevice: PlatformAccessory<SmartHqContext> | devicesConfig,
+    deviceOrUserId?: devicesConfig | string,
   ) {
-    this.api = this.platform.api
-    this.log = this.platform.log
-    this.config = this.platform.config
+    // Initialize platform references
+    this.api = platform.api
+    this.log = platform.log
+    this.config = platform.config
     this.hap = this.api.hap
 
+    // Determine if this is HAP or Matter based on constructor arguments
+    let device: devicesConfig
+    let isHAP = false
+    let accessoryTemp: PlatformAccessory<SmartHqContext> | undefined
+    let userIdTemp: string | undefined
+
+    if ('UUID' in accessoryOrDevice) {
+      // HAP mode: first arg is PlatformAccessory
+      accessoryTemp = accessoryOrDevice as PlatformAccessory<SmartHqContext>
+      device = deviceOrUserId as devicesConfig
+      isHAP = true
+    } else {
+      // Matter mode: first arg is device, second is userId
+      device = accessoryOrDevice as devicesConfig
+      userIdTemp = deviceOrUserId as string
+    }
+
+    // Initialize config settings
     this.getDeviceLogSettings(device)
     this.getDeviceRateSettings(device)
     this.getDeviceConfigSettings(device)
-    this.getDeviceContext(accessory, device)
 
-    // Set accessory information
-    accessory
-      .getService(this.hap.Service.AccessoryInformation)!
-      .setCharacteristic(this.hap.Characteristic.Manufacturer, accessory.context.device.brand && accessory.context.device.brand !== 'Unknown' ? accessory.context.device.brand : 'GE Appliances')
-      .setCharacteristic(this.hap.Characteristic.Name, accessory.context.device.nickname)
-      .setCharacteristic(this.hap.Characteristic.ConfiguredName, accessory.context.device.nickname)
-      .setCharacteristic(this.hap.Characteristic.Model, accessory.context.device.model)
-      .setCharacteristic(this.hap.Characteristic.SerialNumber, accessory.context.device.serial)
-      .setCharacteristic(this.hap.Characteristic.HardwareRevision, this.deviceFirmwareVersion)
-      .setCharacteristic(this.hap.Characteristic.SoftwareRevision, this.deviceFirmwareVersion)
-      .setCharacteristic(this.hap.Characteristic.FirmwareRevision, this.deviceFirmwareVersion)
-      .getCharacteristic(this.hap.Characteristic.FirmwareRevision)
-      .updateValue(this.deviceFirmwareVersion)
+    // Set instance properties
+    if (isHAP) {
+      this.accessory = accessoryTemp
+      this.useMatter = false
+      // Initialize HAP accessory asynchronously (won't block constructor)
+      this.initializeHAPAccessory().catch((error) => {
+        this.log.error(`Failed to initialize HAP accessory: ${error}`)
+      })
+    } else {
+      this.userId = userIdTemp
+      this.useMatter = device.useMatter ?? false
+    }
   }
 
   async getDeviceLogSettings(device: devicesConfig): Promise<void> {
@@ -69,7 +128,7 @@ export abstract class deviceBase {
     // updateRate
     this.deviceUpdateRate = device.updateRate ?? this.platform.platformUpdateRate ?? 5
     const updateRate = device.updateRate ? 'Device Config' : this.platform.platformUpdateRate ? 'Platform Config' : 'Default'
-    this.debugSuccessLog(`Using ${updateRate} updateRate: ${this.deviceUpdateRate}`)
+    await this.debugLog(`Using ${updateRate} updateRate: ${this.deviceUpdateRate}`)
     // pushRate
     this.devicePushRate = device.pushRate ?? this.platform.platformPushRate ?? 1
     const pushRate = device.pushRate ? 'Device Config' : this.platform.platformPushRate ? 'Platform Config' : 'Default'
@@ -77,13 +136,14 @@ export abstract class deviceBase {
   }
 
   async getDeviceConfigSettings(device: devicesConfig): Promise<void> {
-    const deviceConfig = {}
+    const deviceConfig: Record<string, unknown> = {}
     const properties = [
       'logging',
       'refreshRate',
       'updateRate',
       'pushRate',
       'hide_device',
+      'useMatter',
     ]
     properties.forEach((prop) => {
       if (device[prop] !== undefined) {
@@ -95,49 +155,83 @@ export abstract class deviceBase {
     }
   }
 
-  async getDeviceContext(accessory: PlatformAccessory, device: devicesConfig): Promise<void> {
-    const deviceFirmwareVersion = device.firmware ?? this.platform.version ?? '0.0.0'
+  /**
+   * Get and parse device firmware version
+   */
+  protected async parseFirmwareVersion(firmware?: string): Promise<string> {
+    const deviceFirmwareVersion = firmware ?? this.platform.version ?? '0.0.0'
     const version = deviceFirmwareVersion.toString()
     this.debugLog(`Firmware Version: ${version.replace(/^V|-.*$/g, '')}`)
     if (version?.includes('.') === false) {
       const replace = version?.replace(/^V|-.*$/g, '')
       const match = replace?.match(/./g)
       const validVersion = match?.join('.')
-      this.deviceFirmwareVersion = validVersion ?? '0.0.0'
+      return validVersion ?? '0.0.0'
     } else {
-      this.deviceFirmwareVersion = version.replace(/^V|-.*$/g, '') ?? '0.0.0'
+      return version.replace(/^V|-.*$/g, '') ?? '0.0.0'
     }
-    accessory.context.device.firmware = this.deviceFirmwareVersion
-    accessory
-      .getService(this.hap.Service.AccessoryInformation)!
-      .setCharacteristic(this.hap.Characteristic.HardwareRevision, this.deviceFirmwareVersion)
-      .setCharacteristic(this.hap.Characteristic.SoftwareRevision, this.deviceFirmwareVersion)
-      .setCharacteristic(this.hap.Characteristic.FirmwareRevision, this.deviceFirmwareVersion)
-      .getCharacteristic(this.hap.Characteristic.FirmwareRevision)
-      .updateValue(this.deviceFirmwareVersion)
-    this.debugSuccessLog(`deviceFirmwareVersion: ${this.deviceFirmwareVersion}`)
   }
 
   /**
-   * Update the characteristic value and log the change.
-   *
-   * @param Service Service
-   * @param Characteristic Characteristic
-   * @param CharacteristicValue CharacteristicValue | undefined
-   * @param CharacteristicName string
-   * @return: void
-   *
+   * Initialize HAP accessory information
    */
-  async updateCharacteristic(Service: Service, Characteristic: any, CharacteristicValue: CharacteristicValue | undefined, CharacteristicName: string): Promise<void> {
-    if (CharacteristicValue === undefined) {
-      this.debugLog(`${CharacteristicName}: ${CharacteristicValue}`)
-    } else {
-      Service.updateCharacteristic(Characteristic, CharacteristicValue)
-      this.debugLog(`updateCharacteristic ${CharacteristicName}: ${CharacteristicValue}`)
-      this.debugWarnLog(`${CharacteristicName} context before: ${this.accessory.context[CharacteristicName]}`)
-      this.accessory.context[CharacteristicName] = CharacteristicValue
-      this.debugWarnLog(`${CharacteristicName} context after: ${this.accessory.context[CharacteristicName]}`)
+  private async initializeHAPAccessory(): Promise<void> {
+    if (!this.accessory) {
+      return
     }
+
+    // Parse firmware version first to avoid undefined values
+    const device = (this.accessory.context as any).device
+    const deviceFirmwareVersion = device.firmware ?? this.platform.version ?? '0.0.0'
+    this.deviceFirmwareVersion = await this.parseFirmwareVersion(deviceFirmwareVersion)
+
+    this.getDeviceContext(this.accessory, device)
+
+    // Set accessory information
+    this.accessory
+      .getService(this.hap.Service.AccessoryInformation)!
+      .setCharacteristic(this.hap.Characteristic.Manufacturer, this.accessory.context.device.brand && this.accessory.context.device.brand !== 'Unknown' ? this.accessory.context.device.brand : 'GE Appliances')
+      .setCharacteristic(this.hap.Characteristic.Name, this.accessory.context.device.nickname)
+      .setCharacteristic(this.hap.Characteristic.ConfiguredName, this.accessory.context.device.nickname)
+      .setCharacteristic(this.hap.Characteristic.Model, this.accessory.context.device.model)
+      .setCharacteristic(this.hap.Characteristic.SerialNumber, this.accessory.context.device.serial)
+      .setCharacteristic(this.hap.Characteristic.HardwareRevision, this.deviceFirmwareVersion || '1.0.0')
+      .setCharacteristic(this.hap.Characteristic.SoftwareRevision, this.deviceFirmwareVersion || '1.0.0')
+      .setCharacteristic(this.hap.Characteristic.FirmwareRevision, this.deviceFirmwareVersion || '1.0.0')
+      .getCharacteristic(this.hap.Characteristic.FirmwareRevision)
+      .updateValue(this.deviceFirmwareVersion || '1.0.0')
+  }
+
+  /**
+   * Get the appliance ID for ERD operations
+   */
+  protected getApplianceId(): string {
+    if (this.accessory) {
+      return this.accessory.context.device.applianceId
+    }
+    // Fallback for Matter mode - should be set via userId path
+    return ''
+  }
+
+  /**
+   * Get the user ID for ERD operations
+   */
+  protected getUserId(): string {
+    if (this.accessory) {
+      return this.accessory.context.userId
+    }
+    return this.userId ?? ''
+  }
+
+  /**
+   * Get the device display name for logging
+   */
+  protected getDisplayName(): string {
+    if (this.accessory) {
+      return this.accessory.displayName
+    }
+    const protocol = this.useMatter ? 'Matter' : 'HAP'
+    return `[${protocol}] SmartHQ Device`
   }
 
   /**
@@ -145,48 +239,48 @@ export abstract class deviceBase {
    */
   async infoLog(...log: any[]): Promise<void> {
     if (await this.enablingDeviceLogging()) {
-      this.log.info(`${this.accessory.displayName}`, String(...log))
+      this.log.info(`${this.getDisplayName()}`, String(...log))
     }
   }
 
   async successLog(...log: any[]): Promise<void> {
     if (await this.enablingDeviceLogging()) {
-      this.log.success(`${this.accessory.displayName}`, String(...log))
+      this.log.success(`${this.getDisplayName()}`, String(...log))
     }
   }
 
   async debugSuccessLog(...log: any[]): Promise<void> {
     if (await this.enablingDeviceLogging()) {
       if (await this.loggingIsDebug()) {
-        this.log.success(`[DEBUG] ${this.accessory.displayName}`, String(...log))
+        this.log.success(`[DEBUG] ${this.getDisplayName()}`, String(...log))
       }
     }
   }
 
   async warnLog(...log: any[]): Promise<void> {
     if (await this.enablingDeviceLogging()) {
-      this.log.warn(`${this.accessory.displayName}`, String(...log))
+      this.log.warn(`${this.getDisplayName()}`, String(...log))
     }
   }
 
   async debugWarnLog(...log: any[]): Promise<void> {
     if (await this.enablingDeviceLogging()) {
       if (await this.loggingIsDebug()) {
-        this.log.warn(`[DEBUG] ${this.accessory.displayName}`, String(...log))
+        this.log.warn(`[DEBUG] ${this.getDisplayName()}`, String(...log))
       }
     }
   }
 
   async errorLog(...log: any[]): Promise<void> {
     if (await this.enablingDeviceLogging()) {
-      this.log.error(`${this.accessory.displayName}`, String(...log))
+      this.log.error(`${this.getDisplayName()}`, String(...log))
     }
   }
 
   async debugErrorLog(...log: any[]): Promise<void> {
     if (await this.enablingDeviceLogging()) {
       if (await this.loggingIsDebug()) {
-        this.log.error(`[DEBUG] ${this.accessory.displayName}`, String(...log))
+        this.log.error(`[DEBUG] ${this.getDisplayName()}`, String(...log))
       }
     }
   }
@@ -194,9 +288,9 @@ export abstract class deviceBase {
   async debugLog(...log: any[]): Promise<void> {
     if (await this.enablingDeviceLogging()) {
       if (this.deviceLogging === 'debug') {
-        this.log.info(`[DEBUG] ${this.accessory.displayName}`, String(...log))
+        this.log.info(`[DEBUG] ${this.getDisplayName()}`, String(...log))
       } else if (this.deviceLogging === 'debugMode') {
-        this.log.debug(`${this.accessory.displayName}`, String(...log))
+        this.log.debug(`${this.getDisplayName()}`, String(...log))
       }
     }
   }
@@ -211,8 +305,6 @@ export abstract class deviceBase {
 
   /**
    * Check if an ERD code is supported by this appliance
-   * @param erd - The ERD code to check
-   * @returns true if the ERD is available, false otherwise
    */
   async has_erd_code(erd: string): Promise<boolean> {
     try {
@@ -225,8 +317,6 @@ export abstract class deviceBase {
 
   /**
    * Try to get an ERD value without throwing errors
-   * @param erd - The ERD code to read
-   * @returns The ERD value or undefined if not available
    */
   async try_get_erd_value(erd: string): Promise<string | undefined> {
     try {
@@ -238,8 +328,6 @@ export abstract class deviceBase {
 
   /**
    * Read an ERD (Electronic Refrigerator Descriptor) value from the SmartHQ API
-   * @param erd - The ERD code to read
-   * @returns The ERD value as a string (JSON stringified if object), or undefined if not supported/error
    */
   async readErd(erd: string): Promise<string | undefined> {
     // Check if we already know this ERD is not supported
@@ -250,7 +338,7 @@ export abstract class deviceBase {
     try {
       await this.debugLog(`Reading ERD ${erd}`)
       const d = await axios
-        .get(`/appliance/${this.accessory.context.device.applianceId}/erd/${erd}`)
+        .get(`/appliance/${this.getApplianceId()}/erd/${erd}`)
 
       // If API returns undefined/null, return undefined without logging
       if (d.data.value === undefined || d.data.value === null) {
@@ -275,15 +363,13 @@ export abstract class deviceBase {
         return undefined
       }
       // For other errors, log warning and return undefined
-      this.warnLog?.(`readErd ${erd} error: ${error?.message ?? error}`)
+      await this.warnLog(`readErd ${erd} error: ${error?.message ?? error}`)
       return undefined
     }
   }
 
   /**
    * Write an ERD (Electronic Refrigerator Descriptor) value to the SmartHQ API
-   * @param erd - The ERD code to write
-   * @param value - The value to write (boolean or string)
    */
   async writeErd(erd: string, value: string | boolean): Promise<void> {
     // Check if we already know this ERD is not supported
@@ -295,10 +381,10 @@ export abstract class deviceBase {
     try {
       await this.debugLog(`Writing ERD ${erd} with value: ${value}`)
       await axios
-        .post(`/appliance/${this.accessory.context.device.applianceId}/erd/${erd}`, {
+        .post(`/appliance/${this.getApplianceId()}/erd/${erd}`, {
           kind: 'appliance#erdListEntry',
-          userId: this.accessory.context.userId,
-          applianceId: this.accessory.context.device.applianceId,
+          userId: this.getUserId(),
+          applianceId: this.getApplianceId(),
           erd,
           value: typeof value === 'boolean' ? (value ? '01' : '00') : value,
         })
@@ -309,8 +395,191 @@ export abstract class deviceBase {
         this.unsupportedErds.add(erd)
         await this.debugLog(`ERD ${erd} write failed - not supported or invalid value (400) - will not retry`)
       } else {
-        this.warnLog?.(`writeErd ${erd} error: ${error?.message ?? error}`)
+        await this.warnLog(`writeErd ${erd} error: ${error?.message ?? error}`)
       }
+    }
+  }
+
+  /**
+   * Get device context for HAP accessories
+   */
+  async getDeviceContext(accessory: PlatformAccessory, device: devicesConfig): Promise<void> {
+    // Only parse firmware if not already set
+    if (!this.deviceFirmwareVersion) {
+      const deviceFirmwareVersion = device.firmware ?? this.platform.version ?? '0.0.0'
+      this.deviceFirmwareVersion = await this.parseFirmwareVersion(deviceFirmwareVersion)
+    }
+    accessory.context.device.firmware = this.deviceFirmwareVersion
+    accessory
+      .getService(this.hap.Service.AccessoryInformation)!
+      .setCharacteristic(this.hap.Characteristic.HardwareRevision, this.deviceFirmwareVersion || '1.0.0')
+      .setCharacteristic(this.hap.Characteristic.SoftwareRevision, this.deviceFirmwareVersion || '1.0.0')
+      .setCharacteristic(this.hap.Characteristic.FirmwareRevision, this.deviceFirmwareVersion || '1.0.0')
+      .getCharacteristic(this.hap.Characteristic.FirmwareRevision)
+      .updateValue(this.deviceFirmwareVersion || '1.0.0')
+    this.debugSuccessLog(`deviceFirmwareVersion: ${this.deviceFirmwareVersion}`)
+  }
+
+  /**
+   * Get device firmware version for Matter devices
+   */
+  async getDeviceFirmwareVersion(device: devicesConfig): Promise<void> {
+    const deviceFirmwareVersion = device.firmware ?? this.platform.version ?? '0.0.0'
+    this.deviceFirmwareVersion = await this.parseFirmwareVersion(deviceFirmwareVersion)
+    await this.debugLog(`deviceFirmwareVersion: ${this.deviceFirmwareVersion}`)
+  }
+
+  /**
+   * Update HAP characteristic value and log the change
+   */
+  async updateCharacteristic(Service: Service, Characteristic: any, CharacteristicValue: CharacteristicValue | undefined, CharacteristicName: string): Promise<void> {
+    if (!this.accessory) {
+      return
+    }
+
+    if (CharacteristicValue === undefined) {
+      this.debugLog(`${CharacteristicName}: ${CharacteristicValue}`)
+    } else {
+      Service.updateCharacteristic(Characteristic, CharacteristicValue)
+      this.debugLog(`updateCharacteristic ${CharacteristicName}: ${CharacteristicValue}`)
+      this.debugWarnLog(`${CharacteristicName} context before: ${this.accessory.context[CharacteristicName]}`)
+      this.accessory.context[CharacteristicName] = CharacteristicValue
+      this.debugWarnLog(`${CharacteristicName} context after: ${this.accessory.context[CharacteristicName]}`)
+    }
+  }
+
+  /**
+   * Create Matter accessory configuration
+   * Should be overridden by device-specific implementations that support Matter
+   */
+  protected createMatterAccessory(): MatterAccessory | undefined {
+    return undefined
+  }
+
+  /**
+   * Get the Matter accessory instance
+   */
+  getMatterAccessory(): MatterAccessory | undefined {
+    if (!this.matterAccessory && this.useMatter) {
+      this.matterAccessory = this.createMatterAccessory()
+    }
+    return this.matterAccessory
+  }
+
+  /**
+   * Validate Matter API availability and log details for debugging
+   */
+  protected validateMatterAPI(): { valid: boolean, api: any } {
+    const matterAPI = (this.api as any).matter
+
+    // Log once per plugin session
+    if (!this.constructor.prototype._matterAPILogged) {
+      this.infoLog(`[Matter Debug] Checking Matter API availability...`)
+      this.infoLog(`[Matter Debug] API exists: ${!!matterAPI}`)
+
+      if (matterAPI) {
+        const apiKeys = Object.keys(matterAPI)
+        this.infoLog(`[Matter Debug] API keys (${apiKeys.length}): ${apiKeys.join(', ')}`)
+        this.infoLog(`[Matter Debug] uuid: ${typeof matterAPI.uuid} ${matterAPI.uuid ? '✓' : '✗'}`)
+        this.infoLog(`[Matter Debug] deviceTypes: ${typeof matterAPI.deviceTypes} ${matterAPI.deviceTypes ? '✓' : '✗'}`)
+        this.infoLog(`[Matter Debug] registerPlatformAccessories: ${typeof matterAPI.registerPlatformAccessories}`)
+
+        if (matterAPI.deviceTypes && typeof matterAPI.deviceTypes === 'object') {
+          const deviceTypeKeys = Object.keys(matterAPI.deviceTypes)
+          this.infoLog(`[Matter Debug] Available deviceTypes (${deviceTypeKeys.length}): ${deviceTypeKeys.slice(0, 15).join(', ')}${deviceTypeKeys.length > 15 ? '...' : ''}`)
+        }
+      }
+
+      this.constructor.prototype._matterAPILogged = true
+    }
+
+    // Validate required components
+    if (!matterAPI) {
+      return { valid: false, api: null }
+    }
+
+    if (!matterAPI.uuid || !matterAPI.deviceTypes || typeof matterAPI.registerPlatformAccessories !== 'function') {
+      this.errorLog('[Matter Debug] Validation failed:')
+      if (!matterAPI.uuid) {
+        this.errorLog('  - uuid is missing')
+      }
+      if (!matterAPI.deviceTypes) {
+        this.errorLog('  - deviceTypes is missing')
+      }
+      if (typeof matterAPI.registerPlatformAccessories !== 'function') {
+        this.errorLog(`  - registerPlatformAccessories is not a function (type: ${typeof matterAPI.registerPlatformAccessories})`)
+      }
+      return { valid: false, api: matterAPI }
+    }
+
+    return { valid: true, api: matterAPI }
+  }
+
+  /**
+   * Helper to create base Matter accessory info
+   */
+  protected createBaseMatterConfig() {
+    const device = this.accessory ? this.accessory.context.device : {} as any
+    const displayName = device.nickname || 'SmartHQ Device'
+    const serialNumber = device.applianceId || 'unknown'
+
+    // Type assertion for Matter API (will be properly typed in Homebridge 2.0)
+    const matterAPI = (this.api as any).matter
+
+    // Debug: Log Matter API structure (first device only to avoid spam)
+    if (!this.constructor.prototype._matterAPILogged) {
+      this.infoLog(`[Matter Debug] API available: ${!!matterAPI}`)
+      if (matterAPI) {
+        this.infoLog(`[Matter Debug] API keys: ${Object.keys(matterAPI).join(', ')}`)
+        this.infoLog(`[Matter Debug] uuid type: ${typeof matterAPI.uuid} = ${matterAPI.uuid ? 'exists' : 'missing'}`)
+        this.infoLog(`[Matter Debug] deviceTypes type: ${typeof matterAPI.deviceTypes} = ${matterAPI.deviceTypes ? 'exists' : 'missing'}`)
+        this.infoLog(`[Matter Debug] registerAccessory type: ${typeof matterAPI.registerAccessory}`)
+
+        if (matterAPI.deviceTypes) {
+          const deviceTypeKeys = Object.keys(matterAPI.deviceTypes)
+          this.infoLog(`[Matter Debug] Available deviceTypes (${deviceTypeKeys.length}): ${deviceTypeKeys.slice(0, 10).join(', ')}${deviceTypeKeys.length > 10 ? '...' : ''}`)
+        }
+      }
+      this.constructor.prototype._matterAPILogged = true
+    }
+
+    // Validate Matter API is available
+    if (!matterAPI || !matterAPI.uuid) {
+      throw new Error('Matter API not available or incomplete')
+    }
+
+    return {
+      UUID: matterAPI.uuid.generate(serialNumber),
+      displayName,
+      serialNumber,
+      manufacturer: device.brand && device.brand !== 'Unknown' ? device.brand : 'GE Appliances',
+      model: device.model || 'SmartHQ',
+      firmwareRevision: this.deviceFirmwareVersion || '1.0.0',
+      hardwareRevision: this.deviceFirmwareVersion || '1.0.0',
+    }
+  }
+
+  /**
+   * Update Matter cluster state
+   */
+  protected async updateMatterState(clusterName: string, attributes: Record<string, unknown>): Promise<void> {
+    if (!this.matterUuid || !this.matterRegistered) {
+      await this.debugLog(`Cannot update Matter state - accessory not registered yet (UUID: ${this.matterUuid}, Registered: ${this.matterRegistered})`)
+      return
+    }
+
+    try {
+      // Type assertion for Matter API (will be properly typed in Homebridge 2.0)
+      const matterAPI = (this.api as any).matter
+      if (!matterAPI || typeof matterAPI.updateAccessoryState !== 'function') {
+        await this.debugLog('Matter API not available or incomplete')
+        return
+      }
+
+      await matterAPI.updateAccessoryState(this.matterUuid, clusterName, attributes)
+      await this.debugLog(`Updated Matter cluster ${clusterName}: ${JSON.stringify(attributes)}`)
+    } catch (error: any) {
+      await this.errorLog(`Failed to update Matter cluster ${clusterName}: ${error?.message ?? error}`)
     }
   }
 }
