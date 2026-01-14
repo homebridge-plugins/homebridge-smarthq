@@ -157,11 +157,11 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       try {
         this.tokenSet = await refreshAccessToken(this.tokenSet.refresh_token)
       } catch (e: any) {
-        await this.errorLog(`Failed to refresh Access Token, Error Message: ${e.message ?? e}`)
+        await this.debugErrorLog(`Failed to refresh Access Token, Error Message: ${e.message ?? e}`)
 
         // Handle invalid_grant error (expired/revoked refresh token)
         if (e.error === 'invalid_grant' || e.message?.includes('invalid_grant') || e.message?.includes('Invalid refresh token')) {
-          await this.warnLog('Refresh token is invalid or expired. Attempting to re-authenticate with username and password...')
+          await this.debugWarnLog('Refresh token is invalid or expired. Attempting to re-authenticate with username and password...')
 
           // Try to get a new token using username/password
           const { username, password } = this.config.credentials ?? {}
