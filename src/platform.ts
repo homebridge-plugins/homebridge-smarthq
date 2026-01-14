@@ -175,7 +175,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
           if (username && password) {
             try {
               this.tokenSet = await getAccessToken(username, password)
-              await this.successLog('Successfully re-authenticated with credentials')
+              await this.debugSuccessLog('Successfully re-authenticated with credentials')
 
               // Set up axios with new token
               if (this.tokenSet.access_token) {
