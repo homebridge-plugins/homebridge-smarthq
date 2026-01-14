@@ -342,9 +342,10 @@ export class SmartHQHood extends deviceBase {
       this.getLightLevel(),
     ])
       .then(([fanSpeed, lightLevel]) => {
-        const isActive = fanSpeed !== FanSpeed.OFF
+        // Treat undefined values as OFF to prevent incorrect "on" states
+        const isActive = fanSpeed !== undefined && fanSpeed !== FanSpeed.OFF
         const rotationSpeed = this.fanSpeedToRotationSpeed(fanSpeed)
-        const isOn = lightLevel !== LightLevel.OFF
+        const isOn = lightLevel !== undefined && lightLevel !== LightLevel.OFF
         const brightness = this.lightLevelToBrightness(lightLevel)
 
         this.fanSvc.updateCharacteristic(
