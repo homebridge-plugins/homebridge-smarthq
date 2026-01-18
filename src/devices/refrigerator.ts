@@ -453,13 +453,45 @@ export class SmartHQRefrigerator extends deviceBase {
 
     try {
       const parsed = JSON.parse(r)
-      if (parsed[compartment] !== undefined) {
+
+      // Case 1: ERD returns an object with compartment keys, e.g. { "fridge": 4, "freezer": -18 }
+      if (parsed && typeof parsed === 'object' && parsed[compartment] !== undefined) {
         const tempCelsius = Number(parsed[compartment])
-        this.debugLog(`${compartment} temperature: ${tempCelsius}°C`)
+        this.debugLog(`${compartment} temperature (object): ${tempCelsius}°C`)
         return tempCelsius
+      }
+
+      // Case 2: ERD returns a raw numeric value (often in centi-degrees), e.g. 2500 -> 25.00°C
+      if (typeof parsed === 'number' || typeof parsed === 'string') {
+        const num = Number(parsed)
+        if (!Number.isNaN(num)) {
+          // Heuristic: values >= 100 likely represent centi-degrees (e.g. 2500 => 25.00°C)
+          const tempCelsius = Math.abs(num) >= 100 ? num / 100 : num
+          this.debugLog(`${compartment} temperature (raw): ${tempCelsius}°C from ${num}`)
+          return tempCelsius
+        }
       }
     } catch (parseError) {
       this.debugLog(`Temperature parse error: ${parseError}`)
+    }
+
+    // Case 3: Some appliances return hex byte pairs (fridge+freezer) like "0A14" or "0000FF".
+    // Decode hex pairs into signed bytes (compatible with simbaja/gehome FridgeSetPointsConverter).
+    try {
+      const hex = r.replace(/^0x/, '')
+      if (/^[0-9a-f]+$/i.test(hex) && hex.length >= 4) {
+        const fridgeHex = hex.substring(0, 2)
+        const freezerHex = hex.substring(2, 4)
+        const fridgeVal = Number.parseInt(fridgeHex, 16)
+        const freezerVal = Number.parseInt(freezerHex, 16)
+        const fridgeSigned = fridgeVal > 128 ? fridgeVal - 256 : fridgeVal
+        const freezerSigned = freezerVal > 128 ? freezerVal - 256 : freezerVal
+        const value = compartment === 'fridge' ? fridgeSigned : freezerSigned
+        this.debugLog(`${compartment} temperature (hex bytes): ${value}° from ${hex}`)
+        return value
+      }
+    } catch (hexError) {
+      this.debugLog(`Temperature hex-parse error: ${hexError}`)
     }
 
     return undefined
@@ -476,13 +508,43 @@ export class SmartHQRefrigerator extends deviceBase {
 
     try {
       const parsed = JSON.parse(r)
-      if (parsed[compartment] !== undefined) {
+
+      // Case 1: object with compartment keys
+      if (parsed && typeof parsed === 'object' && parsed[compartment] !== undefined) {
         const tempCelsius = Number(parsed[compartment])
-        this.debugLog(`${compartment} setpoint: ${tempCelsius}°C`)
+        this.debugLog(`${compartment} setpoint (object): ${tempCelsius}°C`)
         return tempCelsius
+      }
+
+      // Case 2: raw numeric setpoint (often centi-degrees)
+      if (typeof parsed === 'number' || typeof parsed === 'string') {
+        const num = Number(parsed)
+        if (!Number.isNaN(num)) {
+          const tempCelsius = Math.abs(num) >= 100 ? num / 100 : num
+          this.debugLog(`${compartment} setpoint (raw): ${tempCelsius}°C from ${num}`)
+          return tempCelsius
+        }
       }
     } catch (parseError) {
       this.debugLog(`Setpoint parse error: ${parseError}`)
+    }
+
+    // Case 3: hex byte-pair encoding like "0A14" or "2500" (hex). Decode similarly to gehome.
+    try {
+      const hex = r.replace(/^0x/, '')
+      if (/^[0-9a-f]+$/i.test(hex) && hex.length >= 4) {
+        const fridgeHex = hex.substring(0, 2)
+        const freezerHex = hex.substring(2, 4)
+        const fridgeVal = Number.parseInt(fridgeHex, 16)
+        const freezerVal = Number.parseInt(freezerHex, 16)
+        const fridgeSigned = fridgeVal > 128 ? fridgeVal - 256 : fridgeVal
+        const freezerSigned = freezerVal > 128 ? freezerVal - 256 : freezerVal
+        const value = compartment === 'fridge' ? fridgeSigned : freezerSigned
+        this.debugLog(`${compartment} setpoint (hex bytes): ${value}° from ${hex}`)
+        return value
+      }
+    } catch (hexError) {
+      this.debugLog(`Setpoint hex-parse error: ${hexError}`)
     }
 
     return undefined
@@ -493,10 +555,43 @@ export class SmartHQRefrigerator extends deviceBase {
    */
   private async writeSetpoint(compartment: 'fridge' | 'freezer', temperature: number): Promise<void> {
     try {
-      const value = Math.round(temperature).toString()
-      const erdData = JSON.stringify({ [compartment]: value })
+      // Decide whether the appliance expects an object like { "fridge": 4 }
+      // or a raw numeric value (commonly centi-degrees like 2500 => 25.00°C).
+      const current = await this.readErd(ERD_TYPES.TEMPERATURE_SETTING)
+      let erdData: string
+
+      if (current) {
+        try {
+          const parsed = JSON.parse(current)
+          if (parsed && typeof parsed === 'object' && parsed[compartment] !== undefined) {
+            const value = Math.round(temperature).toString()
+            erdData = JSON.stringify({ [compartment]: value })
+            await this.successLog(`Writing setpoint as object for ${compartment}: ${erdData}`)
+          } else {
+            const centi = Math.round(temperature * 100)
+            erdData = String(centi)
+            await this.successLog(`Writing setpoint as raw centi-degrees for ${compartment}: ${erdData}`)
+          }
+        } catch (parseError) {
+          // If parsing fails, fall back to a heuristic: if the raw current value looks numeric, send centi-degrees
+          if (/^-?\d+$/.test(current)) {
+            const centi = Math.round(temperature * 100)
+            erdData = String(centi)
+            await this.successLog(`Writing setpoint (fallback numeric) for ${compartment}: ${erdData}`)
+          } else {
+            const value = Math.round(temperature).toString()
+            erdData = JSON.stringify({ [compartment]: value })
+            await this.successLog(`Writing setpoint (fallback object) for ${compartment}: ${erdData}`)
+          }
+        }
+      } else {
+        // No current value available; default to object format to preserve previous behavior
+        const value = Math.round(temperature).toString()
+        erdData = JSON.stringify({ [compartment]: value })
+        await this.successLog(`Writing setpoint (default object) for ${compartment}: ${erdData}`)
+      }
+
       await this.writeErd(ERD_TYPES.TEMPERATURE_SETTING, erdData)
-      await this.successLog(`Set ${compartment} temperature to ${value}°C`)
     } catch (error: any) {
       await this.errorLog(`Failed to write ${compartment} setpoint: ${error?.message ?? error}`)
     }
