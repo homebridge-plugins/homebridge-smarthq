@@ -333,6 +333,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
             case 'Air Conditioner':
             case 'Portable AC':
             case 'Split Air Conditioner':
+            case 'Through Wall AC':
               await this.createSmartHQAirConditioner(userId, device, details, features)
               break
             case 'Hood':
