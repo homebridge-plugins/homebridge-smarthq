@@ -8,6 +8,7 @@ import type { SmartHQPlatform } from '../platform.js'
 import type { devicesConfig, SmartHqContext, SmartHQPlatformConfig } from '../settings.js'
 
 import axios from 'axios'
+import { ERD_TYPES } from '../settings.js'
 
 // Type for Matter accessory (will be properly typed in Homebridge 2.0)
 export interface MatterAccessory {
@@ -44,6 +45,17 @@ export abstract class deviceBase {
 
   // ERD capability tracking - remember which ERDs are not supported
   private unsupportedErds: Set<string> = new Set()
+
+  // ERDs that are optional on many appliance models — suppress 400 logs for these
+  private optionalErds: Set<string> = new Set([
+    ERD_TYPES.ICE_MAKER_CONTROL,
+    ERD_TYPES.TURBO_COOL_STATUS,
+    ERD_TYPES.TURBO_FREEZE_STATUS,
+    ERD_TYPES.AIR_FILTER_STATUS,
+    ERD_TYPES.DISHWASHER_CYCLE,
+    ERD_TYPES.LAUNDRY_DOOR_LOCK,
+    ERD_TYPES.UPPER_OVEN_REMOTE_ENABLED,
+  ])
 
   // HAP-specific properties
   protected accessory?: PlatformAccessory<SmartHqContext>
@@ -359,7 +371,10 @@ export abstract class deviceBase {
       // 400 means ERD not supported by this appliance model - cache and return undefined
       if (error?.response?.status === 400) {
         this.unsupportedErds.add(erd)
-        await this.debugLog(`ERD ${erd} not supported by this appliance (400) - will not retry`)
+        // Suppress logs for known optional ERDs to avoid noisy output
+        if (!this.optionalErds.has(erd)) {
+          await this.debugLog(`ERD ${erd} not supported by this appliance (400) - will not retry`)
+        }
         return undefined
       }
       // For other errors, log warning and return undefined
@@ -393,7 +408,9 @@ export abstract class deviceBase {
       // 400 means ERD not supported or invalid value - cache it
       if (error?.response?.status === 400) {
         this.unsupportedErds.add(erd)
-        await this.debugLog(`ERD ${erd} write failed - not supported or invalid value (400) - will not retry`)
+        if (!this.optionalErds.has(erd)) {
+          await this.debugLog(`ERD ${erd} write failed - not supported or invalid value (400) - will not retry`)
+        }
       } else {
         await this.warnLog(`writeErd ${erd} error: ${error?.message ?? error}`)
       }
