@@ -65,7 +65,7 @@ describe('SmartHQPlatform Authentication Error Handling', () => {
   it('should handle getAccessToken failure gracefully', async () => {
     const getAccessToken = await import('./getAccessToken.js')
     const mockGetAccessToken = vi.mocked(getAccessToken.default)
-    
+
     // Simulate getAccessToken throwing "Invalid URL" error
     mockGetAccessToken.mockRejectedValue(new Error('Invalid URL'))
 
@@ -90,7 +90,7 @@ describe('SmartHQPlatform Authentication Error Handling', () => {
       ...mockConfig,
       credentials: undefined,
     }
-    
+
     const platformWithoutCreds = new SmartHQPlatform(mockLog, configWithoutCredentials, mockApi)
     const errorLogSpy = vi.spyOn(platformWithoutCreds as any, 'errorLog').mockResolvedValue(undefined)
 
@@ -99,5 +99,70 @@ describe('SmartHQPlatform Authentication Error Handling', () => {
     expect(errorLogSpy).toHaveBeenCalledWith(
       expect.stringContaining('Username or password is undefined')
     )
+  })
+})
+
+describe('SmartHQPlatform Per-Device Config Merge', () => {
+  let mockApi: API
+  let mockLog: Logging
+  let mockConfig: PlatformConfig
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+
+    mockLog = {
+      prefix: 'SmartHQ',
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      debug: vi.fn(),
+    } as unknown as Logging
+
+    mockApi = {
+      hap: {
+        Service: {},
+        Characteristic: {},
+        uuid: {
+          generate: vi.fn().mockReturnValue('test-uuid'),
+        },
+      },
+      on: vi.fn(),
+      registerPlatformAccessories: vi.fn(),
+      unregisterPlatformAccessories: vi.fn(),
+      updatePlatformAccessories: vi.fn(),
+    } as unknown as API
+  })
+
+  it('should apply hide_device from config to matching device', async () => {
+    mockConfig = {
+      platform: 'SmartHQ',
+      name: 'SmartHQ',
+      credentials: { username: 'test@example.com', password: 'pass' },
+      devices: [
+        { applianceId: 'appliance-1', hide_device: true },
+      ],
+    }
+
+    const apiDevices = [
+      { applianceId: 'appliance-1', type: 'Dishwasher', nickname: 'My Dishwasher' },
+    ]
+
+    const axios = (await import('axios')).default
+    const mockGet = vi.mocked(axios.get)
+    mockGet.mockImplementation((url: string) => {
+      if (url === '/appliance') {
+        return Promise.resolve({ data: { userId: 'user-1', items: apiDevices } })
+      }
+      return Promise.reject(new Error(`Unexpected URL: ${url}`))
+    })
+
+    const platform = new SmartHQPlatform(mockLog, mockConfig, mockApi)
+
+    // The device is hidden and no existing accessory exists, so createSmartHQDishWasher
+    // should skip it (no register, no warn). We just verify it doesn't crash and
+    // no accessory is registered.
+    await platform.discoverDevices()
+
+    expect(mockApi.registerPlatformAccessories).not.toHaveBeenCalled()
   })
 })

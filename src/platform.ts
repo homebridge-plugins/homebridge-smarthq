@@ -32,7 +32,7 @@ import { SmartHQWaterSoftener } from './devices/waterSoftener.js'
 import getAccessToken, { refreshAccessToken } from './getAccessToken.js'
 import { API_URL, ERD_CODES, ERD_TYPES, KEEPALIVE_TIMEOUT, PLATFORM_NAME, PLUGIN_NAME } from './settings.js'
 
-const { find } = pkg
+const { find, keyBy } = pkg
 
 axios.defaults.baseURL = API_URL
 
@@ -311,7 +311,14 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
         const devices = await axios.get('/appliance')
 
         const userId = devices.data.userId
+        const deviceConfigByApplianceId: pkg.Dictionary<devicesConfig | undefined> = keyBy(this.config.devices)
         for (const device of devices.data.items) {
+          // Merge per-device config overrides (hide_device, refreshRate, etc.) from user config
+          const deviceConfig = deviceConfigByApplianceId[device.applianceId]
+          if (deviceConfig?.hide_device) {
+            device.hide_device = deviceConfig.hide_device
+          }
+
           const [{ data: details }, { data: features }] = await Promise.all([
             axios.get(`/appliance/${device.applianceId}`),
             axios.get(`/appliance/${device.applianceId}/feature`),
