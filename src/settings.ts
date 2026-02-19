@@ -43,6 +43,7 @@ export interface credentials {
 }
 
 export interface devicesConfig {
+  applianceId?: string
   firmware: string
   refreshRate?: number
   updateRate?: number

@@ -305,6 +305,12 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
 
         const userId = devices.data.userId
         for (const device of devices.data.items) {
+          // Merge per-device config overrides (hide_device, refreshRate, etc.) from user config
+          const deviceConfig = this.config.devices?.find((d: devicesConfig) => d.applianceId === device.applianceId)
+          if (deviceConfig) {
+            Object.assign(device, deviceConfig)
+          }
+
           const [{ data: details }, { data: features }] = await Promise.all([
             axios.get(`/appliance/${device.applianceId}`),
             axios.get(`/appliance/${device.applianceId}/feature`),
