@@ -1,6 +1,6 @@
 import type { API, Logging, PlatformConfig } from 'homebridge'
 
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi, beforeEach } from 'vitest'
 
 import { SmartHQPlatform } from './platform.js'
 
@@ -21,7 +21,7 @@ vi.mock('axios', () => ({
   },
 }))
 
-describe('smartHQPlatform Authentication Error Handling', () => {
+describe('SmartHQPlatform Authentication Error Handling', () => {
   let platform: SmartHQPlatform
   let mockApi: API
   let mockLog: Logging
@@ -77,7 +77,7 @@ describe('smartHQPlatform Authentication Error Handling', () => {
 
     // Verify error was logged
     expect(errorLogSpy).toHaveBeenCalledWith(
-      expect.stringContaining('discoverDevices, Failed to get Access Token, Error Message: Invalid URL'),
+      expect.stringContaining('discoverDevices, Failed to get Access Token, Error Message: Invalid URL')
     )
 
     // Verify execution stopped (no further errors logged)
@@ -97,7 +97,72 @@ describe('smartHQPlatform Authentication Error Handling', () => {
     await platformWithoutCreds.discoverDevices()
 
     expect(errorLogSpy).toHaveBeenCalledWith(
-      expect.stringContaining('Username or password is undefined'),
+      expect.stringContaining('Username or password is undefined')
     )
+  })
+})
+
+describe('SmartHQPlatform Per-Device Config Merge', () => {
+  let mockApi: API
+  let mockLog: Logging
+  let mockConfig: PlatformConfig
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+
+    mockLog = {
+      prefix: 'SmartHQ',
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      debug: vi.fn(),
+    } as unknown as Logging
+
+    mockApi = {
+      hap: {
+        Service: {},
+        Characteristic: {},
+        uuid: {
+          generate: vi.fn().mockReturnValue('test-uuid'),
+        },
+      },
+      on: vi.fn(),
+      registerPlatformAccessories: vi.fn(),
+      unregisterPlatformAccessories: vi.fn(),
+      updatePlatformAccessories: vi.fn(),
+    } as unknown as API
+  })
+
+  it('should apply hide_device from config to matching device', async () => {
+    mockConfig = {
+      platform: 'SmartHQ',
+      name: 'SmartHQ',
+      credentials: { username: 'test@example.com', password: 'pass' },
+      devices: [
+        { applianceId: 'appliance-1', hide_device: true },
+      ],
+    }
+
+    const apiDevices = [
+      { applianceId: 'appliance-1', type: 'Dishwasher', nickname: 'My Dishwasher' },
+    ]
+
+    const axios = (await import('axios')).default
+    const mockGet = vi.mocked(axios.get)
+    mockGet.mockImplementation((url: string) => {
+      if (url === '/appliance') {
+        return Promise.resolve({ data: { userId: 'user-1', items: apiDevices } })
+      }
+      return Promise.reject(new Error(`Unexpected URL: ${url}`))
+    })
+
+    const platform = new SmartHQPlatform(mockLog, mockConfig, mockApi)
+
+    // The device is hidden and no existing accessory exists, so createSmartHQDishWasher
+    // should skip it (no register, no warn). We just verify it doesn't crash and
+    // no accessory is registered.
+    await platform.discoverDevices()
+
+    expect(mockApi.registerPlatformAccessories).not.toHaveBeenCalled()
   })
 })
