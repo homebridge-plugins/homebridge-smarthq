@@ -34,6 +34,11 @@ enum FilterStatus {
   CLEAN = '01',
 }
 
+enum AcSwingMode {
+  DISABLED = '00',
+  ENABLED = '01',
+}
+
 enum OperationMode {
   COOL = '00',
   FAN_ONLY = '01',
@@ -137,6 +142,12 @@ export class SmartHQAirConditioner extends deviceBase {
     this.heaterCoolerSvc
       .getCharacteristic(this.platform.Characteristic.FilterChangeIndication)
       .onGet(this.handleGetFilterChangeIndication.bind(this))
+
+    // Swing mode
+    this.heaterCoolerSvc
+      .getCharacteristic(this.platform.Characteristic.SwingMode)
+      .onGet(this.handleGetSwingMode.bind(this))
+      .onSet(this.handleSetSwingMode.bind(this))
 
     // Modes
     for (const mode of Object.values(OperationMode)) {
@@ -308,6 +319,26 @@ export class SmartHQAirConditioner extends deviceBase {
       return value as FilterStatus
     } catch (cause) {
       throw new Error(`Failed to get filter status: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`, { cause })
+    }
+  }
+
+  private async getSwingMode(): Promise<AcSwingMode> {
+    try {
+      const value = await this.getErdValue(ERD_TYPES.AIR_CONDITIONER_SWING_MODE)
+
+      return value as AcSwingMode
+    } catch (cause) {
+      throw new Error(`Failed to get swing mode: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`, { cause })
+    }
+  }
+
+  private async setSwingMode(value: AcSwingMode): Promise<void> {
+    try {
+      await this.setErdValue(ERD_TYPES.AIR_CONDITIONER_SWING_MODE, value)
+
+      this.platform.log.debug(`[${this.accessory.displayName}] Set swing mode to ${value}`)
+    } catch (cause) {
+      throw new Error(`Failed to set swing mode: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`, { cause })
     }
   }
 
@@ -598,6 +629,36 @@ export class SmartHQAirConditioner extends deviceBase {
     }
   }
 
+  public async handleGetSwingMode(): Promise<CharacteristicValue> {
+    try {
+      const value: AcSwingMode = await this.getSwingMode()
+
+      return value === AcSwingMode.ENABLED
+        ? this.platform.Characteristic.SwingMode.SWING_ENABLED
+        : this.platform.Characteristic.SwingMode.SWING_DISABLED
+    } catch (cause) {
+      const error = new Error(`Failed to handle get swing mode: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`, { cause })
+      this.platform.log.error(`[${this.accessory.displayName}] ${error.message}`)
+
+      throw error
+    }
+  }
+
+  public async handleSetSwingMode(value: CharacteristicValue): Promise<void> {
+    try {
+      const swingMode = value === this.platform.Characteristic.SwingMode.SWING_ENABLED
+        ? AcSwingMode.ENABLED
+        : AcSwingMode.DISABLED
+
+      await this.setSwingMode(swingMode)
+    } catch (cause) {
+      const error = new Error(`Failed to handle set swing mode: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`, { cause })
+      this.platform.log.error(`[${this.accessory.displayName}] ${error.message}`)
+
+      throw error
+    }
+  }
+
   public async handleGetOperationMode(mode: OperationMode): Promise<CharacteristicValue> {
     try {
       const [powerState, currentOperationMode] = await Promise.all([
@@ -761,6 +822,12 @@ export class SmartHQAirConditioner extends deviceBase {
       this.heaterCoolerSvc.updateCharacteristic(
         this.platform.Characteristic.FilterChangeIndication,
         await this.handleGetFilterChangeIndication(),
+      )
+
+      // Swing mode
+      this.heaterCoolerSvc.updateCharacteristic(
+        this.platform.Characteristic.SwingMode,
+        await this.handleGetSwingMode(),
       )
 
       // Modes
