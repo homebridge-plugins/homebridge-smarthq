@@ -2,6 +2,97 @@
 
 All notable changes to this project will be documented in this file. This project uses [Semantic Versioning](https://semver.org/).
 
+## [0.4.15](https://github.com/homebridge-plugins/homebridge-smarthq/compare/v0.4.14...v0.4.15) (2026-03-01)
+
+
+### Features
+
+* Add Heat Mode support for SmartHQ Air Conditioner ([#85](https://github.com/homebridge-plugins/homebridge-smarthq/issues/85)) ([6c3a38b](https://github.com/homebridge-plugins/homebridge-smarthq/commit/6c3a38bdccd45cb0f5b0a3375440a0deb13ab1d5))
+* Add Swing Mode support for Air Conditioner ([#84](https://github.com/homebridge-plugins/homebridge-smarthq/issues/84)) ([152cf01](https://github.com/homebridge-plugins/homebridge-smarthq/commit/152cf014f339cc5315b325bbde5d82c9c2273d79))
+
+
+
+## [0.4.14](https://github.com/homebridge-plugins/homebridge-smarthq/compare/v0.4.13...v0.4.14) (2026-01-18)
+
+
+
+## [0.4.13](https://github.com/homebridge-plugins/homebridge-smarthq/compare/v0.4.12...v0.4.13) (2026-01-14)
+
+
+
+## [0.4.12](https://github.com/homebridge-plugins/homebridge-smarthq/compare/v0.4.11...v0.4.12) (2026-01-14)
+
+
+### Bug Fixes
+
+* handle undefined values for fan speed and light level in SmartHQ… ([#74](https://github.com/homebridge-plugins/homebridge-smarthq/issues/74)) ([777a8a0](https://github.com/homebridge-plugins/homebridge-smarthq/commit/777a8a0cb3096068c8193b49c5b90447bcc82929))
+
+
+
+## [0.4.11](https://github.com/homebridge-plugins/homebridge-smarthq/compare/v0.4.10...v0.4.11) (2025-12-22)
+
+
+
+## [0.4.10](https://github.com/homebridge-plugins/homebridge-smarthq/compare/v0.4.9...v0.4.10) (2025-12-22)
+
+
+
+## [0.4.9](https://github.com/homebridge-plugins/homebridge-smarthq/compare/v0.4.8...v0.4.9) (2025-12-22)
+
+
+
+## [0.4.8](https://github.com/homebridge-plugins/homebridge-smarthq/compare/v0.4.7...v0.4.8) (2025-12-22)
+
+
+
+## [0.4.7](https://github.com/homebridge-plugins/homebridge-smarthq/compare/v0.4.6...v0.4.7) (2025-12-22)
+
+
+
+## [0.4.6](https://github.com/homebridge-plugins/homebridge-smarthq/compare/v0.4.4...v0.4.6) (2025-12-22)
+
+
+
+## [0.4.4](https://github.com/homebridge-plugins/homebridge-smarthq/compare/v0.4.3...v0.4.4) (2025-12-22)
+
+
+### Reverts
+
+* Revert "update dependenices" ([b3fe90e](https://github.com/homebridge-plugins/homebridge-smarthq/commit/b3fe90ea172fb78b8acd360695cbc3c6b97f0326))
+
+
+
+## [0.4.3](https://github.com/homebridge-plugins/homebridge-smarthq/compare/v0.4.1...v0.4.3) (2025-12-22)
+
+
+### Features
+
+* support hood ([#57](https://github.com/homebridge-plugins/homebridge-smarthq/issues/57)) ([2659b21](https://github.com/homebridge-plugins/homebridge-smarthq/commit/2659b21a0a483cb15e0622733f58d75603d99cab))
+
+
+
+## [0.4.1](https://github.com/homebridge-plugins/homebridge-smarthq/compare/v0.4.0...v0.4.1) (2025-09-18)
+
+
+### Bug Fixes
+
+* **air conditioner:** fix temperature setting and update switch display names ([#38](https://github.com/homebridge-plugins/homebridge-smarthq/issues/38)) ([1675205](https://github.com/homebridge-plugins/homebridge-smarthq/commit/16752059c93d6a5b26b782f2b42246e622b4b830))
+* **air conditioner:** preserve decimal precision when converting Celsius to Fahrenheit ([#40](https://github.com/homebridge-plugins/homebridge-smarthq/issues/40)) ([38c8285](https://github.com/homebridge-plugins/homebridge-smarthq/commit/38c82852015d8ea0ceb0f4dd4b9ddf0622f57963))
+* **air conditioner:** report all operating modes off when unit is off ([#42](https://github.com/homebridge-plugins/homebridge-smarthq/issues/42)) ([d44ebe3](https://github.com/homebridge-plugins/homebridge-smarthq/commit/d44ebe34590a2da6645e30db0db269e1dbbe4f3b))
+
+
+### Features
+
+* add Portable AC as supported device ([#45](https://github.com/homebridge-plugins/homebridge-smarthq/issues/45)) ([50d83b1](https://github.com/homebridge-plugins/homebridge-smarthq/commit/50d83b1e003d8d238485459a5c882f357e1c61fb))
+
+
+
+# [0.4.0](https://github.com/homebridge-plugins/homebridge-smarthq/compare/v0.2.0...v0.4.0) (2025-06-27)
+
+
+
+# 0.2.0 (2025-02-23)
+
 ## [0.4.14](https://github.com/homebridge-plugins/homebridge-smarthq/compare/v0.4.13...v0.4.14) (2026-01-18)
 
 
