@@ -43,6 +43,7 @@ enum OperationMode {
   COOL = '00',
   FAN_ONLY = '01',
   ENERGY_SAVER = '02',
+  HEAT = '03',
   DRY = '04',
 }
 
@@ -78,6 +79,8 @@ export class SmartHQAirConditioner extends deviceBase {
         ?? this.accessory.addService(this.platform.Service.Switch, `${accessory.displayName} Fan Only Mode`, `${this.MODE_SWITCH_SVC_PREFIX}_FAN_ONLY`),
       [OperationMode.ENERGY_SAVER]: this.accessory.getService(`${this.MODE_SWITCH_SVC_PREFIX}_ENERGY_SAVER`)
         ?? this.accessory.addService(this.platform.Service.Switch, `${accessory.displayName} Energy Saver Mode`, `${this.MODE_SWITCH_SVC_PREFIX}_ENERGY_SAVER`),
+      [OperationMode.HEAT]: this.accessory.getService(`${this.MODE_SWITCH_SVC_PREFIX}_HEAT`)
+        ?? this.accessory.addService(this.platform.Service.Switch, `${accessory.displayName} Heat Mode`, `${this.MODE_SWITCH_SVC_PREFIX}_HEAT`),
       [OperationMode.DRY]: this.accessory.getService(`${this.MODE_SWITCH_SVC_PREFIX}_DRY`)
         ?? this.accessory.addService(this.platform.Service.Switch, `${accessory.displayName} Dry Mode`, `${this.MODE_SWITCH_SVC_PREFIX}_DRY`),
     }
@@ -95,16 +98,18 @@ export class SmartHQAirConditioner extends deviceBase {
         validValues: [
           this.platform.Characteristic.CurrentHeaterCoolerState.INACTIVE,
           this.platform.Characteristic.CurrentHeaterCoolerState.IDLE,
+          this.platform.Characteristic.CurrentHeaterCoolerState.HEATING,
           this.platform.Characteristic.CurrentHeaterCoolerState.COOLING,
         ],
       })
       .onGet(this.handleGetCurrentHeaterCoolerState.bind(this))
 
-    // Target mode (COOL only)
+    // Target mode (HEAT and COOL)
     this.heaterCoolerSvc
       .getCharacteristic(this.platform.Characteristic.TargetHeaterCoolerState)
       .setProps({
         validValues: [
+          this.platform.Characteristic.TargetHeaterCoolerState.HEAT,
           this.platform.Characteristic.TargetHeaterCoolerState.COOL,
         ],
       })
@@ -125,6 +130,16 @@ export class SmartHQAirConditioner extends deviceBase {
       })
       .onGet(this.handleGetCoolingThresholdTemperature.bind(this))
       .onSet(this.handleSetCoolingThresholdTemperature.bind(this))
+
+    // Heating threshold temperature
+    this.heaterCoolerSvc
+      .getCharacteristic(this.platform.Characteristic.HeatingThresholdTemperature)
+      .setProps({
+        minValue: 17.7778, // 64F
+        maxValue: 30, // 86F
+      })
+      .onGet(this.handleGetHeatingThresholdTemperature.bind(this))
+      .onSet(this.handleSetHeatingThresholdTemperature.bind(this))
 
     // Rotation speed
     this.heaterCoolerSvc
@@ -391,9 +406,13 @@ export class SmartHQAirConditioner extends deviceBase {
         // Update CurrentHeaterCoolerState
         this.heaterCoolerSvc.updateCharacteristic(
           this.platform.Characteristic.CurrentHeaterCoolerState,
-          ambientTemperature <= targetTemperature
-            ? this.platform.Characteristic.CurrentHeaterCoolerState.IDLE
-            : this.platform.Characteristic.CurrentHeaterCoolerState.COOLING,
+          operationMode === OperationMode.HEAT
+            ? (ambientTemperature >= targetTemperature
+                ? this.platform.Characteristic.CurrentHeaterCoolerState.IDLE
+                : this.platform.Characteristic.CurrentHeaterCoolerState.HEATING)
+            : (ambientTemperature <= targetTemperature
+                ? this.platform.Characteristic.CurrentHeaterCoolerState.IDLE
+                : this.platform.Characteristic.CurrentHeaterCoolerState.COOLING),
         )
 
         return
@@ -426,14 +445,29 @@ export class SmartHQAirConditioner extends deviceBase {
 
   public async handleGetCurrentHeaterCoolerState(): Promise<number> {
     try {
-      const [powerState, ambientTemperature, targetTemperature] = await Promise.all([
+      const [powerState, ambientTemperature, targetTemperature, operationMode] = await Promise.all([
         this.getPowerState(),
         this.getAmbientTemperature(),
         this.getTemperature(),
+        this.getOperationMode(),
       ])
 
       if (powerState === PowerState.OFF) {
         return this.platform.Characteristic.CurrentHeaterCoolerState.INACTIVE
+      }
+
+      if (operationMode === OperationMode.HEAT) {
+        if (ambientTemperature >= targetTemperature) {
+          return this.platform.Characteristic.CurrentHeaterCoolerState.IDLE
+        }
+
+        // Keep TargetHeaterCoolerState in sync
+        this.heaterCoolerSvc.updateCharacteristic(
+          this.platform.Characteristic.TargetHeaterCoolerState,
+          this.platform.Characteristic.TargetHeaterCoolerState.HEAT,
+        )
+
+        return this.platform.Characteristic.CurrentHeaterCoolerState.HEATING
       }
 
       if (ambientTemperature <= targetTemperature) {
@@ -457,8 +491,11 @@ export class SmartHQAirConditioner extends deviceBase {
 
   public async handleGetTargetHeaterCoolerState(): Promise<CharacteristicValue> {
     try {
-      // Cool is the only supported state for an air conditioner
-      return this.platform.Characteristic.TargetHeaterCoolerState.COOL
+      const operationMode = await this.getOperationMode()
+
+      return operationMode === OperationMode.HEAT
+        ? this.platform.Characteristic.TargetHeaterCoolerState.HEAT
+        : this.platform.Characteristic.TargetHeaterCoolerState.COOL
     } catch (cause) {
       const error = new Error(`Failed to handle get target heater cooler state: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`, { cause })
       this.platform.log.error(`[${this.accessory.displayName}] ${error.message}`)
@@ -467,7 +504,7 @@ export class SmartHQAirConditioner extends deviceBase {
     }
   }
 
-  public async handleSetTargetHeaterCoolerState(_value: CharacteristicValue): Promise<void> {
+  public async handleSetTargetHeaterCoolerState(value: CharacteristicValue): Promise<void> {
     try {
       const powerState: PowerState = await this.getPowerState()
 
@@ -476,11 +513,39 @@ export class SmartHQAirConditioner extends deviceBase {
         await this.setPowerState(PowerState.ON)
       }
 
-      // Keep CurrentHeaterCoolerState in sync with TargetHeaterCoolerState
-      this.heaterCoolerSvc.updateCharacteristic(
-        this.platform.Characteristic.CurrentHeaterCoolerState,
-        this.platform.Characteristic.CurrentHeaterCoolerState.COOLING,
-      )
+      if (value === this.platform.Characteristic.TargetHeaterCoolerState.HEAT) {
+        await this.setOperationMode(OperationMode.HEAT)
+
+        // Keep CurrentHeaterCoolerState in sync with TargetHeaterCoolerState
+        this.heaterCoolerSvc.updateCharacteristic(
+          this.platform.Characteristic.CurrentHeaterCoolerState,
+          this.platform.Characteristic.CurrentHeaterCoolerState.HEATING,
+        )
+
+        // Keep mode switches in sync
+        for (const mode of Object.values(OperationMode)) {
+          this.modeSwitchSvc[mode].updateCharacteristic(
+            this.platform.Characteristic.On,
+            mode === OperationMode.HEAT,
+          )
+        }
+      } else {
+        await this.setOperationMode(OperationMode.COOL)
+
+        // Keep CurrentHeaterCoolerState in sync with TargetHeaterCoolerState
+        this.heaterCoolerSvc.updateCharacteristic(
+          this.platform.Characteristic.CurrentHeaterCoolerState,
+          this.platform.Characteristic.CurrentHeaterCoolerState.COOLING,
+        )
+
+        // Keep mode switches in sync
+        for (const mode of Object.values(OperationMode)) {
+          this.modeSwitchSvc[mode].updateCharacteristic(
+            this.platform.Characteristic.On,
+            mode === OperationMode.COOL,
+          )
+        }
+      }
     } catch (cause) {
       const error = new Error(`Failed to handle set target heater cooler state: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`, { cause })
       this.platform.log.error(`[${this.accessory.displayName}] ${error.message}`)
@@ -522,6 +587,32 @@ export class SmartHQAirConditioner extends deviceBase {
       await this.setTemperature(targetTemperature)
     } catch (cause) {
       const error = new Error(`Failed to handle set cooling threshold temperature: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`, { cause })
+      this.platform.log.error(`[${this.accessory.displayName}] ${error.message}`)
+
+      throw error
+    }
+  }
+
+  public async handleGetHeatingThresholdTemperature(): Promise<number> {
+    try {
+      const value: number = await this.getTemperature()
+
+      return value
+    } catch (cause) {
+      const error = new Error(`Failed to handle get heating threshold temperature: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`, { cause })
+      this.platform.log.error(`[${this.accessory.displayName}] ${error.message}`)
+
+      throw error
+    }
+  }
+
+  public async handleSetHeatingThresholdTemperature(value: CharacteristicValue): Promise<void> {
+    try {
+      const targetTemperature = Number.parseFloat(value as string)
+
+      await this.setTemperature(targetTemperature)
+    } catch (cause) {
+      const error = new Error(`Failed to handle set heating threshold temperature: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`, { cause })
       this.platform.log.error(`[${this.accessory.displayName}] ${error.message}`)
 
       throw error
@@ -703,13 +794,17 @@ export class SmartHQAirConditioner extends deviceBase {
         // Keep CurrentHeaterCoolerState in sync
         this.heaterCoolerSvc.updateCharacteristic(
           this.platform.Characteristic.CurrentHeaterCoolerState,
-          this.platform.Characteristic.CurrentHeaterCoolerState.COOLING,
+          mode === OperationMode.HEAT
+            ? this.platform.Characteristic.CurrentHeaterCoolerState.HEATING
+            : this.platform.Characteristic.CurrentHeaterCoolerState.COOLING,
         )
 
         // Keep TargetHeaterCoolerState in sync
         this.heaterCoolerSvc.updateCharacteristic(
           this.platform.Characteristic.TargetHeaterCoolerState,
-          this.platform.Characteristic.TargetHeaterCoolerState.COOL,
+          mode === OperationMode.HEAT
+            ? this.platform.Characteristic.TargetHeaterCoolerState.HEAT
+            : this.platform.Characteristic.TargetHeaterCoolerState.COOL,
         )
       // turn off the Air Conditioner if the user turned off the current mode
       } else if (!value && currentOperationMode === mode && powerState === PowerState.ON) {
@@ -759,6 +854,8 @@ export class SmartHQAirConditioner extends deviceBase {
           return 'Fan Only Mode'
         case OperationMode.ENERGY_SAVER:
           return 'Energy Saver Mode'
+        case OperationMode.HEAT:
+          return 'Heat Mode'
         case OperationMode.DRY:
           return 'Dry Mode'
         default:
@@ -804,6 +901,12 @@ export class SmartHQAirConditioner extends deviceBase {
       this.heaterCoolerSvc.updateCharacteristic(
         this.platform.Characteristic.CoolingThresholdTemperature,
         await this.handleGetCoolingThresholdTemperature(),
+      )
+
+      // Heating threshold temperature
+      this.heaterCoolerSvc.updateCharacteristic(
+        this.platform.Characteristic.HeatingThresholdTemperature,
+        await this.handleGetHeatingThresholdTemperature(),
       )
 
       // Rotation speed
