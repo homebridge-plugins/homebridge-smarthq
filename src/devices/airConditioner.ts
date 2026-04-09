@@ -343,6 +343,13 @@ export class SmartHQAirConditioner extends deviceBase {
 
       return value as AcSwingMode
     } catch (cause) {
+      // Some devices (e.g. PHNT10CC) do not support the swing mode ERD and return a 400 error
+      const axiosCause = cause instanceof Error ? cause.cause : null
+      if (axios.isAxiosError(axiosCause) && axiosCause.response?.status === 400) {
+        this.platform.log.debug(`[${this.accessory.displayName}] Swing mode not supported by this device, defaulting to disabled`)
+        return AcSwingMode.DISABLED
+      }
+
       throw new Error(`Failed to get swing mode: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`, { cause })
     }
   }
