@@ -61,6 +61,7 @@ export interface options {
   logging?: string
   homekitControllerNotificationsSecret?: string
   disableMatter?: boolean
+  externalAccessory?: boolean
 }
 
 interface OpalOptions {

@@ -178,6 +178,31 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
   }
 
   /**
+   * Returns true if the given device should be published as an external (bridge-less) accessory.
+   * A device is external when either the per-device `external` flag is set in the devices config
+   * array, or the global `options.externalAccessory` flag is enabled.
+   */
+  private isExternalAccessory(applianceId: string): boolean {
+    const deviceConfig = this.config.devices?.find(d => d.applianceId === applianceId)
+    return !!(deviceConfig?.external ?? this.config.options?.externalAccessory ?? false)
+  }
+
+  /**
+   * Registers or publishes a new accessory depending on whether it is configured as external.
+   * External accessories are published directly (bridge-less) via `publishExternalAccessories`;
+   * standard accessories are registered through the bridge and tracked in `this.accessories`.
+   */
+  private async registerOrPublishAccessory(accessory: PlatformAccessory<SmartHqContext>, applianceId: string): Promise<void> {
+    if (this.isExternalAccessory(applianceId)) {
+      await this.debugLog(`Publishing ${accessory.displayName} as external accessory`)
+      this.api.publishExternalAccessories(PLUGIN_NAME, [accessory])
+    } else {
+      this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
+      this.accessories.push(accessory)
+    }
+  }
+
+  /**
    * Verify the config passed to the plugin is valid
    */
   async verifyConfig() {
@@ -460,8 +485,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
 
       // link the accessory to your platform
-      this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
-      this.accessories.push(accessory)
+      await this.registerOrPublishAccessory(accessory, device.applianceId)
     } else {
       this.debugErrorLog(`Unable to Register new device: ${JSON.stringify(device.nickname)}`)
     }
@@ -509,8 +533,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
 
       // link the accessory to your platform
-      this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
-      this.accessories.push(accessory)
+      await this.registerOrPublishAccessory(accessory, device.applianceId)
     } else {
       this.debugErrorLog(`Unable to Register new device: ${JSON.stringify(device.nickname)}`)
     }
@@ -557,8 +580,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
 
       // link the accessory to your platform
-      this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
-      this.accessories.push(accessory)
+      await this.registerOrPublishAccessory(accessory, device.applianceId)
     } else {
       this.debugErrorLog(`Unable to Register new device: ${JSON.stringify(device.nickname)}`)
     }
@@ -606,8 +628,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
 
       // link the accessory to your platform
-      this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
-      this.accessories.push(accessory)
+      await this.registerOrPublishAccessory(accessory, device.applianceId)
     } else {
       this.debugErrorLog(`Unable to Register new device: ${JSON.stringify(device.nickname)}`)
     }
@@ -655,8 +676,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
 
       // link the accessory to your platform
-      this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
-      this.accessories.push(accessory)
+      await this.registerOrPublishAccessory(accessory, device.applianceId)
     } else {
       this.debugErrorLog(`Unable to Register new device: ${JSON.stringify(device.nickname)}`)
     }
@@ -691,8 +711,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       new SmartHQHood(this, accessory, device)
       this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
 
-      this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
-      this.accessories.push(accessory)
+      await this.registerOrPublishAccessory(accessory, device.applianceId)
     } else {
       this.debugErrorLog(`Unable to Register new device: ${JSON.stringify(device.nickname)}`)
     }
@@ -726,8 +745,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       accessory.context.device.firmware = device.firmware ?? await this.getVersion()
       new SmartHQClothesWasher(this, accessory, device)
       this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
-      this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
-      this.accessories.push(accessory)
+      await this.registerOrPublishAccessory(accessory, device.applianceId)
     } else {
       this.debugErrorLog(`Unable to Register new device: ${JSON.stringify(device.nickname)}`)
     }
@@ -761,8 +779,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       accessory.context.device.firmware = device.firmware ?? await this.getVersion()
       new SmartHQClothesDryer(this, accessory, device)
       this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
-      this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
-      this.accessories.push(accessory)
+      await this.registerOrPublishAccessory(accessory, device.applianceId)
     } else {
       this.debugErrorLog(`Unable to Register new device: ${JSON.stringify(device.nickname)}`)
     }
@@ -793,8 +810,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       accessory.context.device.firmware = device.firmware ?? await this.getVersion()
       new SmartHQWaterFilter(this, accessory, device)
       this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
-      this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
-      this.accessories.push(accessory)
+      await this.registerOrPublishAccessory(accessory, device.applianceId)
     } else {
       this.debugErrorLog(`Unable to Register new device: ${JSON.stringify(device.nickname)}`)
     }
@@ -825,8 +841,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       accessory.context.device.firmware = device.firmware ?? await this.getVersion()
       new SmartHQWaterSoftener(this, accessory, device)
       this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
-      this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
-      this.accessories.push(accessory)
+      await this.registerOrPublishAccessory(accessory, device.applianceId)
     } else {
       this.debugErrorLog(`Unable to Register new device: ${JSON.stringify(device.nickname)}`)
     }
@@ -857,8 +872,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       accessory.context.device.firmware = device.firmware ?? await this.getVersion()
       new SmartHQWaterHeater(this, accessory, device)
       this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
-      this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
-      this.accessories.push(accessory)
+      await this.registerOrPublishAccessory(accessory, device.applianceId)
     } else {
       this.debugErrorLog(`Unable to Register new device: ${JSON.stringify(device.nickname)}`)
     }
@@ -889,8 +903,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       accessory.context.device.firmware = device.firmware ?? await this.getVersion()
       new SmartHQAdvantium(this, accessory, device)
       this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
-      this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
-      this.accessories.push(accessory)
+      await this.registerOrPublishAccessory(accessory, device.applianceId)
     } else {
       this.debugErrorLog(`Unable to Register new device: ${JSON.stringify(device.nickname)}`)
     }
@@ -921,8 +934,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       accessory.context.device.firmware = device.firmware ?? await this.getVersion()
       new SmartHQMicrowave(this, accessory, device)
       this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
-      this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
-      this.accessories.push(accessory)
+      await this.registerOrPublishAccessory(accessory, device.applianceId)
     } else {
       this.debugErrorLog(`Unable to Register new device: ${JSON.stringify(device.nickname)}`)
     }
@@ -953,8 +965,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       accessory.context.device.firmware = device.firmware ?? await this.getVersion()
       new SmartHQCoffeeMaker(this, accessory, device)
       this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
-      this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
-      this.accessories.push(accessory)
+      await this.registerOrPublishAccessory(accessory, device.applianceId)
     } else {
       this.debugErrorLog(`Unable to Register new device: ${JSON.stringify(device.nickname)}`)
     }
@@ -985,8 +996,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       accessory.context.device.firmware = device.firmware ?? await this.getVersion()
       new SmartHQBeverageCenter(this, accessory, device)
       this.debugLog(`${device.nickname} uuid: ${device.applianceId}`)
-      this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
-      this.accessories.push(accessory)
+      await this.registerOrPublishAccessory(accessory, device.applianceId)
     } else {
       this.debugErrorLog(`Unable to Register new device: ${JSON.stringify(device.nickname)}`)
     }
@@ -1033,6 +1043,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       platformConfig.updateRate = this.config.options.updateRate ? this.config.options.updateRate : undefined
       platformConfig.pushRate = this.config.options.pushRate ? this.config.options.pushRate : undefined
       platformConfig.disableMatter = this.config.options.disableMatter !== undefined ? this.config.options.disableMatter : undefined
+      platformConfig.externalAccessory = this.config.options.externalAccessory !== undefined ? this.config.options.externalAccessory : undefined
       if (Object.entries(platformConfig).length !== 0) {
         await this.debugLog(`Platform Config: ${JSON.stringify(platformConfig)}`)
       }

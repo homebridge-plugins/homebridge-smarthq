@@ -173,6 +173,12 @@
             "default": false,
             "description": "If enabled, the plugin will use HAP instead of Matter even when Matter is available in Homebridge."
           },
+          "externalAccessory": {
+            "title": "Publish All Devices as External Accessories",
+            "type": "boolean",
+            "default": false,
+            "description": "If enabled, all devices will be published as external (bridge-less) accessories. Individual devices can also be set as external in the Device Settings above."
+          },
           "logging": {
             "title": "Logging Setting",
             "type": "string",
@@ -289,6 +295,14 @@
         },
         {
           "key": "options.disableMatter",
+          "notitle": true
+        },
+        {
+          "type": "help",
+          "helpvalue": "<h5>External Accessories</h5><em class='primary-text'>Publish all devices as external (bridge-less) accessories. Individual devices can also be set as external in the Device Settings above.</em>"
+        },
+        {
+          "key": "options.externalAccessory",
           "notitle": true
         },
         "options.logging"
