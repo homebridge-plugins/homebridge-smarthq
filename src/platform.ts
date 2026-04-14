@@ -158,23 +158,23 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
     const disableMatter = this.config.options?.disableMatter ?? false
 
     if (disableMatter) {
-      this.log.info('Matter support is disabled by plugin configuration (options.disableMatter = true). Using HAP.')
+      void this.infoLog('Matter support is disabled by plugin configuration (options.disableMatter = true). Using HAP.')
       return
     }
 
     const matterAvailable = !!(this.api as any).isMatterAvailable?.()
     if (!matterAvailable) {
-      this.log.debug('Matter is not available in this version of Homebridge. Using HAP.')
+      void this.debugLog('Matter is not available in this version of Homebridge. Using HAP.')
       return
     }
 
     const matterEnabled = !!(this.api as any).isMatterEnabled?.()
     if (!matterEnabled) {
-      this.log.warn('Matter is available but not enabled in Homebridge. Enable Matter in the Homebridge settings to use Matter features.')
+      void this.warnLog('Matter is available but not enabled in Homebridge. Enable Matter in the Homebridge settings to use Matter features.')
       return
     }
 
-    this.log.info('Matter is available and enabled. SmartHQ devices will use Matter when supported.')
+    void this.infoLog('Matter is available and enabled. SmartHQ devices will use Matter when supported.')
   }
 
   /**
@@ -1032,12 +1032,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       platformConfig.refreshRate = this.config.options.refreshRate ? this.config.options.refreshRate : undefined
       platformConfig.updateRate = this.config.options.updateRate ? this.config.options.updateRate : undefined
       platformConfig.pushRate = this.config.options.pushRate ? this.config.options.pushRate : undefined
-      if (this.config.options.disableMatter !== undefined) {
-        if (!platformConfig.options) {
-          platformConfig.options = {}
-        }
-        platformConfig.options.disableMatter = this.config.options.disableMatter
-      }
+      platformConfig.disableMatter = this.config.options.disableMatter !== undefined ? this.config.options.disableMatter : undefined
       if (Object.entries(platformConfig).length !== 0) {
         await this.debugLog(`Platform Config: ${JSON.stringify(platformConfig)}`)
       }

@@ -171,9 +171,11 @@ describe('SmartHQPlatform Matter Support', () => {
       options: { disableMatter: true, logging: 'standard' },
     }
 
-    new SmartHQPlatform(mockLog, configWithDisableMatter, mockApi)
+    const platform = new SmartHQPlatform(mockLog, configWithDisableMatter, mockApi)
+    const infoLogSpy = vi.spyOn(platform as any, 'infoLog').mockResolvedValue(undefined)
+    platform.checkMatterAvailability()
 
-    expect(mockLog.info).toHaveBeenCalledWith(
+    expect(infoLogSpy).toHaveBeenCalledWith(
       expect.stringContaining('Matter support is disabled by plugin configuration'),
     )
   })
@@ -188,9 +190,11 @@ describe('SmartHQPlatform Matter Support', () => {
       // isMatterAvailable is absent (older Homebridge)
     } as unknown as API
 
-    new SmartHQPlatform(mockLog, mockConfig, mockApi)
+    const platform = new SmartHQPlatform(mockLog, mockConfig, mockApi)
+    const debugLogSpy = vi.spyOn(platform as any, 'debugLog').mockResolvedValue(undefined)
+    platform.checkMatterAvailability()
 
-    expect(mockLog.debug).toHaveBeenCalledWith(
+    expect(debugLogSpy).toHaveBeenCalledWith(
       expect.stringContaining('Matter is not available'),
     )
   })
@@ -206,9 +210,11 @@ describe('SmartHQPlatform Matter Support', () => {
       isMatterEnabled: vi.fn().mockReturnValue(false),
     } as unknown as API
 
-    new SmartHQPlatform(mockLog, mockConfig, mockApi)
+    const platform = new SmartHQPlatform(mockLog, mockConfig, mockApi)
+    const warnLogSpy = vi.spyOn(platform as any, 'warnLog').mockResolvedValue(undefined)
+    platform.checkMatterAvailability()
 
-    expect(mockLog.warn).toHaveBeenCalledWith(
+    expect(warnLogSpy).toHaveBeenCalledWith(
       expect.stringContaining('Matter is available but not enabled'),
     )
   })
@@ -224,9 +230,11 @@ describe('SmartHQPlatform Matter Support', () => {
       isMatterEnabled: vi.fn().mockReturnValue(true),
     } as unknown as API
 
-    new SmartHQPlatform(mockLog, mockConfig, mockApi)
+    const platform = new SmartHQPlatform(mockLog, mockConfig, mockApi)
+    const infoLogSpy = vi.spyOn(platform as any, 'infoLog').mockResolvedValue(undefined)
+    platform.checkMatterAvailability()
 
-    expect(mockLog.info).toHaveBeenCalledWith(
+    expect(infoLogSpy).toHaveBeenCalledWith(
       expect.stringContaining('Matter is available and enabled'),
     )
   })
