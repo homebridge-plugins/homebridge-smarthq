@@ -2,10 +2,24 @@
  *
  * SmartHQMatterPlatform.ts: @homebridge-plugins/homebridge-smarthq.
  */
-import type { PlatformAccessory } from 'homebridge'
+import type { API, PlatformAccessory } from 'homebridge'
 
 import type { SmartHQPlatform } from './platform.js'
 import type { SmartHqContext } from './settings.js'
+
+/**
+ * Minimal interface describing the HAP platform base methods and properties
+ * that the Matter platform needs to access.
+ */
+interface SmartHQPlatformBase {
+  readonly api: API
+  config: { options?: { disableMatter?: boolean } }
+  accessories: PlatformAccessory<SmartHqContext>[]
+  infoLog(...log: any[]): Promise<void>
+  warnLog(...log: any[]): Promise<void>
+  debugLog(...log: any[]): Promise<void>
+  configureAccessory(accessory: PlatformAccessory<SmartHqContext>): void
+}
 
 /**
  * Mixin interface that describes the Matter-specific additions made by
@@ -64,7 +78,7 @@ export function createSmartHQMatterPlatform(Base: typeof SmartHQPlatform): Smart
      * Stores the accessory in the matterAccessories Map for later use.
      */
     configureMatterAccessory(accessory: any): void {
-      void (this as any).debugLog(`Loading cached Matter accessory: ${accessory.displayName}`)
+      void (this as unknown as SmartHQPlatformBase).debugLog(`Loading cached Matter accessory: ${accessory.displayName}`)
       this.matterAccessories.set(accessory.UUID, accessory)
     }
 
@@ -74,26 +88,26 @@ export function createSmartHQMatterPlatform(Base: typeof SmartHQPlatform): Smart
      * surface configuration issues (e.g. Matter available but not yet enabled).
      */
     checkMatterAvailability(): void {
-      const disableMatter = (this as any).config?.options?.disableMatter ?? false
+      const self = this as unknown as SmartHQPlatformBase
+      const disableMatter = self.config?.options?.disableMatter ?? false
 
       if (disableMatter) {
-        void (this as any).infoLog('Matter support is disabled by plugin configuration (options.disableMatter = true). Using HAP.')
+        void self.infoLog('Matter support is disabled by plugin configuration (options.disableMatter = true). Using HAP.')
         return
       }
 
-      const matterAvailable = !!((this as any).api as any).isMatterAvailable?.()
-      if (!matterAvailable) {
-        void (this as any).debugLog('Matter is not available in this version of Homebridge. Using HAP.')
+      const extApi = self.api as API & { isMatterAvailable?(): boolean, isMatterEnabled?(): boolean }
+      if (!extApi.isMatterAvailable?.()) {
+        void self.debugLog('Matter is not available in this version of Homebridge. Using HAP.')
         return
       }
 
-      const matterEnabled = !!((this as any).api as any).isMatterEnabled?.()
-      if (!matterEnabled) {
-        void (this as any).warnLog('Matter is available but not enabled in Homebridge. Enable Matter in the Homebridge settings to use Matter features.')
+      if (!extApi.isMatterEnabled?.()) {
+        void self.warnLog('Matter is available but not enabled in Homebridge. Enable Matter in the Homebridge settings to use Matter features.')
         return
       }
 
-      void (this as any).infoLog('Matter is available and enabled. SmartHQ devices will use Matter when supported.')
+      void self.infoLog('Matter is available and enabled. SmartHQ devices will use Matter when supported.')
     }
   }
 

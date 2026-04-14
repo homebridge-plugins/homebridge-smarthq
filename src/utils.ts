@@ -2,7 +2,10 @@
  *
  * utils.ts: @homebridge-plugins/homebridge-smarthq.
  */
-import type { PlatformConfig } from 'homebridge'
+import type { API, DynamicPlatformPlugin, Logging, PlatformConfig } from 'homebridge'
+
+/** Constructor type for a DynamicPlatformPlugin */
+type PlatformConstructor = new (log: Logging, config: PlatformConfig, api: API) => DynamicPlatformPlugin
 
 /**
  * Creates a proxy class that instantiates the correct platform implementation
@@ -13,27 +16,32 @@ import type { PlatformConfig } from 'homebridge'
  *   uses the Matter platform.
  * - Otherwise falls back to the HAP platform.
  *
+ * Note: The constructor returns `this.impl` directly (via `return this.impl`).
+ * This is intentional — it is the standard homebridge platform-proxy pattern used
+ * by homebridge-rainbird and homebridge-switchbot, where the outer proxy class is
+ * transparent and the returned instance is the chosen platform implementation.
+ *
  * @param HAPPlatform The HAP platform class constructor.
  * @param MatterPlatform The Matter platform class constructor.
  * @returns A proxy class that delegates to the correct platform implementation.
  */
-export function createPlatformProxy(HAPPlatform: any, MatterPlatform: any): any {
+export function createPlatformProxy(HAPPlatform: PlatformConstructor, MatterPlatform: PlatformConstructor): PlatformConstructor {
   return class SmartHQPlatformProxy {
     /** The instantiated platform implementation (HAP or Matter) */
-    private impl: any
+    private impl: DynamicPlatformPlugin
 
-    constructor(log: any, config: PlatformConfig, api: any) {
-      const disableMatter: boolean = config?.options?.disableMatter ?? false
-      const matterAvailable = !!(api?.isMatterAvailable?.() && api?.isMatterEnabled?.())
+    constructor(log: Logging, config: PlatformConfig, api: API) {
+      const disableMatter: boolean = (config as any)?.options?.disableMatter ?? false
+      const matterAvailable = !!((api as any)?.isMatterAvailable?.() && (api as any)?.isMatterEnabled?.())
 
       if (!disableMatter && MatterPlatform && matterAvailable) {
         this.impl = new MatterPlatform(log, config, api)
-        return this.impl
+        return this.impl as any
       }
 
       // Fallback to HAP
       this.impl = new HAPPlatform(log, config, api)
-      return this.impl
+      return this.impl as any
     }
-  }
+  } as unknown as PlatformConstructor
 }
