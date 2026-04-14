@@ -43,7 +43,7 @@ axios.defaults.baseURL = API_URL
  */
 export class SmartHQPlatform implements DynamicPlatformPlugin {
   public accessories: PlatformAccessory<SmartHqContext>[]
-  public readonly matterAccessories: Map<string, any>
+  public readonly matterAccessories: Map<string, { UUID: string, displayName: string }>
   public readonly api: API
   public readonly log: Logging
   protected readonly hap: HAP
@@ -141,7 +141,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
    * Called when Homebridge restores cached Matter accessories from disk at startup.
    * Stores the accessory in the matterAccessories Map for later use.
    */
-  configureMatterAccessory(accessory: any) {
+  configureMatterAccessory(accessory: { UUID: string, displayName: string }) {
     this.debugLog(`Loading cached Matter accessory: ${accessory.displayName}`)
     this.matterAccessories.set(accessory.UUID, accessory)
   }
