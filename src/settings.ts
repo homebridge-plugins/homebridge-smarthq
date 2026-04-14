@@ -43,12 +43,14 @@ export interface credentials {
 }
 
 export interface devicesConfig {
+  applianceId?: string
   firmware: string
   refreshRate?: number
   updateRate?: number
   pushRate?: number
   logging?: string
   hide_device?: boolean
+  external?: boolean
 }
 
 export interface options {
