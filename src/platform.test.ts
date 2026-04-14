@@ -101,3 +101,141 @@ describe('SmartHQPlatform Authentication Error Handling', () => {
     )
   })
 })
+
+describe('SmartHQPlatform Matter Support', () => {
+  let mockLog: Logging
+  let mockConfig: PlatformConfig
+
+  beforeEach(() => {
+    mockLog = {
+      prefix: 'SmartHQ',
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      debug: vi.fn(),
+    } as unknown as Logging
+
+    mockConfig = {
+      platform: 'SmartHQ',
+      name: 'SmartHQ',
+      credentials: {
+        username: 'test@example.com',
+        password: 'testpassword',
+      },
+    }
+  })
+
+  it('should initialize matterAccessories as an empty Map', () => {
+    const mockApi = {
+      hap: { Service: {}, Characteristic: {}, uuid: { generate: vi.fn() } },
+      on: vi.fn(),
+      registerPlatformAccessories: vi.fn(),
+      unregisterPlatformAccessories: vi.fn(),
+      updatePlatformAccessories: vi.fn(),
+    } as unknown as API
+
+    const platform = new SmartHQPlatform(mockLog, mockConfig, mockApi)
+    expect(platform.matterAccessories).toBeInstanceOf(Map)
+    expect(platform.matterAccessories.size).toBe(0)
+  })
+
+  it('should store Matter accessory in configureMatterAccessory', () => {
+    const mockApi = {
+      hap: { Service: {}, Characteristic: {}, uuid: { generate: vi.fn() } },
+      on: vi.fn(),
+      registerPlatformAccessories: vi.fn(),
+      unregisterPlatformAccessories: vi.fn(),
+      updatePlatformAccessories: vi.fn(),
+    } as unknown as API
+
+    const platform = new SmartHQPlatform(mockLog, mockConfig, mockApi)
+    const mockMatterAccessory = { UUID: 'matter-uuid-1', displayName: 'Test Matter Accessory' }
+
+    platform.configureMatterAccessory(mockMatterAccessory)
+
+    expect(platform.matterAccessories.has('matter-uuid-1')).toBe(true)
+    expect(platform.matterAccessories.get('matter-uuid-1')).toBe(mockMatterAccessory)
+  })
+
+  it('should log info when disableMatter is true', () => {
+    const mockApi = {
+      hap: { Service: {}, Characteristic: {}, uuid: { generate: vi.fn() } },
+      on: vi.fn(),
+      registerPlatformAccessories: vi.fn(),
+      unregisterPlatformAccessories: vi.fn(),
+      updatePlatformAccessories: vi.fn(),
+    } as unknown as API
+
+    const configWithDisableMatter = {
+      ...mockConfig,
+      options: { disableMatter: true, logging: 'standard' },
+    }
+
+    const platform = new SmartHQPlatform(mockLog, configWithDisableMatter, mockApi)
+    const infoLogSpy = vi.spyOn(platform as any, 'infoLog').mockResolvedValue(undefined)
+    platform.checkMatterAvailability()
+
+    expect(infoLogSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Matter support is disabled by plugin configuration'),
+    )
+  })
+
+  it('should log debug when Matter is not available (older Homebridge)', () => {
+    const mockApi = {
+      hap: { Service: {}, Characteristic: {}, uuid: { generate: vi.fn() } },
+      on: vi.fn(),
+      registerPlatformAccessories: vi.fn(),
+      unregisterPlatformAccessories: vi.fn(),
+      updatePlatformAccessories: vi.fn(),
+      // isMatterAvailable is absent (older Homebridge)
+    } as unknown as API
+
+    const platform = new SmartHQPlatform(mockLog, mockConfig, mockApi)
+    const debugLogSpy = vi.spyOn(platform as any, 'debugLog').mockResolvedValue(undefined)
+    platform.checkMatterAvailability()
+
+    expect(debugLogSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Matter is not available'),
+    )
+  })
+
+  it('should log warn when Matter is available but not enabled', () => {
+    const mockApi = {
+      hap: { Service: {}, Characteristic: {}, uuid: { generate: vi.fn() } },
+      on: vi.fn(),
+      registerPlatformAccessories: vi.fn(),
+      unregisterPlatformAccessories: vi.fn(),
+      updatePlatformAccessories: vi.fn(),
+      isMatterAvailable: vi.fn().mockReturnValue(true),
+      isMatterEnabled: vi.fn().mockReturnValue(false),
+    } as unknown as API
+
+    const platform = new SmartHQPlatform(mockLog, mockConfig, mockApi)
+    const warnLogSpy = vi.spyOn(platform as any, 'warnLog').mockResolvedValue(undefined)
+    platform.checkMatterAvailability()
+
+    expect(warnLogSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Matter is available but not enabled'),
+    )
+  })
+
+  it('should log info when Matter is available and enabled', () => {
+    const mockApi = {
+      hap: { Service: {}, Characteristic: {}, uuid: { generate: vi.fn() } },
+      on: vi.fn(),
+      registerPlatformAccessories: vi.fn(),
+      unregisterPlatformAccessories: vi.fn(),
+      updatePlatformAccessories: vi.fn(),
+      isMatterAvailable: vi.fn().mockReturnValue(true),
+      isMatterEnabled: vi.fn().mockReturnValue(true),
+    } as unknown as API
+
+    const platform = new SmartHQPlatform(mockLog, mockConfig, mockApi)
+    const infoLogSpy = vi.spyOn(platform as any, 'infoLog').mockResolvedValue(undefined)
+    platform.checkMatterAvailability()
+
+    expect(infoLogSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Matter is available and enabled'),
+    )
+  })
+})
