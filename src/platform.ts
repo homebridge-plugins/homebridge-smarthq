@@ -43,6 +43,7 @@ axios.defaults.baseURL = API_URL
  */
 export class SmartHQPlatform implements DynamicPlatformPlugin {
   public accessories: PlatformAccessory<SmartHqContext>[]
+  public readonly matterAccessories: Map<string, any>
   public readonly api: API
   public readonly log: Logging
   protected readonly hap: HAP
@@ -66,6 +67,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
     api: API,
   ) {
     this.accessories = []
+    this.matterAccessories = new Map()
     this.api = api
     this.hap = this.api.hap
     this.log = log
@@ -93,10 +95,13 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
     // Finish initializing the platform
     this.Service = this.api.hap.Service
     this.Characteristic = this.api.hap.Characteristic
-    this.debugLog(`Finished initializing platform: ${config.name}`);
+    this.debugLog(`Finished initializing platform: ${config.name}`)
+
+    // Matter availability detection (Homebridge v2.0+)
+    this.checkMatterAvailability()
 
     // verify the config
-    (async () => {
+    void (async () => {
       try {
         await this.verifyConfig()
         await this.debugLog('Config OK')
@@ -130,6 +135,46 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
 
     // add the restored accessory to the accessories cache so we can track if it has already been registered
     this.accessories.push(accessory as PlatformAccessory<SmartHqContext>)
+  }
+
+  /**
+   * Called when Homebridge restores cached Matter accessories from disk at startup.
+   * Stores the accessory in the matterAccessories Map for later use.
+   */
+  configureMatterAccessory(accessory: any) {
+    this.debugLog(`Loading cached Matter accessory: ${accessory.displayName}`)
+    this.matterAccessories.set(accessory.UUID, accessory)
+  }
+
+  /**
+   * Checks whether Matter is available and enabled in this Homebridge instance and logs
+   * the result. If the user has set `options.disableMatter` to true, Matter is skipped
+   * regardless of availability.
+   *
+   * Uses optional chaining throughout so the plugin remains compatible with older
+   * Homebridge versions (< 2.0) that do not expose the Matter APIs.
+   */
+  checkMatterAvailability() {
+    const disableMatter = this.config.options?.disableMatter ?? false
+
+    if (disableMatter) {
+      this.log.info('Matter support is disabled by plugin configuration (options.disableMatter = true). Using HAP.')
+      return
+    }
+
+    const matterAvailable = !!(this.api as any).isMatterAvailable?.()
+    if (!matterAvailable) {
+      this.log.debug('Matter is not available in this version of Homebridge. Using HAP.')
+      return
+    }
+
+    const matterEnabled = !!(this.api as any).isMatterEnabled?.()
+    if (!matterEnabled) {
+      this.log.warn('Matter is available but not enabled in Homebridge. Enable Matter in the Homebridge settings to use Matter features.')
+      return
+    }
+
+    this.log.info('Matter is available and enabled. SmartHQ devices will use Matter when supported.')
   }
 
   /**
@@ -987,6 +1032,12 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       platformConfig.refreshRate = this.config.options.refreshRate ? this.config.options.refreshRate : undefined
       platformConfig.updateRate = this.config.options.updateRate ? this.config.options.updateRate : undefined
       platformConfig.pushRate = this.config.options.pushRate ? this.config.options.pushRate : undefined
+      if (this.config.options.disableMatter !== undefined) {
+        if (!platformConfig.options) {
+          platformConfig.options = {}
+        }
+        platformConfig.options.disableMatter = this.config.options.disableMatter
+      }
       if (Object.entries(platformConfig).length !== 0) {
         await this.debugLog(`Platform Config: ${JSON.stringify(platformConfig)}`)
       }

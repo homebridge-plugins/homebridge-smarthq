@@ -167,6 +167,12 @@
               "type": "password"
             }
           },
+          "disableMatter": {
+            "title": "Disable Matter",
+            "type": "boolean",
+            "default": false,
+            "description": "If enabled, the plugin will use HAP instead of Matter even when Matter is available in Homebridge."
+          },
           "logging": {
             "title": "Logging Setting",
             "type": "string",
@@ -275,6 +281,14 @@
         },
         {
           "key": "options.homekitControllerNotificationsSecret",
+          "notitle": true
+        },
+        {
+          "type": "help",
+          "helpvalue": "<h5>Disable Matter</h5><em class='primary-text'>Disable Matter support for this plugin. When enabled, the plugin will use HAP instead of Matter even when Matter is available in Homebridge.</em>"
+        },
+        {
+          "key": "options.disableMatter",
           "notitle": true
         },
         "options.logging"

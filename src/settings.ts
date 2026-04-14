@@ -58,6 +58,7 @@ export interface options {
   pushRate?: number
   logging?: string
   homekitControllerNotificationsSecret?: string
+  disableMatter?: boolean
 }
 
 interface OpalOptions {
