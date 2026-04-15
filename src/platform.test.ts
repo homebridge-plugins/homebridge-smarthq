@@ -3,7 +3,7 @@ import type { API, Logging, PlatformConfig } from 'homebridge'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 
 import { SmartHQPlatform } from './platform.js'
-import { type SmartHQMatterPlatformMixin, createSmartHQMatterPlatform } from './SmartHQMatterPlatform.js'
+import { createSmartHQMatterPlatform } from './SmartHQMatterPlatform.js'
 import { createPlatformProxy } from './utils.js'
 
 // Mock the getAccessToken module to simulate authentication failures
