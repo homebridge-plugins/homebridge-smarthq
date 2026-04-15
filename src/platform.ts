@@ -992,17 +992,77 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
   }
 
   /**
+   * Persists the desired publication mode on the accessory context so subsequent runs can
+   * detect whether a bridged/external migration is required.
+   */
+  private getAndPersistExternalAccessoryState(
+    accessory: PlatformAccessory<SmartHqContext>,
+    applianceId: string,
+  ): boolean {
+    const shouldBeExternal = this.isExternalAccessory(applianceId)
+    accessory.context.externalAccessory = shouldBeExternal
+    return shouldBeExternal
+  }
+
+  /**
+   * Reconciles an accessory's publication mode with the current configuration.
+   * If the desired mode differs from the previously persisted mode, the accessory is migrated
+   * between bridged and external publication.
+   */
+  private async reconcileAccessoryPublication(
+    accessory: PlatformAccessory<SmartHqContext>,
+    applianceId: string,
+  ): Promise<void> {
+    const previousExternal = accessory.context.externalAccessory
+    const shouldBeExternal = this.getAndPersistExternalAccessoryState(accessory, applianceId)
+
+    if (previousExternal === undefined) {
+      if (shouldBeExternal) {
+        this.api.publishExternalAccessories(PLUGIN_NAME, [accessory])
+        return
+      }
+
+      this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
+      if (!this.accessories.find(existing => existing.UUID === accessory.UUID)) {
+        this.accessories.push(accessory)
+      }
+      return
+    }
+
+    if (previousExternal !== shouldBeExternal) {
+      if (previousExternal) {
+        this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
+      } else {
+        this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
+        this.accessories = this.accessories.filter(existing => existing.UUID !== accessory.UUID)
+      }
+
+      if (shouldBeExternal) {
+        this.api.publishExternalAccessories(PLUGIN_NAME, [accessory])
+        return
+      }
+
+      this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
+      if (!this.accessories.find(existing => existing.UUID === accessory.UUID)) {
+        this.accessories.push(accessory)
+      }
+      return
+    }
+
+    if (!shouldBeExternal && !this.accessories.find(existing => existing.UUID === accessory.UUID)) {
+      this.accessories.push(accessory)
+    }
+  }
+
+  /**
    * Registers or publishes a new accessory.
    * External accessories are published directly (bridge-less) via `publishExternalAccessories`;
    * all other accessories are registered normally via `registerPlatformAccessories`.
+   * The selected mode is persisted in `accessory.context.externalAccessory` so cached
+   * accessories can be migrated if configuration changes on a subsequent run.
    */
   protected async registerOrPublishAccessory(accessory: PlatformAccessory<SmartHqContext>, applianceId: string): Promise<void> {
-    if (this.isExternalAccessory(applianceId)) {
-      this.api.publishExternalAccessories(PLUGIN_NAME, [accessory])
-      return
-    }
-    this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
-    this.accessories.push(accessory)
+    await this.reconcileAccessoryPublication(accessory, applianceId)
   }
 
   /**
