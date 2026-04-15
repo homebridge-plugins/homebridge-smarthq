@@ -2,7 +2,7 @@
  *
  * SmartHQMatterPlatform.ts: @homebridge-plugins/homebridge-smarthq.
  */
-import type { API, PlatformAccessory } from 'homebridge'
+import type { API, Logging, PlatformAccessory, PlatformConfig } from 'homebridge'
 
 import type { SmartHQPlatform } from './platform.js'
 import type { SmartHqContext } from './settings.js'
@@ -63,6 +63,17 @@ export function createSmartHQMatterPlatform(Base: typeof SmartHQPlatform): Smart
   class SmartHQMatterPlatform extends (Base as any) {
     /** Map of Matter cached accessories restored from disk at startup */
     public readonly matterAccessories: Map<string, any> = new Map()
+
+    /**
+     * Extends the HAP platform constructor to run Matter availability detection
+     * immediately after the platform has finished initializing.
+     */
+    constructor(log: Logging, config: PlatformConfig, api: API) {
+      super(log, config, api)
+      if (config) {
+        this.checkMatterAvailability()
+      }
+    }
 
     /**
      * Called when Homebridge restores cached HAP accessories from disk.

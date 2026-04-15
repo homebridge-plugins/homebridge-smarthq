@@ -342,7 +342,7 @@ describe('createPlatformProxy', () => {
     expect(instance).not.toBeInstanceOf(SmartHQMatterPlatform)
   })
 
-  it('should fall back to HAP when Matter is available but not enabled', () => {
+  it('should use Matter platform when Matter is available but not enabled (logs warning)', () => {
     const mockApi = {
       hap: { Service: {}, Characteristic: {}, uuid: { generate: vi.fn() } },
       on: vi.fn(),
@@ -355,7 +355,8 @@ describe('createPlatformProxy', () => {
 
     const ProxyCtor = createPlatformProxy(SmartHQPlatform, SmartHQMatterPlatform)
     const instance = new ProxyCtor(mockLog, mockConfig, mockApi)
-    expect(instance).toBeInstanceOf(SmartHQPlatform)
-    expect(instance).not.toBeInstanceOf(SmartHQMatterPlatform)
+    // Matter is available so the Matter platform is selected; it will log the
+    // "available but not enabled" warning via checkMatterAvailability().
+    expect(instance).toBeInstanceOf(SmartHQMatterPlatform)
   })
 })

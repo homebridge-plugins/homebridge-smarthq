@@ -119,6 +119,8 @@ export interface SmartHqContext {
     firmware: string
     features: string[]
   }
+  /** Persisted publication mode: true = external (bridge-less), false = bridged */
+  externalAccessory?: boolean
   // Cached device states
   DishWasher?: {
     Service?: any
