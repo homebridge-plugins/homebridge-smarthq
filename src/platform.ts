@@ -311,7 +311,12 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
         const devices = await axios.get('/appliance')
 
         const userId = devices.data.userId
-        const deviceConfigByApplianceId: pkg.Dictionary<devicesConfig | undefined> = keyBy(this.config.devices)
+        // keyBy without an iteratee uses _.identity, which collapses every
+        // config entry under "[object Object]" — lookups by applianceId
+        // returned undefined and hide_device was silently ignored even though
+        // commit 59f468f tried to fix this same path.
+        const deviceConfigByApplianceId: pkg.Dictionary<devicesConfig | undefined>
+          = keyBy(this.config.devices ?? [], 'applianceId')
         for (const device of devices.data.items) {
           // Merge per-device config overrides (hide_device, refreshRate, etc.) from user config
           const deviceConfig = deviceConfigByApplianceId[device.applianceId]
