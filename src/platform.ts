@@ -23,6 +23,7 @@ import { SmartHQClothesWasher } from './devices/clothesWasher.js'
 import { SmartHQCoffeeMaker } from './devices/coffeeMaker.js'
 import { SmartHQDishWasher } from './devices/dishwasher.js'
 import { SmartHQHood } from './devices/hood.js'
+import { decideKeurigCapability, parseHotWaterStatus, SmartHQKeurig } from './devices/keurig.js'
 import { SmartHQMicrowave } from './devices/microwave.js'
 import { SmartHQOven } from './devices/oven.js'
 import { SmartHQRefrigerator } from './devices/refrigerator.js'
@@ -340,6 +341,11 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
               break
             case 'Refrigerator':
               await this.createSmartHQRefrigerator(userId, device, details, features)
+              // If the fridge has a built-in Keurig K-Cup brewer, expose
+              // it as its own HomeKit accessory so Apple Home / Siri can
+              // address it cleanly. Same underlying ERDs, different
+              // accessory UUID.
+              await this.createSmartHQKeurig(userId, device, details, features)
               break
             case 'Opal Nugget Ice Maker':
               await this.createSmartHQIceMaker(userId, device, details, features)
@@ -578,6 +584,11 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
     // Merge device data
     const deviceData = { brand: 'GE', ...details, ...features, ...device }
 
+    // `keurigOnly: true` means skip the main Refrigerator accessory but still
+    // expose the Keurig sub-accessory (handled separately in createSmartHQKeurig).
+    // Treat it as if hide_device were set for this dispatcher only.
+    const skipMain = deviceData.hide_device || deviceData.keurigOnly === true
+
     // Determine protocol (Matter or HAP)
     deviceData.useMatter = this.shouldUseMatter(deviceData)
 
@@ -588,7 +599,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
 
     if (existingAccessory) {
       // the accessory already exists
-      if (!deviceData.hide_device) {
+      if (!skipMain) {
         // Check if protocol changed to Matter - if so, remove from HAP bridge
         if (this.shouldUnregisterForMatter(existingAccessory, deviceData)) {
           const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
@@ -611,7 +622,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       } else {
         this.unregisterPlatformAccessories(existingAccessory)
       }
-    } else if (!deviceData.hide_device && !existingAccessory) {
+    } else if (!skipMain && !existingAccessory) {
       this.infoLog(`[${protocol}] Adding new accessory: ${deviceData.nickname}`)
       const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
       accessory.context.device = deviceData
@@ -624,6 +635,68 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       this.accessories.push(accessory)
     } else {
       this.debugErrorLog(`Unable to Register new device: ${JSON.stringify(deviceData.nickname)}`)
+    }
+  }
+
+  /**
+   * If the refrigerator has a built-in Keurig K-Cup brewer (e.g. PYE22PYNHFS),
+   * publish it as its own HomeKit accessory. Apple Home / Siri can then
+   * address it cleanly instead of having the K-Cup switch lost among the
+   * fridge's ~15 other services. Detection follows simbaja/ha_gehome:
+   * read HOT_WATER_STATUS (0x1010) and check for a non-NA status byte.
+   */
+  private async createSmartHQKeurig(userId: any, device: any, details: any, features: any) {
+    const deviceData = { brand: 'GE', ...details, ...features, ...device }
+    const keurigUuid = this.api.hap.uuid.generate(`${deviceData.applianceId}-keurig`)
+    const existingAccessory = this.accessories.find(accessory => accessory.UUID === keurigUuid)
+
+    let hasKeurig: boolean
+    if (deviceData.keurig === false) {
+      hasKeurig = false
+    } else if (deviceData.keurig === true) {
+      hasKeurig = true
+    } else {
+      try {
+        const res = await axios.get(`/appliance/${deviceData.applianceId}/erd/${ERD_TYPES.HOT_WATER_STATUS}`)
+        const raw = String(res.data?.value ?? '')
+        hasKeurig = decideKeurigCapability(undefined, parseHotWaterStatus(raw))
+        if (hasKeurig) {
+          this.infoLog(`Keurig K-Cup Hot Water capability detected on ${deviceData.nickname}`)
+        }
+      } catch (e: any) {
+        await this.debugLog(`Keurig probe failed for ${deviceData.applianceId}: ${e?.message ?? e}`)
+        hasKeurig = false
+      }
+    }
+
+    const displayName = `${deviceData.nickname} Keurig`
+    const shouldRegister = hasKeurig && !deviceData.hide_device
+
+    if (existingAccessory) {
+      if (shouldRegister) {
+        existingAccessory.context.device = deviceData
+        existingAccessory.context = { device: deviceData, userId }
+        existingAccessory.displayName = await this.validateAndCleanDisplayName(displayName, 'nickname', displayName)
+        existingAccessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
+        this.api.updatePlatformAccessories([existingAccessory])
+        this.infoLog(`[HAP] Restoring existing accessory from cache: ${existingAccessory.displayName}`)
+        new SmartHQKeurig(this, existingAccessory, deviceData)
+        await this.debugLog(`${displayName} uuid: ${deviceData.applianceId}-keurig`)
+      } else {
+        // Either no Keurig (config or auto-detect says no) or the
+        // device is hidden — drop the accessory.
+        this.unregisterPlatformAccessories(existingAccessory)
+      }
+    } else if (shouldRegister) {
+      this.infoLog(`[HAP] Adding new accessory: ${displayName}`)
+      const accessory = new this.api.platformAccessory<SmartHqContext>(displayName, keurigUuid)
+      accessory.context.device = deviceData
+      accessory.context = { device: deviceData, userId }
+      accessory.displayName = await this.validateAndCleanDisplayName(displayName, 'nickname', displayName)
+      accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
+      new SmartHQKeurig(this, accessory, deviceData)
+      this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
+      this.accessories.push(accessory)
     }
   }
 

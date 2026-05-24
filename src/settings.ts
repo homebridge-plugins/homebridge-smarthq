@@ -52,6 +52,32 @@ export interface devicesConfig {
   hide_device?: boolean
   useMatter?: boolean // Enable/disable Matter for this specific device
   matterOnly?: boolean // If true, do not fall back to HAP when Matter is unavailable
+  keurig?: boolean // Override auto-detect for the built-in Keurig K-Cup brewer (e.g. PYE22PYNHFS)
+  keurigOnly?: boolean // Skip the main Refrigerator accessory; only publish the Keurig sub-accessory
+}
+
+// --- Keurig (in-fridge K-Cup brewer) types ---
+// Decoding of HOT_WATER_STATUS (0x1010) follows simbaja/gehome — see
+// gehomesdk/erd/converters/fridge/hot_water_status_converter.py
+// Documented in specs/001-keurig-coffee-maker/research.md.
+export type ErdHotWaterStatusValue =
+  | 'NOT_HEATING'
+  | 'HEATING'
+  | 'READY'
+  | 'FAULT_NEED_CLEARED'
+  | 'FAULT_LOCKED_OUT'
+  | 'NA'
+
+export type ErdPodStatusValue = 'REPLACE' | 'READY' | 'NA'
+
+export interface HotWaterStatus {
+  status: ErdHotWaterStatusValue
+  timeUntilReadyMinutes: number | null
+  currentTempF: number | null
+  tankFull: boolean | null
+  brewModulePresent: boolean | null
+  podStatus: ErdPodStatusValue
+  faulted: boolean
 }
 
 export interface options {

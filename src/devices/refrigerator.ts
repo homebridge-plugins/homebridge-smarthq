@@ -12,6 +12,23 @@ import { interval, skipWhile } from 'rxjs'
 import { ERD_TYPES } from '../settings.js'
 import { deviceBase } from './device.js'
 
+// Services that were once attached to the Refrigerator accessory but
+// have since been replaced or relocated. Removing them at startup cleans
+// up Apple Home's cached view (which otherwise keeps showing the old
+// tiles indefinitely).
+const STALE_SERVICE_NAMES = [
+  // Pre-beta-0.5.0 refactor leftovers
+  'Refrigerator Door', // replaced by Fridge Right/Left Door + Freezer Door
+  'Fridge Temperature', // replaced by Fridge thermostat
+  'Freezer Temperature', // replaced by Freezer thermostat
+  // Keurig services moved to a separate accessory so Apple Home / Siri
+  // can address them cleanly without being lost among the fridge's
+  // many services.
+  'K-Cup Hot Water',
+  'Hot Water Ready',
+  'Hot Water Dispensing',
+]
+
 /**
  * SmartHQ Refrigerator - Unified HAP/Matter Implementation
  * Supports both HomeKit Accessory Protocol and Matter protocol
@@ -438,6 +455,19 @@ export class SmartHQRefrigerator extends deviceBase {
       .onSet(async (value) => {
         await this.writeErd(ERD_TYPES.TURBO_FREEZE_STATUS, value as boolean)
       })
+
+    // Strip out any services that were attached to this accessory by
+    // previous plugin versions but are no longer wired here (pre-beta
+    // door/temperature placeholders + the Keurig services that moved to
+    // their own accessory). Without this, Apple Home keeps showing the
+    // stale tiles indefinitely.
+    for (const name of STALE_SERVICE_NAMES) {
+      const svc = this.accessory!.getService(name)
+      if (svc) {
+        this.accessory!.removeService(svc)
+        this.debugLog(`Removed stale service from Refrigerator accessory: ${name}`)
+      }
+    }
   }
 
   /**
