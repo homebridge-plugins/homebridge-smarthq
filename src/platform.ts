@@ -318,10 +318,12 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
         const deviceConfigByApplianceId: pkg.Dictionary<devicesConfig | undefined>
           = keyBy(this.config.devices ?? [], 'applianceId')
         for (const device of devices.data.items) {
-          // Merge per-device config overrides (hide_device, refreshRate, etc.) from user config
+          // Merge per-device config overrides (hide_device, keurigOnly,
+          // refreshRate, etc.) from user config. The API response never
+          // contains these fields, so we just copy whatever the user set.
           const deviceConfig = deviceConfigByApplianceId[device.applianceId]
-          if (deviceConfig?.hide_device) {
-            device.hide_device = deviceConfig.hide_device
+          if (deviceConfig) {
+            Object.assign(device, deviceConfig)
           }
 
           const [{ data: details }, { data: features }] = await Promise.all([
