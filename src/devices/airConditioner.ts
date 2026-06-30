@@ -77,20 +77,20 @@ export class SmartHQAirConditioner extends deviceBase {
       createSeparateFanService?: boolean
     }
 
-    this.showDryModeSwitch = airConditionerConfig.showDryModeSwitch ?? false
+    this.showDryModeSwitch = airConditionerConfig.showDryModeSwitch ?? true
 
     const configuredDefaultOperationMode = {
       cool: OperationMode.COOL,
       fanOnly: OperationMode.FAN_ONLY,
       energySaver: OperationMode.ENERGY_SAVER,
       dry: OperationMode.DRY,
-    }[airConditionerConfig.defaultOperationMode ?? 'energySaver']
+    }[airConditionerConfig.defaultOperationMode ?? 'cool']
 
     this.defaultOperationMode = configuredDefaultOperationMode === OperationMode.DRY && !this.supportsDryMode
       ? OperationMode.ENERGY_SAVER
       : configuredDefaultOperationMode
 
-    this.createSeparateFanService = airConditionerConfig.createSeparateFanService ?? true
+    this.createSeparateFanService = airConditionerConfig.createSeparateFanService ?? false
 
     // Check if we should use Matter protocol
     this.useMatterOverride = device.useMatter ?? false
