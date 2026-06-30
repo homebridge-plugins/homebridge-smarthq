@@ -55,7 +55,8 @@ export class SmartHQAirConditioner extends deviceBase {
   private modeSwitchSvc!: Partial<Record<OperationMode, Service>>
 
   // TODO: Make supportsDryMode deterministic from reported appliance capabilities.
-  private readonly supportsDryMode = false
+  private readonly supportsDryMode = true
+  private readonly showDryModeSwitch: boolean
 
   private readonly defaultOperationMode: OperationMode
   private readonly createSeparateFanService: boolean
@@ -76,12 +77,18 @@ export class SmartHQAirConditioner extends deviceBase {
       createSeparateFanService?: boolean
     }
 
-    this.defaultOperationMode = {
+    this.showDryModeSwitch = airConditionerConfig.showDryModeSwitch ?? false
+
+    const configuredDefaultOperationMode = {
       cool: OperationMode.COOL,
       fanOnly: OperationMode.FAN_ONLY,
       energySaver: OperationMode.ENERGY_SAVER,
       dry: OperationMode.DRY,
     }[airConditionerConfig.defaultOperationMode ?? 'energySaver']
+
+    this.defaultOperationMode = configuredDefaultOperationMode === OperationMode.DRY && !this.supportsDryMode
+      ? OperationMode.ENERGY_SAVER
+      : configuredDefaultOperationMode
 
     this.createSeparateFanService = airConditionerConfig.createSeparateFanService ?? true
 
@@ -112,6 +119,7 @@ export class SmartHQAirConditioner extends deviceBase {
   /**
    * Initialize Matter protocol
    */
+  private async initializeMatter(): Promise<void> {
     const { valid, api: matterAPI } = this.validateMatterAPI()
 
     if (!valid) {
@@ -123,47 +131,45 @@ export class SmartHQAirConditioner extends deviceBase {
     const serialNumber = this.device.applianceId || 'unknown'
     this.matterUuid = matterAPI.uuid.generate(serialNumber)
 
-    // Create Matter accessory configuration with AC-specific clusters
+    const matterAccessory = {
       UUID: this.matterUuid,
       displayName: this.device.nickname || 'SmartHQ Air Conditioner',
       serialNumber,
-      manufacturer: this.device.brand && this.device.brand !== 'Unknown' ? this.device.brand : 'GE Appliances',
+      manufacturer: this.device.brand && this.device.brand !== 'Unknown'
+        ? this.device.brand
+        : 'GE Appliances',
       model: this.device.model || 'SmartHQ',
       firmwareRevision: this.deviceFirmwareVersion,
       hardwareRevision: this.deviceFirmwareVersion,
       deviceType: matterAPI.deviceTypes.AirConditioner,
-        // On/Off cluster for power state
+      clusters: {
         onOff: {
           onOff: false,
         },
-        // Thermostat cluster for temperature control
         thermostat: {
-          localTemperature: 2200, // 22°C
+          localTemperature: 2200,
           occupiedCoolingSetpoint: 2200,
-          systemMode: 3, // COOL
+          systemMode: 3,
           thermostatRunningMode: 3,
-          controlSequenceOfOperation: 2, // cooling only
+          controlSequenceOfOperation: 2,
         },
-        // Fan Control cluster
         fanControl: {
-          fanMode: 0, // 0=Off, 1=Low, 2=Medium, 3=High, 4=Auto
-          fanModeSequence: 4, // Support Off/Low/Med/High/Auto
+          fanMode: 0,
+          fanModeSequence: 4,
           percentSetting: 0,
           percentCurrent: 0,
         },
-        // Resource Monitoring for filter
         resourceMonitoring: {
-          condition: 100, // 100% = OK, 0% = needs replacement
-          degradationDirection: 1, // 1 = down (degrades over time)
-          changeIndication: 0, // 0=OK, 1=Warning, 2=Critical
+          condition: 100,
+          degradationDirection: 1,
+          changeIndication: 0,
         },
-        // Mode Select for operation modes
         modeSelect: {
           supportedModes: [
             { label: 'Cool', mode: 0 },
             { label: 'Fan Only', mode: 1 },
             { label: 'Energy Saver', mode: 2 },
-            ...(this.supportsDryMode ? [{ label: 'Dry', mode: 3 }] : []),
+            ...(this.shouldExposeDryMode() ? [{ label: 'Dry', mode: 3 }] : []),
           ],
           currentMode: 0,
         },
@@ -180,12 +186,12 @@ export class SmartHQAirConditioner extends deviceBase {
       },
     }
 
-    // Register Matter accessory as external device
     await matterAPI.registerPlatformAccessories(
       '@homebridge-plugins/homebridge-smarthq',
       'SmartHQ',
       [matterAccessory],
     )
+
     this.matterRegistered = true
     this.infoLog('Created Matter Air Conditioner with thermostat, fan control, mode selection, and filter monitoring clusters')
   }
@@ -227,7 +233,7 @@ export class SmartHQAirConditioner extends deviceBase {
         ?? this.accessory.addService(this.platform.Service.Switch, `${this.accessory.displayName} Energy Saver Mode`, `${this.MODE_SWITCH_SVC_PREFIX}_ENERGY_SAVER`),
     }
 
-    if (this.supportsDryMode) {
+    if (this.shouldExposeDryMode()) {
       this.modeSwitchSvc[OperationMode.DRY] = this.accessory.getService(`${this.MODE_SWITCH_SVC_PREFIX}_DRY`)
         ?? this.accessory.addService(this.platform.Service.Switch, `${this.accessory.displayName} Dry Mode`, `${this.MODE_SWITCH_SVC_PREFIX}_DRY`)
     } else {
@@ -1048,8 +1054,12 @@ export class SmartHQAirConditioner extends deviceBase {
     }
   }
 
+  private shouldExposeDryMode(): boolean {
+    return this.supportsDryMode && this.showDryModeSwitch
+  }
+
   private getSupportedOperationModes(): OperationMode[] {
-    return this.supportsDryMode
+    return this.shouldExposeDryMode()
       ? [OperationMode.COOL, OperationMode.FAN_ONLY, OperationMode.ENERGY_SAVER, OperationMode.DRY]
       : [OperationMode.COOL, OperationMode.FAN_ONLY, OperationMode.ENERGY_SAVER]
   }
