@@ -73,7 +73,42 @@ export default async function getAccessToken(username: string, password: string)
     }
   }
 
+  const followRedirectsForCode = async (initialLocation: string, maxHops = 10) => {
+    let location: string | undefined | null = initialLocation
+
+    for (let hop = 0; hop < maxHops && location; hop++) {
+      const codeFromLocation = tryExtractCodeFromLocation(location)
+      if (codeFromLocation) {
+        return { code: codeFromLocation, response: null }
+      }
+
+      const resolved = new URL(location, LOGIN_URL).toString()
+      const redirectResponse = await aclient.get(resolved, {
+        maxRedirects: 0,
+        validateStatus: () => true,
+      })
+
+      location = redirectResponse.headers.location
+      if (!location) {
+        return { code: null, response: redirectResponse }
+      }
+    }
+
+    return { code: null, response: null }
+  }
+
   let code = tryExtractCodeFromLocation(res.headers.location)
+  let finalAuthResponse = res
+
+  if (!code && res.headers.location) {
+    const redirectResult = await followRedirectsForCode(res.headers.location)
+    code = redirectResult.code
+
+    if (redirectResult.response) {
+      finalAuthResponse = redirectResult.response
+    }
+  }
+
   if (!code) {
     // Try to handle HTML response pages (MFA or Terms)
     const asyncHandleOkResponse = async (respText: string): Promise<string> => {
@@ -271,8 +306,8 @@ export default async function getAccessToken(username: string, password: string)
     }
 
     // If we have HTML in the response, try to handle it
-    if (res.data && typeof res.data === 'string') {
-      code = await asyncHandleOkResponse(res.data)
+    if (finalAuthResponse.data && typeof finalAuthResponse.data === 'string') {
+      code = await asyncHandleOkResponse(finalAuthResponse.data)
     }
   }
 
