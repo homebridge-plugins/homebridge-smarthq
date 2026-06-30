@@ -46,9 +46,19 @@ export class SmartHQAirConditioner extends deviceBase {
   private readonly HEATER_COOLER_SVC_NAME = 'AIR_CONDITIONER'
   private heaterCoolerSvc!: Service
 
+  // Optional separate Fan service for fan-speed control
+  private readonly FAN_SVC_NAME = 'AIR_CONDITIONER_FAN'
+  private fanSvc?: Service
+
   // Mode SwitchServices
   private readonly MODE_SWITCH_SVC_PREFIX = 'AIR_CONDITIONER_MODE'
-  private modeSwitchSvc!: Record<OperationMode, Service>
+  private modeSwitchSvc!: Partial<Record<OperationMode, Service>>
+
+  // TODO: Make supportsDryMode deterministic from reported appliance capabilities.
+  private readonly supportsDryMode = false
+
+  private readonly defaultOperationMode: OperationMode
+  private readonly createSeparateFanService: boolean
 
   // Matter support override flag
   private useMatterOverride: boolean = false
@@ -59,6 +69,21 @@ export class SmartHQAirConditioner extends deviceBase {
     protected readonly device: SmartHqContext['device'] & devicesConfig,
   ) {
     super(platform, accessory, device)
+
+    const airConditionerConfig = device as devicesConfig & {
+      defaultOperationMode?: 'cool' | 'fanOnly' | 'energySaver' | 'dry'
+      showDryModeSwitch?: boolean
+      createSeparateFanService?: boolean
+    }
+
+    this.defaultOperationMode = {
+      cool: OperationMode.COOL,
+      fanOnly: OperationMode.FAN_ONLY,
+      energySaver: OperationMode.ENERGY_SAVER,
+      dry: OperationMode.DRY,
+    }[airConditionerConfig.defaultOperationMode ?? 'energySaver']
+
+    this.createSeparateFanService = airConditionerConfig.createSeparateFanService ?? true
 
     // Check if we should use Matter protocol
     this.useMatterOverride = device.useMatter ?? false
@@ -72,7 +97,7 @@ export class SmartHQAirConditioner extends deviceBase {
         this.errorLog(`Failed to initialize Matter: ${error}`)
       })
       // Still need to initialize switch services for compatibility
-      this.modeSwitchSvc = {} as Record<OperationMode, Service>
+      this.modeSwitchSvc = {}
       return
     } else {
       this.initializeHAP()
@@ -87,7 +112,6 @@ export class SmartHQAirConditioner extends deviceBase {
   /**
    * Initialize Matter protocol
    */
-  private async initializeMatter(): Promise<void> {
     const { valid, api: matterAPI } = this.validateMatterAPI()
 
     if (!valid) {
@@ -100,7 +124,6 @@ export class SmartHQAirConditioner extends deviceBase {
     this.matterUuid = matterAPI.uuid.generate(serialNumber)
 
     // Create Matter accessory configuration with AC-specific clusters
-    const matterAccessory = {
       UUID: this.matterUuid,
       displayName: this.device.nickname || 'SmartHQ Air Conditioner',
       serialNumber,
@@ -109,7 +132,6 @@ export class SmartHQAirConditioner extends deviceBase {
       firmwareRevision: this.deviceFirmwareVersion,
       hardwareRevision: this.deviceFirmwareVersion,
       deviceType: matterAPI.deviceTypes.AirConditioner,
-      clusters: {
         // On/Off cluster for power state
         onOff: {
           onOff: false,
@@ -141,7 +163,7 @@ export class SmartHQAirConditioner extends deviceBase {
             { label: 'Cool', mode: 0 },
             { label: 'Fan Only', mode: 1 },
             { label: 'Energy Saver', mode: 2 },
-            { label: 'Dry', mode: 3 },
+            ...(this.supportsDryMode ? [{ label: 'Dry', mode: 3 }] : []),
           ],
           currentMode: 0,
         },
@@ -180,16 +202,39 @@ export class SmartHQAirConditioner extends deviceBase {
         this.HEATER_COOLER_SVC_NAME,
       )
 
-    // Mode SwitchServices
+    if (this.createSeparateFanService) {
+      this.fanSvc = this.accessory.getService(this.FAN_SVC_NAME)
+        ?? this.accessory.addService(
+          this.platform.Service.Fanv2,
+          `${this.accessory.displayName} Fan`,
+          this.FAN_SVC_NAME,
+        )
+
+      this.heaterCoolerSvc.addLinkedService(this.fanSvc)
+    } else {
+      const existingFanService = this.accessory.getService(this.FAN_SVC_NAME)
+      if (existingFanService) {
+        this.accessory.removeService(existingFanService)
+      }
+    }
+
     this.modeSwitchSvc = {
-      [OperationMode.COOL]: this.accessory!.getService(`${this.MODE_SWITCH_SVC_PREFIX}_COOL`)
-        ?? this.accessory!.addService(this.platform.Service.Switch, `${this.accessory.displayName} Cool Mode`, `${this.MODE_SWITCH_SVC_PREFIX}_COOL`),
-      [OperationMode.FAN_ONLY]: this.accessory!.getService(`${this.MODE_SWITCH_SVC_PREFIX}_FAN_ONLY`)
-        ?? this.accessory!.addService(this.platform.Service.Switch, `${this.accessory.displayName} Fan Only Mode`, `${this.MODE_SWITCH_SVC_PREFIX}_FAN_ONLY`),
-      [OperationMode.ENERGY_SAVER]: this.accessory!.getService(`${this.MODE_SWITCH_SVC_PREFIX}_ENERGY_SAVER`)
-        ?? this.accessory!.addService(this.platform.Service.Switch, `${this.accessory.displayName} Energy Saver Mode`, `${this.MODE_SWITCH_SVC_PREFIX}_ENERGY_SAVER`),
-      [OperationMode.DRY]: this.accessory!.getService(`${this.MODE_SWITCH_SVC_PREFIX}_DRY`)
-        ?? this.accessory!.addService(this.platform.Service.Switch, `${this.accessory.displayName} Dry Mode`, `${this.MODE_SWITCH_SVC_PREFIX}_DRY`),
+      [OperationMode.COOL]: this.accessory.getService(`${this.MODE_SWITCH_SVC_PREFIX}_COOL`)
+        ?? this.accessory.addService(this.platform.Service.Switch, `${this.accessory.displayName} Cool Mode`, `${this.MODE_SWITCH_SVC_PREFIX}_COOL`),
+      [OperationMode.FAN_ONLY]: this.accessory.getService(`${this.MODE_SWITCH_SVC_PREFIX}_FAN_ONLY`)
+        ?? this.accessory.addService(this.platform.Service.Switch, `${this.accessory.displayName} Fan Only Mode`, `${this.MODE_SWITCH_SVC_PREFIX}_FAN_ONLY`),
+      [OperationMode.ENERGY_SAVER]: this.accessory.getService(`${this.MODE_SWITCH_SVC_PREFIX}_ENERGY_SAVER`)
+        ?? this.accessory.addService(this.platform.Service.Switch, `${this.accessory.displayName} Energy Saver Mode`, `${this.MODE_SWITCH_SVC_PREFIX}_ENERGY_SAVER`),
+    }
+
+    if (this.supportsDryMode) {
+      this.modeSwitchSvc[OperationMode.DRY] = this.accessory.getService(`${this.MODE_SWITCH_SVC_PREFIX}_DRY`)
+        ?? this.accessory.addService(this.platform.Service.Switch, `${this.accessory.displayName} Dry Mode`, `${this.MODE_SWITCH_SVC_PREFIX}_DRY`)
+    } else {
+      const existingDryModeService = this.accessory.getService(`${this.MODE_SWITCH_SVC_PREFIX}_DRY`)
+      if (existingDryModeService) {
+        this.accessory.removeService(existingDryModeService)
+      }
     }
 
     // Active
@@ -242,6 +287,19 @@ export class SmartHQAirConditioner extends deviceBase {
       .onGet(this.handleGetRotationSpeed.bind(this))
       .onSet(this.handleSetRotationSpeed.bind(this))
 
+    if (this.fanSvc) {
+      this.fanSvc
+        .getCharacteristic(this.platform.Characteristic.Active)
+        .onGet(this.handleGetFanActive.bind(this))
+        .onSet(this.handleSetFanActive.bind(this))
+
+      this.fanSvc
+        .getCharacteristic(this.platform.Characteristic.RotationSpeed)
+        .setProps({ minValue: 0, maxValue: 100, minStep: 1 })
+        .onGet(this.handleGetRotationSpeed.bind(this))
+        .onSet(this.handleSetRotationSpeed.bind(this))
+    }
+
     // Display units
     this.heaterCoolerSvc
       .getCharacteristic(this.platform.Characteristic.TemperatureDisplayUnits)
@@ -254,13 +312,18 @@ export class SmartHQAirConditioner extends deviceBase {
       .onGet(this.handleGetFilterChangeIndication.bind(this))
 
     // Modes
-    for (const mode of Object.values(OperationMode)) {
-      this.modeSwitchSvc[mode]
+    for (const mode of this.getSupportedOperationModes()) {
+      const modeService = this.modeSwitchSvc[mode]
+      if (!modeService) {
+        continue
+      }
+
+      modeService
         .getCharacteristic(this.platform.Characteristic.On)
         .onGet(this.handleGetOperationMode.bind(this, mode))
         .onSet(this.handleSetOperationMode.bind(this, mode))
 
-      this.modeSwitchSvc[mode]
+      modeService
         .getCharacteristic(this.platform.Characteristic.Name)
         .onGet(this.handleGetOperationModeName.bind(this, mode))
     }
@@ -435,28 +498,25 @@ export class SmartHQAirConditioner extends deviceBase {
 
   public async handleSetActive(value: CharacteristicValue): Promise<void> {
     try {
-      const [powerState, ambientTemperature, targetTemperature, operationMode] = await Promise.all([
+      const [powerState, ambientTemperature, targetTemperature] = await Promise.all([
         this.getPowerState(),
         this.getAmbientTemperature(),
         this.getTemperature(),
-        this.getOperationMode(),
       ])
 
       if (value === this.platform.Characteristic.Active.ACTIVE) {
-        // If the air conditioner is currently off, turn it on
+        // HomeKit exposes this service as Cool, but use the configured default
+        // SmartHQ operating mode whenever the AC service is activated.
         if (powerState === PowerState.OFF) {
           await this.setPowerState(PowerState.ON)
-
-          // There's a bug (feature?) in SmartHQ where it resets operation mode when turning on the air conditioner
-          // so we need to set it back to the previous mode
-          await this.setOperationMode(operationMode)
         }
 
-        // Keep mode switches in sync
-        for (const mode of Object.values(OperationMode)) {
-          this.modeSwitchSvc[mode].updateCharacteristic(
+        await this.setOperationMode(this.defaultOperationMode)
+
+        for (const mode of this.getSupportedOperationModes()) {
+          this.modeSwitchSvc[mode]?.updateCharacteristic(
             this.platform.Characteristic.On,
-            mode === operationMode,
+            mode === this.defaultOperationMode,
           )
         }
 
@@ -468,6 +528,11 @@ export class SmartHQAirConditioner extends deviceBase {
             : this.platform.Characteristic.CurrentHeaterCoolerState.COOLING,
         )
 
+        this.fanSvc?.updateCharacteristic(
+          this.platform.Characteristic.Active,
+          await this.handleGetFanActive(),
+        )
+
         return
       }
 
@@ -476,8 +541,8 @@ export class SmartHQAirConditioner extends deviceBase {
       }
 
       // Keep mode switches in sync
-      for (const mode of Object.values(OperationMode)) {
-        this.modeSwitchSvc[mode].updateCharacteristic(
+      for (const mode of this.getSupportedOperationModes()) {
+        this.modeSwitchSvc[mode]?.updateCharacteristic(
           this.platform.Characteristic.On,
           false,
         )
@@ -487,6 +552,11 @@ export class SmartHQAirConditioner extends deviceBase {
       this.heaterCoolerSvc.updateCharacteristic(
         this.platform.Characteristic.CurrentHeaterCoolerState,
         this.platform.Characteristic.CurrentHeaterCoolerState.INACTIVE,
+      )
+
+      this.fanSvc?.updateCharacteristic(
+        this.platform.Characteristic.Active,
+        this.platform.Characteristic.Active.INACTIVE,
       )
     } catch (cause) {
       const error = new Error(`Failed to handle set active: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`, { cause })
@@ -546,6 +616,15 @@ export class SmartHQAirConditioner extends deviceBase {
       // Turn on the air conditioner if it's currently off
       if (powerState === PowerState.OFF) {
         await this.setPowerState(PowerState.ON)
+      }
+
+      await this.setOperationMode(this.defaultOperationMode)
+
+      for (const mode of this.getSupportedOperationModes()) {
+        this.modeSwitchSvc[mode]?.updateCharacteristic(
+          this.platform.Characteristic.On,
+          mode === this.defaultOperationMode,
+        )
       }
 
       // Keep CurrentHeaterCoolerState in sync with TargetHeaterCoolerState
@@ -624,34 +703,110 @@ export class SmartHQAirConditioner extends deviceBase {
     }
   }
 
+  public async handleGetFanActive(): Promise<CharacteristicValue> {
+    try {
+      const fanSetting = await this.getFanSetting()
+
+      return fanSetting === FanSetting.AUTO
+        ? this.platform.Characteristic.Active.INACTIVE
+        : this.platform.Characteristic.Active.ACTIVE
+    } catch (cause) {
+      const error = new Error(`Failed to handle get fan active: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`, { cause })
+      this.platform.log.error(`[${this.accessory.displayName}] ${error.message}`)
+      throw error
+    }
+  }
+
+  public async handleSetFanActive(value: CharacteristicValue): Promise<void> {
+    try {
+      if (value === this.platform.Characteristic.Active.ACTIVE) {
+        const currentFanSetting = await this.getFanSetting()
+        const nextFanSetting = currentFanSetting === FanSetting.AUTO
+          ? FanSetting.LOW
+          : currentFanSetting
+
+        await this.setFanSetting(nextFanSetting)
+
+        const displayedSpeed = nextFanSetting === FanSetting.LOW
+          ? 33
+          : nextFanSetting === FanSetting.MED
+            ? 66
+            : 100
+
+        this.fanSvc?.updateCharacteristic(
+          this.platform.Characteristic.Active,
+          this.platform.Characteristic.Active.ACTIVE,
+        )
+        this.fanSvc?.updateCharacteristic(
+          this.platform.Characteristic.RotationSpeed,
+          displayedSpeed,
+        )
+        this.heaterCoolerSvc.updateCharacteristic(
+          this.platform.Characteristic.RotationSpeed,
+          displayedSpeed,
+        )
+        return
+      }
+
+      // Fan off / 0% maps to SmartHQ Auto and does not power off the AC.
+      await this.setFanSetting(FanSetting.AUTO)
+      this.fanSvc?.updateCharacteristic(
+        this.platform.Characteristic.Active,
+        this.platform.Characteristic.Active.INACTIVE,
+      )
+      this.fanSvc?.updateCharacteristic(
+        this.platform.Characteristic.RotationSpeed,
+        0,
+      )
+      this.heaterCoolerSvc.updateCharacteristic(
+        this.platform.Characteristic.RotationSpeed,
+        0,
+      )
+    } catch (cause) {
+      const error = new Error(`Failed to handle set fan active: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`, { cause })
+      this.platform.log.error(`[${this.accessory.displayName}] ${error.message}`)
+      throw error
+    }
+  }
+
   public async handleSetRotationSpeed(value: CharacteristicValue): Promise<void> {
     try {
-      const speed: number = value as number
+      const speed = value as number
+      const fanSetting = speed === 0
+        ? FanSetting.AUTO
+        : speed <= 33
+          ? FanSetting.LOW
+          : speed <= 66
+            ? FanSetting.MED
+            : FanSetting.HIGH
 
-      // AUTO
-      if (speed === 0) {
-        await this.setFanSetting(FanSetting.AUTO)
-        return
-      }
+      await this.setFanSetting(fanSetting)
 
-      // LOW
-      if (speed <= 33) {
-        await this.setFanSetting(FanSetting.LOW)
-        return
-      }
+      const displayedSpeed = fanSetting === FanSetting.AUTO
+        ? 0
+        : fanSetting === FanSetting.LOW
+          ? 33
+          : fanSetting === FanSetting.MED
+            ? 66
+            : 100
 
-      // MED
-      if (speed <= 66) {
-        await this.setFanSetting(FanSetting.MED)
-        return
-      }
-
-      // HIGH
-      await this.setFanSetting(FanSetting.HIGH)
+      this.heaterCoolerSvc.updateCharacteristic(
+        this.platform.Characteristic.RotationSpeed,
+        displayedSpeed,
+      )
+      this.fanSvc?.updateCharacteristic(
+        this.platform.Characteristic.RotationSpeed,
+        displayedSpeed,
+      )
+      this.fanSvc?.updateCharacteristic(
+        this.platform.Characteristic.Active,
+        fanSetting === FanSetting.AUTO
+          ? this.platform.Characteristic.Active.INACTIVE
+          : this.platform.Characteristic.Active.ACTIVE,
+      )
     } catch (cause) {
       const error = new Error(`Failed to handle set fan setting: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`, { cause })
       this.platform.log.error(`[${this.accessory.displayName}] ${error.message}`)
-
       throw error
     }
   }
@@ -775,10 +930,10 @@ export class SmartHQAirConditioner extends deviceBase {
       }
 
       // switch the rest off
-      for (const m of Object.values(OperationMode)) {
-        this.modeSwitchSvc[m].updateCharacteristic(
+      for (const m of this.getSupportedOperationModes()) {
+        this.modeSwitchSvc[m]?.updateCharacteristic(
           this.platform.Characteristic.On,
-          m === mode,
+          Boolean(value) && m === mode,
         )
       }
     } catch (cause) {
@@ -824,6 +979,11 @@ export class SmartHQAirConditioner extends deviceBase {
         await this.handleGetActive(),
       )
 
+      this.fanSvc?.updateCharacteristic(
+        this.platform.Characteristic.Active,
+        await this.handleGetFanActive(),
+      )
+
       // Current mode
       this.heaterCoolerSvc.updateCharacteristic(
         this.platform.Characteristic.CurrentHeaterCoolerState,
@@ -849,9 +1009,14 @@ export class SmartHQAirConditioner extends deviceBase {
       )
 
       // Rotation speed
+      const rotationSpeed = await this.handleGetRotationSpeed()
       this.heaterCoolerSvc.updateCharacteristic(
         this.platform.Characteristic.RotationSpeed,
-        await this.handleGetRotationSpeed(),
+        rotationSpeed,
+      )
+      this.fanSvc?.updateCharacteristic(
+        this.platform.Characteristic.RotationSpeed,
+        rotationSpeed,
       )
 
       // Display units
@@ -867,8 +1032,8 @@ export class SmartHQAirConditioner extends deviceBase {
       )
 
       // Modes
-      for (const mode of Object.values(OperationMode)) {
-        this.modeSwitchSvc[mode].updateCharacteristic(
+      for (const mode of this.getSupportedOperationModes()) {
+        this.modeSwitchSvc[mode]?.updateCharacteristic(
           this.platform.Characteristic.On,
           await this.handleGetOperationMode(mode),
         )
@@ -881,6 +1046,12 @@ export class SmartHQAirConditioner extends deviceBase {
 
       throw error
     }
+  }
+
+  private getSupportedOperationModes(): OperationMode[] {
+    return this.supportsDryMode
+      ? [OperationMode.COOL, OperationMode.FAN_ONLY, OperationMode.ENERGY_SAVER, OperationMode.DRY]
+      : [OperationMode.COOL, OperationMode.FAN_ONLY, OperationMode.ENERGY_SAVER]
   }
 
   // Helpers
