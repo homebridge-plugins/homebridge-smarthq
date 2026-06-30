@@ -71,11 +71,16 @@ export class SmartHQAirConditioner extends deviceBase {
   ) {
     super(platform, accessory, device)
 
-    const airConditionerConfig = device as devicesConfig & {
+    type AirConditionerConfig = devicesConfig & {
+      applianceId?: string
       defaultOperationMode?: 'cool' | 'fanOnly' | 'energySaver' | 'dry'
       showDryModeSwitch?: boolean
       createSeparateFanService?: boolean
     }
+
+    const configuredDevices = (platform.config as { devices?: AirConditionerConfig[] }).devices ?? []
+    const configuredDevice = configuredDevices.find(config => config.applianceId === device.applianceId)
+    const airConditionerConfig: AirConditionerConfig = configuredDevice ?? device
 
     this.showDryModeSwitch = airConditionerConfig.showDryModeSwitch ?? true
 
