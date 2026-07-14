@@ -67,7 +67,7 @@
     "axios-cookiejar-support": "^7.0.0",
     "cheerio": "^1.2.0",
     "lodash": "^4.18.1",
-    "openid-client": "^5.7.1",
+    "openid-client": "^6.8.4",
     "rxjs": "^7.8.2",
     "tough-cookie": "^6.0.2",
     "ws": "^8.21.1"
