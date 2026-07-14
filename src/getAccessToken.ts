@@ -2,12 +2,17 @@ import axios from 'axios'
 import { wrapper } from 'axios-cookiejar-support'
 import * as cheerio from 'cheerio'
 import pkg from 'lodash'
-import { Issuer } from 'openid-client'
+import { custom, Issuer } from 'openid-client'
 import { CookieJar } from 'tough-cookie'
 
 import { LOGIN_URL, OAUTH2_CLIENT_ID, OAUTH2_CLIENT_SECRET, OAUTH2_REDIRECT_URI } from './settings.js'
 
 const { keyBy, mapValues } = pkg
+
+// The openid-client default timeout of 3500ms is too tight for slower networks
+// and DNS setups, causing 'outgoing request timed out after 3500ms' login
+// failures (#7, #73)
+custom.setHttpOptionsDefaults({ timeout: 15000 })
 
 const oidcClient = Issuer.discover('https://accounts.brillion.geappliances.com/').then(
   geData =>
@@ -23,13 +28,22 @@ export async function refreshAccessToken(refresh_token: string) {
   return client.grant({ refresh_token, grant_type: 'refresh_token' })
 }
 
-export default async function getAccessToken(username: string, password: string) {
+export default async function getAccessToken(username: string, password: string, region?: string) {
   const client = await oidcClient
 
   const oauthUrl = client.authorizationUrl()
 
   const jar = new CookieJar()
   const aclient = wrapper(axios.create({ jar }))
+
+  // The accounts site guesses the account region from the request origin,
+  // which mismatches when for example a US user routes DNS through Europe.
+  // Visiting the site with an explicit region first stores the choice in a
+  // cookie which the login flow then honours (#30)
+  if (region) {
+    await aclient.get(new URL(`/?region=${region}`, LOGIN_URL).toString()).catch(() => {})
+  }
+
   const htmlPageResponse = await aclient.get(oauthUrl)
 
   const page = cheerio.load(htmlPageResponse.data)
