@@ -15,6 +15,7 @@ All notable changes to this project will be documented in this file. This projec
 - docs: refresh the readme
 - feat: add support for more appliance types and improve existing ones (@donavanbecker)
 - feat: add a work-in-progress matter implementation (@donavanbecker)
+- fix: log the credentials re-authentication at debug level (@donavanbecker)
 
 ## [0.4.16](https://github.com/homebridge-plugins/homebridge-smarthq/compare/v0.4.15...v0.4.16) (2026-04-09)
 
