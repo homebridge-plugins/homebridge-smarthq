@@ -1,7 +1,8 @@
 import type { SmartHQIceMaker } from '@opal/index.js'
-import { OpalDeviceBase } from '@opal/OpalDeviceBase.js'
 import type { devicesConfig, SmartHqContext, SmartHQPlatform } from '@root'
 import type { PlatformAccessory } from 'homebridge'
+
+import { OpalDeviceBase } from '@opal/OpalDeviceBase.js'
 
 export class OpalSchedulingManager extends OpalDeviceBase {
   public opalIceMaker: SmartHQIceMaker

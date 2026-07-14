@@ -836,7 +836,7 @@ export class SmartHQRefrigerator extends deviceBase {
           // Matter updates failed, but this is recoverable - log and continue
           // Suppress "not found or not registered" errors as they're expected during startup
           if (error?.message?.includes('not found or not registered')) {
-            await this.debugLog(`Matter accessory not yet registered, will retry on next refresh cycle`)
+            await this.debugLog('Matter accessory not yet registered, will retry on next refresh cycle')
           } else {
             await this.errorLog(`Failed to update Matter accessory state: ${error?.message ?? error}`)
           }

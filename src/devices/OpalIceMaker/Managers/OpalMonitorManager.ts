@@ -1,10 +1,10 @@
-import type { PlatformAccessory } from 'homebridge'
-import type { Observable, Subscription } from 'rxjs'
-import { concat, of, skipWhile, switchMap, timer } from 'rxjs'
-
 import type { SmartHQIceMaker } from '@opal/index.js'
 import type { devicesConfig, SmartHqContext, SmartHQPlatform } from '@root'
+import type { PlatformAccessory } from 'homebridge'
+import type { Observable, Subscription } from 'rxjs'
+
 import { OpalDeviceBase } from '@opal/OpalDeviceBase.js'
+import { concat, of, skipWhile, switchMap, timer } from 'rxjs'
 
 export class OpalMonitorManager extends OpalDeviceBase {
   private servicesSubscription: Subscription | null = null

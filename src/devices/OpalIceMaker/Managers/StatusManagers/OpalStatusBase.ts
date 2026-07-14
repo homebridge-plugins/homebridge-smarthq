@@ -1,9 +1,8 @@
+import type { devicesConfig, SmartHqContext, SmartHQPlatform } from '@root'
 import type { PlatformAccessory } from 'homebridge'
 
-import type { devicesConfig, SmartHqContext, SmartHQPlatform } from '@root'
-
-import { ERD_TYPES } from '@root'
 import { OpalDeviceBase } from '@opal/OpalDeviceBase.js'
+import { ERD_TYPES } from '@root'
 
 export class OpalStatusBase extends OpalDeviceBase {
   public OpalStatusCodes = {

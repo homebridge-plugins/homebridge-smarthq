@@ -1,9 +1,8 @@
+import type { SmartHQIceMaker } from '@opal/index.js'
+import type { devicesConfig, SmartHqContext, SmartHQPlatform } from '@root'
 import type { PlatformAccessory, Service } from 'homebridge'
 
-import type { devicesConfig, SmartHqContext, SmartHQPlatform } from '@root'
-
 import { OpalDeviceBase } from '@opal/OpalDeviceBase.js'
-import type { SmartHQIceMaker } from '@opal/index.js'
 
 export class OpalMetadataSvcManager extends OpalDeviceBase {
   public service: Service

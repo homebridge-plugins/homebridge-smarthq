@@ -1,9 +1,10 @@
-import type { PlatformAccessory } from 'homebridge'
-import type { devicesConfig, SmartHqContext, SmartHQPlatform } from '@root'
-
 import type { SmartHQIceMaker } from '@opal/index.js'
-import { OpalIceBucketStatusSvcManager } from '@opal/Managers/StatusManagers/OpalIceBucketStatusSvcManager.js'
+import type { devicesConfig, SmartHqContext, SmartHQPlatform } from '@root'
+import type { PlatformAccessory } from 'homebridge'
+
 import { OpalAddWaterStatusSvcManager } from '@opal/Managers/StatusManagers/OpalAddWaterStatusSvcManager.js'
+import { OpalIceBucketStatusSvcManager } from '@opal/Managers/StatusManagers/OpalIceBucketStatusSvcManager.js'
+
 import { OpalStatusBase } from './OpalStatusBase.js'
 
 export class OpalStatusSvcManager extends OpalStatusBase {

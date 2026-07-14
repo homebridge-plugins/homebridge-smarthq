@@ -1,8 +1,8 @@
-import type { PlatformAccessory, Service } from 'homebridge'
 import type { devicesConfig, SmartHqContext, SmartHQPlatform } from '@root'
+import type { PlatformAccessory, Service } from 'homebridge'
 
-import { ERD_TYPES } from '@root'
 import { OpalDeviceBase } from '@opal/OpalDeviceBase.js'
+import { ERD_TYPES } from '@root'
 
 export class OpalPowerSvcManager extends OpalDeviceBase {
   public service: Service

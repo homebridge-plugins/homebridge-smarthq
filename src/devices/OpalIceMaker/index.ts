@@ -1,7 +1,5 @@
-import type { PlatformAccessory } from 'homebridge'
 import type { devicesConfig, SmartHqContext, SmartHQPlatform } from '@root'
-
-import { deviceBase } from '../../devices/device.js'
+import type { PlatformAccessory } from 'homebridge'
 
 import {
   OpalDescaleSvcManager,
@@ -14,6 +12,8 @@ import {
   OpalSchedulingManager,
 } from '@opal/Managers/index.js'
 import { OpalStatusSvcManager } from '@opal/Managers/StatusManagers/index.js'
+
+import { deviceBase } from '../../devices/device.js'
 
 export class SmartHQIceMaker extends deviceBase {
   public powerManager: OpalPowerSvcManager

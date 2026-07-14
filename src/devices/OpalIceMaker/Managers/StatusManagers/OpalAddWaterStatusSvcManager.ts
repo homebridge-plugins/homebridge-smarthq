@@ -1,7 +1,6 @@
-import type { PlatformAccessory, Service } from 'homebridge'
-
 import type { SmartHQIceMaker } from '@opal/index.js'
 import type { devicesConfig, SmartHqContext, SmartHQPlatform } from '@root'
+import type { PlatformAccessory, Service } from 'homebridge'
 
 import { OpalDeviceBase } from '@opal/OpalDeviceBase.js'
 
