@@ -85,6 +85,7 @@ export interface HotWaterStatus {
 
 export interface options {
   allowInvalidCharacters?: boolean
+  region?: string // Explicit SmartHQ account region (e.g. 'us' or 'eu') for the login flow
   refreshRate?: number
   updateRate?: number
   pushRate?: number

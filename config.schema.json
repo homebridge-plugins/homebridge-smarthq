@@ -281,6 +281,32 @@
                 ]
               }
             ]
+          },
+          "region": {
+            "title": "Account Region",
+            "type": "string",
+            "default": "",
+            "description": "The region of your SmartHQ account. Leave as default unless the login page resolves to the wrong region (for example a US account behind European DNS).",
+            "oneOf": [
+              {
+                "title": "Default (Auto)",
+                "enum": [
+                  ""
+                ]
+              },
+              {
+                "title": "United States",
+                "enum": [
+                  "us"
+                ]
+              },
+              {
+                "title": "Europe",
+                "enum": [
+                  "eu"
+                ]
+              }
+            ]
           }
         },
         "required": [
@@ -366,7 +392,15 @@
           "key": "options.homekitControllerNotificationsSecret",
           "notitle": true
         },
-        "options.logging"
+        "options.logging",
+        {
+          "type": "help",
+          "helpvalue": "<h5>Account Region</h5><em class='primary-text'>Set this if the SmartHQ login resolves to the wrong region for your account.</em>"
+        },
+        {
+          "key": "options.region",
+          "notitle": true
+        }
       ]
     }
   ]

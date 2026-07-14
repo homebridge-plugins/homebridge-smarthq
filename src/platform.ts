@@ -191,7 +191,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
           const { username, password } = this.config.credentials ?? {}
           if (username && password) {
             try {
-              this.tokenSet = await getAccessToken(username, password)
+              this.tokenSet = await getAccessToken(username, password, this.config.options?.region)
               await this.debugSuccessLog('Successfully re-authenticated with credentials')
 
               // Set up axios with new token
@@ -356,7 +356,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
         throw new Error('Username or password is undefined')
       }
       try {
-        this.tokenSet = await getAccessToken(username, password)
+        this.tokenSet = await getAccessToken(username, password, this.config.options?.region)
       } catch (e: any) {
         await this.errorLog(`discoverDevices, Failed to get Access Token, Error Message: ${e.message ?? e}, Submit Bugs Here: https://bit.ly/smarthq-bug-report`)
         return // Stop execution if authentication fails
