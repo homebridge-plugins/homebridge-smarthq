@@ -65,7 +65,7 @@ export default async function getAccessToken(username: string, password: string)
     } catch (e) {
       // Handle relative URLs
       try {
-        const full = location.startsWith('/') ? `${LOGIN_URL}${location}` : location
+        const full = new URL(location, LOGIN_URL).toString()
         return new URL(full).searchParams.get('code')
       } catch (e) {
         return null
@@ -73,7 +73,42 @@ export default async function getAccessToken(username: string, password: string)
     }
   }
 
+  const followRedirectsForCode = async (initialLocation: string, maxHops = 10) => {
+    let location: string | undefined | null = initialLocation
+
+    for (let hop = 0; hop < maxHops && location; hop++) {
+      const codeFromLocation = tryExtractCodeFromLocation(location)
+      if (codeFromLocation) {
+        return { code: codeFromLocation, response: null }
+      }
+
+      const resolved = new URL(location, LOGIN_URL).toString()
+      const redirectResponse = await aclient.get(resolved, {
+        maxRedirects: 0,
+        validateStatus: () => true,
+      })
+
+      location = redirectResponse.headers.location
+      if (!location) {
+        return { code: null, response: redirectResponse }
+      }
+    }
+
+    return { code: null, response: null }
+  }
+
   let code = tryExtractCodeFromLocation(res.headers.location)
+  let finalAuthResponse = res
+
+  if (!code && res.headers.location) {
+    const redirectResult = await followRedirectsForCode(res.headers.location)
+    code = redirectResult.code
+
+    if (redirectResult.response) {
+      finalAuthResponse = redirectResult.response
+    }
+  }
+
   if (!code) {
     // Try to handle HTML response pages (MFA or Terms)
     const asyncHandleOkResponse = async (respText: string): Promise<string> => {
@@ -106,7 +141,7 @@ export default async function getAccessToken(username: string, password: string)
           const postData = new URLSearchParams(formData)
           const skipResp = await aclient({
             method: 'POST',
-            url: `${LOGIN_URL}/account/active/redirect`,
+            url: new URL('/account/active/redirect', LOGIN_URL).toString(),
             data: postData,
             headers: { 'content-type': 'application/x-www-form-urlencoded' },
             maxRedirects: 0,
@@ -121,7 +156,7 @@ export default async function getAccessToken(username: string, password: string)
 
           // Follow redirect manually if provided
           if (loc) {
-            const resolved = loc.startsWith('/') ? `${LOGIN_URL}${loc}` : loc
+            const resolved = new URL(loc, LOGIN_URL).toString()
             const redirectResp = await aclient.get(resolved, { maxRedirects: 0, validateStatus: () => true })
             const finalLoc = redirectResp.headers.location
             const finalCode = tryExtractCodeFromLocation(finalLoc)
@@ -179,7 +214,7 @@ export default async function getAccessToken(username: string, password: string)
 
             const termsResp = await aclient({
               method: 'POST',
-              url: `${LOGIN_URL}/oauth2/terms/accept`,
+              url: new URL('/oauth2/terms/accept', LOGIN_URL).toString(),
               data: new URLSearchParams(formData),
               headers: { 'content-type': 'application/x-www-form-urlencoded', ...headers },
               maxRedirects: 0,
@@ -192,7 +227,7 @@ export default async function getAccessToken(username: string, password: string)
               return gotCode
             }
             if (loc) {
-              const resolved = loc.startsWith('/') ? `${LOGIN_URL}${loc}` : loc
+              const resolved = new URL(loc, LOGIN_URL).toString()
               const redirectResp = await aclient.get(resolved, { maxRedirects: 0, validateStatus: () => true })
               const finalCode = tryExtractCodeFromLocation(redirectResp.headers.location)
               if (finalCode) {
@@ -235,7 +270,7 @@ export default async function getAccessToken(username: string, password: string)
 
           const termsResp = await aclient({
             method: 'POST',
-            url: `${LOGIN_URL}/oauth2/terms/accept`,
+            url: new URL('/oauth2/terms/accept', LOGIN_URL).toString(),
             data: new URLSearchParams(formData),
             headers: { 'content-type': 'application/x-www-form-urlencoded', ...headers },
             maxRedirects: 0,
@@ -248,7 +283,7 @@ export default async function getAccessToken(username: string, password: string)
             return gotCode
           }
           if (loc) {
-            const resolved = loc.startsWith('/') ? `${LOGIN_URL}${loc}` : loc
+            const resolved = new URL(loc, LOGIN_URL).toString()
             const redirectResp = await aclient.get(resolved, { maxRedirects: 0, validateStatus: () => true })
             const finalCode = tryExtractCodeFromLocation(redirectResp.headers.location)
             if (finalCode) {
@@ -271,8 +306,8 @@ export default async function getAccessToken(username: string, password: string)
     }
 
     // If we have HTML in the response, try to handle it
-    if (res.data && typeof res.data === 'string') {
-      code = await asyncHandleOkResponse(res.data)
+    if (finalAuthResponse.data && typeof finalAuthResponse.data === 'string') {
+      code = await asyncHandleOkResponse(finalAuthResponse.data)
     }
   }
 
