@@ -1,57 +1,56 @@
+<p align="center">
+   <a href="https://github.com/homebridge-plugins/homebridge-smarthq"><img alt="homebridge-smarthq" src="https://raw.githubusercontent.com/homebridge-plugins/homebridge-smarthq/latest/branding/Homebridge_x_SmartHQ.svg?sanitize=true" width="500px"></a>
+</p>
 <span align="center">
 
-<a href="https://github.com/homebridge/verified/blob/master/verified-plugins.json"><img alt="homebridge-verified" src="https://raw.githubusercontent.com/homebridge-plugins/homebridge-smarthq/latest/branding/Homebridge_x_SmartHQ.svg?sanitize=true" width="350px"></a>
+## homebridge-smarthq
 
-# Homebridge SmartHQ
+Homebridge plugin to integrate SmartHQ appliances into HomeKit
 
-<a href="https://www.npmjs.com/package/@homebridge-plugins/homebridge-smarthq"><img title="npm version" src="https://badgen.net/npm/v/@homebridge-plugins/homebridge-smarthq?icon=npm&label" ></a>
-<a href="https://www.npmjs.com/package/@homebridge-plugins/homebridge-smarthq"><img title="npm downloads" src="https://badgen.net/npm/dt/@homebridge-plugins/homebridge-smarthq?label=downloads" ></a>
-<a href="https://discord.gg/8fpZA4S"><img title="discord-smarthq" src="https://badgen.net/discord/online-members/8fpZA4S?icon=discord&label=discord" ></a>
-<a href="https://paypal.me/donavanbecker"><img title="donate" src="https://badgen.net/badge/donate/paypal/yellow" ></a>
-
-<p>The Homebridge <a href="https://www.geappliances.com/connect">SmartHQ</a>
-plugin allows which allows to interact with SmartHQ API.
-</p>
+[![npm](https://img.shields.io/npm/v/@homebridge-plugins/homebridge-smarthq/latest?label=latest)](https://www.npmjs.com/package/@homebridge-plugins/homebridge-smarthq)
+[![npm](https://img.shields.io/npm/v/@homebridge-plugins/homebridge-smarthq/beta?label=beta)](https://github.com/homebridge/homebridge/wiki/How-to-Install-Alternate-Plugin-Versions)<br>
+[![verified-by-homebridge](https://img.shields.io/badge/homebridge-verified-blueviolet?color=%23491F59&style=flat)](https://github.com/homebridge/homebridge/wiki/Verified-Plugins)<br>
+[![npm](https://img.shields.io/npm/dt/@homebridge-plugins/homebridge-smarthq)](https://www.npmjs.com/package/@homebridge-plugins/homebridge-smarthq)
+[![Discord](https://img.shields.io/discord/432663330281226270?color=728ED5&logo=discord&label=hb-discord)](https://discord.gg/bHjKNkN)
 
 </span>
 
-## Installation
+### Plugin Information
 
-1. Search for "SmartHQ" on the plugin screen of [Homebridge Config UI X](https://github.com/oznu/homebridge-config-ui-x).
-2. Click **Install**.
+- This plugin allows you to view and control your [SmartHQ](https://www.geappliances.com/connect) appliances within HomeKit. The plugin:
+  - requires your SmartHQ account credentials to work
+  - connects to the SmartHQ cloud to discover and control your appliances
 
-## Configuration
+### Setup
 
-1. Input Username & Password
-2. Click Save
-3. Restart Homebridge
+- Installation
+  - Search for "SmartHQ" on the plugin screen of the [Homebridge UI](https://github.com/homebridge/homebridge-config-ui-x) and click **Install**.
+- Configuration
+  1. Enter your SmartHQ username and password in the plugin settings.
+  2. Click **Save**.
+  3. Restart Homebridge.
 
-## Supported SmartHQ Features
+### Features
 
-This plugin is in development
+- **HomeKit Controller notifications** are supported for the Opal Ice Maker. To set up, install the HomeKit Controller app and configure notifications for each respective event. Put your HomeKit Controller client secret in the plugin advanced options, and the path associated with each available notification in the Opal device options. Supported events:
+  - Ice Bucket Full
+  - Production Progress Complete
+  - Filter Maintenance Change Alert
+  - Descale Needed Alert
+  - Add Water Alert
 
-## Homekit Controller Notifications
+### Help/About
 
-Currently Homekit Controller Notifications are supported for the Opal Ice Maker, to setup, install Homekit Controller App and configure notifications for each respective event. Put your Homekit Controller client secret in the Plugin Advanced Options, and the path associated with each available notifcation in the Opal device options.
-These are the events that are currently supported:
+- [Support Request](https://github.com/homebridge-plugins/homebridge-smarthq/issues/new/choose)
+- [Changelog](https://github.com/homebridge-plugins/homebridge-smarthq/blob/latest/CHANGELOG.md)
+- [About Me](https://github.com/sponsors/bwp91)
 
-- Ice Bucket Full
-- Production Progress Complete
-- Filter Maintenance Change Alert
-- Descale Needed Alert
-- Add Water Alert
+### Credits
 
-## Contributing
+- To [@donavanbecker](https://github.com/donavanbecker): the original creator and maintainer of this plugin.
+- To the creators/contributors of [Homebridge](https://homebridge.io) who make this plugin possible.
 
-This project uses a beta-first workflow for all contributions:
+### Disclaimer
 
-- 🎯 **All PRs must target beta branches first**, never the main `latest` branch
-- 🏷️ **Required labels**: Set `patch`, `minor`, or `major` labels before assigning issues to Copilot
-- 🌿 **Current beta branch**: `beta-0.5.0` (active development)
-
-For detailed contribution guidelines, see [.github/copilot-instructions.md](.github/copilot-instructions.md).
-
-Use the branch helper tool to determine the correct target branch:
-```bash
-.github/scripts/branch-helper.sh
-```
+- I am in no way affiliated with SmartHQ or GE Appliances and this plugin is a personal project that I maintain in my free time.
+- Use this plugin entirely at your own risk - please see licence for more information.

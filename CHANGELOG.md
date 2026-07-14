@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. This project uses [Semantic Versioning](https://semver.org/).
 
+## v0.4.17 (Pending Release)
+
+### Changed
+
+- chore: dependency updates
+- chore(github): align workflows, funding and issue templates with the other org plugins
+- chore: align npm publishing files with the other org plugins
+- style: fix lint issues surfaced by the full lint scope
+- chore: standardise the package scripts and publishing config
+- chore: update the plugin metadata for the new maintainer
+- docs: refresh the readme
+
 ## [0.4.16](https://github.com/homebridge-plugins/homebridge-smarthq/compare/v0.4.15...v0.4.16) (2026-04-09)
 
 ## [0.4.15](https://github.com/homebridge-plugins/homebridge-smarthq/compare/v0.4.14...v0.4.15) (2026-03-01)
