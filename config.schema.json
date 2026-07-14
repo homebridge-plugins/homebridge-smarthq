@@ -113,15 +113,6 @@
                 "functionBody": "return (model.devices && model.devices[arrayIndices].applianceId && !model.options.devices[arrayIndices].hide_device);"
               }
             },
-            "external": {
-              "title": "External Device",
-              "type": "boolean",
-              "default": false,
-              "description": "If enabled, the device will be exposed to HomeKit as an external device.",
-              "condition": {
-                "functionBody": "return (model.devices && model.devices[arrayIndices].applianceId && !model.options.devices[arrayIndices].hide_device);"
-              }
-            },
             "refreshRate": {
               "title": "Device Refresh Rate",
               "type": "number",
@@ -339,7 +330,6 @@
             "devices[].createSeparateFanService",
             "devices[].showDryModeSwitch",
             "devices[].firmware",
-            "devices[].external",
             "devices[].refreshRate",
             "devices[].logging"
           ]
