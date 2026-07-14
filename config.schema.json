@@ -150,6 +150,65 @@
               "condition": {
                 "functionBody": "return (model.devices && model.devices[arrayIndices].applianceId && !model.devices[arrayIndices].hide_device);"
               }
+            },
+            "defaultOperationMode": {
+              "title": "Default Operation Mode (Air Conditioners)",
+              "type": "string",
+              "default": "cool",
+              "description": "The SmartHQ mode applied when the air conditioner service is switched on in HomeKit. Only applies to air conditioners.",
+              "oneOf": [
+                {
+                  "title": "Cool",
+                  "enum": [
+                    "cool"
+                  ]
+                },
+                {
+                  "title": "Fan Only",
+                  "enum": [
+                    "fanOnly"
+                  ]
+                },
+                {
+                  "title": "Energy Saver",
+                  "enum": [
+                    "energySaver"
+                  ]
+                },
+                {
+                  "title": "Heat",
+                  "enum": [
+                    "heat"
+                  ]
+                },
+                {
+                  "title": "Dry",
+                  "enum": [
+                    "dry"
+                  ]
+                }
+              ],
+              "condition": {
+                "functionBody": "return (model.devices && model.devices[arrayIndices].applianceId && !model.devices[arrayIndices].hide_device);"
+              }
+            },
+            "createSeparateFanService": {
+              "title": "Separate Fan Service (Air Conditioners)",
+              "type": "boolean",
+              "default": false,
+              "description": "If enabled, a separate fan service is exposed for fan-speed control (0% = auto, 1-33% = low, 34-66% = medium, 67-100% = high). Only applies to air conditioners.",
+              "condition": {
+                "functionBody": "return (model.devices && model.devices[arrayIndices].applianceId && !model.devices[arrayIndices].hide_device);"
+              }
+            },
+            "showDryModeSwitch": {
+              "title": "Show Dry Mode Switch (Air Conditioners)",
+              "type": "boolean",
+              "default": true,
+              "description": "If disabled, the dry mode switch is not exposed in HomeKit. Only applies to air conditioners.",
+              "condition": {
+                "functionBody": "return (model.devices && model.devices[arrayIndices].applianceId && !model.devices[arrayIndices].hide_device);"
+              }
             }
           },
           "required": [
@@ -258,6 +317,9 @@
             "devices[].useMatter",
             "devices[].matterOnly",
             "devices[].hide_device",
+            "devices[].defaultOperationMode",
+            "devices[].createSeparateFanService",
+            "devices[].showDryModeSwitch",
             "devices[].firmware",
             "devices[].external",
             "devices[].refreshRate",

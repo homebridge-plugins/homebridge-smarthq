@@ -52,6 +52,9 @@ export interface devicesConfig {
   hide_device?: boolean
   useMatter?: boolean // Enable/disable Matter for this specific device
   matterOnly?: boolean // If true, do not fall back to HAP when Matter is unavailable
+  defaultOperationMode?: 'cool' | 'fanOnly' | 'energySaver' | 'heat' | 'dry' // AC only: mode applied when the AC service is switched on
+  createSeparateFanService?: boolean // AC only: expose a separate fan service for fan-speed control
+  showDryModeSwitch?: boolean // AC only: expose the dry mode switch
 }
 
 export interface options {
