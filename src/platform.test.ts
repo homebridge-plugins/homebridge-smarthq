@@ -1,6 +1,6 @@
 import type { API, Logging, PlatformConfig } from 'homebridge'
 
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { SmartHQPlatform } from './platform.js'
 
@@ -21,7 +21,7 @@ vi.mock('axios', () => ({
   },
 }))
 
-describe('SmartHQPlatform Authentication Error Handling', () => {
+describe('smartHQPlatform Authentication Error Handling', () => {
   let platform: SmartHQPlatform
   let mockApi: API
   let mockLog: Logging
@@ -77,7 +77,7 @@ describe('SmartHQPlatform Authentication Error Handling', () => {
 
     // Verify error was logged
     expect(errorLogSpy).toHaveBeenCalledWith(
-      expect.stringContaining('discoverDevices, Failed to get Access Token, Error Message: Invalid URL')
+      expect.stringContaining('discoverDevices, Failed to get Access Token, Error Message: Invalid URL'),
     )
 
     // Verify execution stopped (no further errors logged)
@@ -97,12 +97,12 @@ describe('SmartHQPlatform Authentication Error Handling', () => {
     await platformWithoutCreds.discoverDevices()
 
     expect(errorLogSpy).toHaveBeenCalledWith(
-      expect.stringContaining('Username or password is undefined')
+      expect.stringContaining('Username or password is undefined'),
     )
   })
 })
 
-describe('SmartHQPlatform Per-Device Config Merge', () => {
+describe('smartHQPlatform Per-Device Config Merge', () => {
   let mockApi: API
   let mockLog: Logging
   let mockConfig: PlatformConfig
