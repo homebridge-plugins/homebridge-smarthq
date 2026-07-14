@@ -27,6 +27,9 @@ All notable changes to this project will be documented in this file. This projec
 - fix: handle websocket errors and reconnect when the connection drops
 - chore: remove the empty refresh intervals from the washer, dryer and dishwasher
 - chore: remove the unused external accessory option from the config schema
+- chore: standardise the eslint setup with the other org plugins
+- refactor: store device instances on their accessories like the other org plugins
+- style: apply the standardised lint rules
 
 ## [0.4.16](https://github.com/homebridge-plugins/homebridge-smarthq/compare/v0.4.15...v0.4.16) (2026-04-09)
 
