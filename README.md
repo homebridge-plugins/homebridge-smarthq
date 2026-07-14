@@ -1,5 +1,5 @@
 <p align="center">
-   <a href="https://github.com/homebridge-plugins/homebridge-smarthq"><img alt="homebridge-smarthq" src="https://raw.githubusercontent.com/homebridge-plugins/homebridge-smarthq/latest/branding/Homebridge_x_SmartHQ.svg?sanitize=true" width="500px"></a>
+   <a href="https://github.com/homebridge-plugins/homebridge-smarthq"><img alt="homebridge-smarthq" src="https://raw.githubusercontent.com/homebridge-plugins/homebridge-smarthq/latest/branding/Homebridge_x_SmartHQ.png" width="600px"></a>
 </p>
 <span align="center">
 
