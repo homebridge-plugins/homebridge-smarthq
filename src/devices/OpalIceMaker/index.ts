@@ -4,17 +4,16 @@ import type { devicesConfig, SmartHqContext, SmartHQPlatform } from '@root'
 import { deviceBase } from '../../devices/device.js'
 
 import {
-  OpalProgressSvcManager,
-  OpalPowerSvcManager,
-  OpalMonitorManager,
-  OpalMetadataSvcManager,
-  OpalFilterMaintenanceSvcManager,
-  OpalNightlightSvcManager,
   OpalDescaleSvcManager,
-  OpalSchedulingManager
+  OpalFilterMaintenanceSvcManager,
+  OpalMetadataSvcManager,
+  OpalMonitorManager,
+  OpalNightlightSvcManager,
+  OpalPowerSvcManager,
+  OpalProgressSvcManager,
+  OpalSchedulingManager,
 } from '@opal/Managers/index.js'
 import { OpalStatusSvcManager } from '@opal/Managers/StatusManagers/index.js'
-
 
 export class SmartHQIceMaker extends deviceBase {
   public powerManager: OpalPowerSvcManager

@@ -1,5 +1,5 @@
 import type { PlatformAccessory, Service } from 'homebridge'
-import type { SmartHQPlatform, devicesConfig, SmartHqContext } from '@root'
+import type { devicesConfig, SmartHqContext, SmartHQPlatform } from '@root'
 
 import { ERD_TYPES } from '@root'
 import { OpalDeviceBase } from '@opal/OpalDeviceBase.js'

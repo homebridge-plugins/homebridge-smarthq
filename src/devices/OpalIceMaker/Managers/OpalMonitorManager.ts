@@ -1,10 +1,9 @@
 import type { PlatformAccessory } from 'homebridge'
-import type { Subscription } from 'rxjs'
-import { timer, Observable, concat, of } from 'rxjs'
-import { switchMap, skipWhile } from 'rxjs'
+import type { Observable, Subscription } from 'rxjs'
+import { concat, of, skipWhile, switchMap, timer } from 'rxjs'
 
-import { SmartHQIceMaker } from '@opal/index.js'
-import type { SmartHQPlatform, devicesConfig, SmartHqContext } from '@root'
+import type { SmartHQIceMaker } from '@opal/index.js'
+import type { devicesConfig, SmartHqContext, SmartHQPlatform } from '@root'
 import { OpalDeviceBase } from '@opal/OpalDeviceBase.js'
 
 export class OpalMonitorManager extends OpalDeviceBase {
@@ -35,8 +34,8 @@ export class OpalMonitorManager extends OpalDeviceBase {
       // Start with an immediate emission, then continue with regular interval
       switchMap(() => concat(
         of(0), // Emit 0 immediately when the timer reaches alignment
-        timer(intervalMs, intervalMs)
-      ))
+        timer(intervalMs, intervalMs),
+      )),
     )
   }
 
@@ -47,10 +46,10 @@ export class OpalMonitorManager extends OpalDeviceBase {
 
     const refreshRate = (this.platform.config.options?.refreshRate || 30) * 1000
 
-    this.servicesSubscription =
-      this.createMinuteAlignedTimer(refreshRate)
+    this.servicesSubscription
+      = this.createMinuteAlignedTimer(refreshRate)
         .pipe(
-          skipWhile(() => !this.opalIceMaker.progressManager && !this.platform.config.options?.homekitControllerNotificationsSecret)
+          skipWhile(() => !this.opalIceMaker.progressManager && !this.platform.config.options?.homekitControllerNotificationsSecret),
         )
         .subscribe(async () => {
           try {
@@ -76,8 +75,8 @@ export class OpalMonitorManager extends OpalDeviceBase {
 
     const refreshRate = (this.platform.config.options?.refreshRate || 30) * 1000
 
-    this.statusSubscription =
-      this.createMinuteAlignedTimer(refreshRate)
+    this.statusSubscription
+      = this.createMinuteAlignedTimer(refreshRate)
         .subscribe(async () => {
           try {
             this.platform.debugLog('Running opal status monitoring tasks')
@@ -96,7 +95,7 @@ export class OpalMonitorManager extends OpalDeviceBase {
     const schedulingInterval = this.opalIceMaker.schedulingManager.schedulerInterval
     this.schedulerSubscription = this.createMinuteAlignedTimer(schedulingInterval)
       .pipe(
-        skipWhile(() => !this.platform.config.deviceOptions?.opal?.oplIceProductionSchedule)
+        skipWhile(() => !this.platform.config.deviceOptions?.opal?.oplIceProductionSchedule),
       )
       .subscribe(() => {
         try {

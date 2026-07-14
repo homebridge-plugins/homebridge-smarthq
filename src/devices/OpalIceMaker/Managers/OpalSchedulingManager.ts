@@ -1,6 +1,6 @@
-import { SmartHQIceMaker } from "@opal/index.js"
-import { OpalDeviceBase } from "@opal/OpalDeviceBase.js"
-import { devicesConfig, SmartHqContext, SmartHQPlatform } from "@root"
+import type { SmartHQIceMaker } from '@opal/index.js'
+import { OpalDeviceBase } from '@opal/OpalDeviceBase.js'
+import type { devicesConfig, SmartHqContext, SmartHQPlatform } from '@root'
 import type { PlatformAccessory } from 'homebridge'
 
 export class OpalSchedulingManager extends OpalDeviceBase {
@@ -22,18 +22,18 @@ export class OpalSchedulingManager extends OpalDeviceBase {
 
   initializeIfIceMakerOnSchedule() {
     const opalIceProductionSchedule = this.platform.config.deviceOptions?.opal?.oplIceProductionSchedule
-    const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+    const today = new Date().toLocaleDateString('en-US', { weekday: 'long' })
 
     if (opalIceProductionSchedule?.[today] && opalIceProductionSchedule?.[today].enabled) {
       const opalCurrentPowerState = this.opalIceMaker.powerManager.getOpalPowerState()
       if (opalCurrentPowerState === false) {
-        const scheduledTimeStr = opalIceProductionSchedule[today].time;
-        const [hours, minutes] = scheduledTimeStr.split(':');
-        const scheduledTime = new Date();
+        const scheduledTimeStr = opalIceProductionSchedule[today].time
+        const [hours, minutes] = scheduledTimeStr.split(':')
+        const scheduledTime = new Date()
         scheduledTime.setHours(hours, minutes, 0, 0)
 
-        const now = new Date();
-        const triggerWindowEnd = new Date(scheduledTime.getTime() + this.schedulerInterval);
+        const now = new Date()
+        const triggerWindowEnd = new Date(scheduledTime.getTime() + this.schedulerInterval)
 
         if (now >= scheduledTime && now <= triggerWindowEnd) {
           this.platform.debugSuccessLog('Turning on Ice Machine on Schedule')

@@ -1,6 +1,6 @@
 import type { PlatformAccessory } from 'homebridge'
 
-import type { SmartHQPlatform, devicesConfig, SmartHqContext } from '@root'
+import type { devicesConfig, SmartHqContext, SmartHQPlatform } from '@root'
 
 import { ERD_TYPES } from '@root'
 import { OpalDeviceBase } from '@opal/OpalDeviceBase.js'
@@ -18,6 +18,7 @@ export class OpalStatusBase extends OpalDeviceBase {
     LID_OPEN: 8,
     UNKNOWN: 255,
   }
+
   public opalCurrentStatus: number = this.OpalStatusCodes.IDLE
 
   constructor(

@@ -5,7 +5,7 @@ import pkg from 'lodash'
 import { Issuer } from 'openid-client'
 import { CookieJar } from 'tough-cookie'
 
-import { OAUTH2_CLIENT_ID, OAUTH2_CLIENT_SECRET, OAUTH2_REDIRECT_URI, LOGIN_URL } from './settings.js'
+import { LOGIN_URL, OAUTH2_CLIENT_ID, OAUTH2_CLIENT_SECRET, OAUTH2_REDIRECT_URI } from './settings.js'
 
 const { keyBy, mapValues } = pkg
 
@@ -57,7 +57,9 @@ export default async function getAccessToken(username: string, password: string)
   // Attempt to handle those pages automatically; fall back to an error with
   // guidance if not possible.
   const tryExtractCodeFromLocation = (location?: string | null) => {
-    if (!location) return null
+    if (!location) {
+      return null
+    }
     try {
       return new URL(location).searchParams.get('code')
     } catch (e) {
@@ -87,14 +89,18 @@ export default async function getAccessToken(username: string, password: string)
           const formData: Record<string, string> = {}
           mfaForm.find('input').each((i, el) => {
             const name = $(el).attr('name')
-            if (!name) return
+            if (!name) {
+              return
+            }
             formData[name] = $(el).val() as string || ''
           })
 
           // Try meta tag for CSRF if not present
-          if (!formData['_csrf']) {
+          if (!formData._csrf) {
             const csrfMeta = $('meta[name="_csrf"]').attr('content')
-            if (csrfMeta) formData['_csrf'] = csrfMeta
+            if (csrfMeta) {
+              formData._csrf = csrfMeta
+            }
           }
 
           const postData = new URLSearchParams(formData)
@@ -109,7 +115,9 @@ export default async function getAccessToken(username: string, password: string)
 
           const loc = skipResp.headers.location
           const gotCode = tryExtractCodeFromLocation(loc)
-          if (gotCode) return gotCode
+          if (gotCode) {
+            return gotCode
+          }
 
           // Follow redirect manually if provided
           if (loc) {
@@ -117,11 +125,17 @@ export default async function getAccessToken(username: string, password: string)
             const redirectResp = await aclient.get(resolved, { maxRedirects: 0, validateStatus: () => true })
             const finalLoc = redirectResp.headers.location
             const finalCode = tryExtractCodeFromLocation(finalLoc)
-            if (finalCode) return finalCode
-            if (redirectResp.status === 200) return await asyncHandleOkResponse(await redirectResp.data)
+            if (finalCode) {
+              return finalCode
+            }
+            if (redirectResp.status === 200) {
+              return await asyncHandleOkResponse(await redirectResp.data)
+            }
           }
 
-          if (skipResp.status === 200) return await asyncHandleOkResponse(await skipResp.data)
+          if (skipResp.status === 200) {
+            return await asyncHandleOkResponse(await skipResp.data)
+          }
           throw new Error('MFA skip failed')
         } catch (e) {
           throw new Error(`MFA handling failed: ${(e as Error).message}`)
@@ -134,24 +148,34 @@ export default async function getAccessToken(username: string, password: string)
           const $ = cheerio.load(respText)
           let termsForm = $('#termsform')
           if (!termsForm || termsForm.length === 0) {
-            termsForm = $("form[name='termsform']")
+            termsForm = $('form[name=\'termsform\']')
           }
           if (!termsForm || termsForm.length === 0) {
             // Fallback: try to extract required fields with regex
             const formData: Record<string, string> = {}
-            const sigMatch = respText.match(/name="signature"\\s+value="([^\"]+)"/)
-            if (sigMatch) formData['signature'] = sigMatch[1]
-            const lasMatch = respText.match(/name="login_actions_signature"[^>]*value=([^>\\s>]+)/)
-            if (lasMatch) formData['login_actions_signature'] = lasMatch[1].replace(/>$/, '')
-            const devMatch = respText.match(/name="isDeveloper"\\s+value="([^\"]+)"/)
-            if (devMatch) formData['isDeveloper'] = devMatch[1]
-            const csrfMatch = respText.match(/name="_csrf"\\s+value="([^\"]+)"/)
-            if (csrfMatch) formData['_csrf'] = csrfMatch[1]
-            formData['developerTerms'] = 'on'
-            formData['connected_terms'] = 'on'
+            const sigMatch = respText.match(/name="signature"\\s+value="([^"]+)"/)
+            if (sigMatch) {
+              formData.signature = sigMatch[1]
+            }
+            const lasMatch = respText.match(/name="login_actions_signature"[^>]*value=([^>\\s]+)/)
+            if (lasMatch) {
+              formData.login_actions_signature = lasMatch[1].replace(/>$/, '')
+            }
+            const devMatch = respText.match(/name="isDeveloper"\\s+value="([^"]+)"/)
+            if (devMatch) {
+              formData.isDeveloper = devMatch[1]
+            }
+            const csrfMatch = respText.match(/name="_csrf"\\s+value="([^"]+)"/)
+            if (csrfMatch) {
+              formData._csrf = csrfMatch[1]
+            }
+            formData.developerTerms = 'on'
+            formData.connected_terms = 'on'
 
             const headers: Record<string, string> = {}
-            if (formData['_csrf']) headers['X-CSRF-TOKEN'] = formData['_csrf']
+            if (formData._csrf) {
+              headers['X-CSRF-TOKEN'] = formData._csrf
+            }
 
             const termsResp = await aclient({
               method: 'POST',
@@ -164,15 +188,23 @@ export default async function getAccessToken(username: string, password: string)
 
             const loc = termsResp.headers.location
             const gotCode = tryExtractCodeFromLocation(loc)
-            if (gotCode) return gotCode
+            if (gotCode) {
+              return gotCode
+            }
             if (loc) {
               const resolved = loc.startsWith('/') ? `${LOGIN_URL}${loc}` : loc
               const redirectResp = await aclient.get(resolved, { maxRedirects: 0, validateStatus: () => true })
               const finalCode = tryExtractCodeFromLocation(redirectResp.headers.location)
-              if (finalCode) return finalCode
-              if (redirectResp.status === 200) return await asyncHandleOkResponse(await redirectResp.data)
+              if (finalCode) {
+                return finalCode
+              }
+              if (redirectResp.status === 200) {
+                return await asyncHandleOkResponse(await redirectResp.data)
+              }
             }
-            if (termsResp.status === 200) return await asyncHandleOkResponse(await termsResp.data)
+            if (termsResp.status === 200) {
+              return await asyncHandleOkResponse(await termsResp.data)
+            }
             throw new Error('Terms acceptance failed')
           }
 
@@ -180,20 +212,26 @@ export default async function getAccessToken(username: string, password: string)
           const formData: Record<string, string> = {}
           termsForm.find('input').each((i, el) => {
             const name = $(el).attr('name')
-            if (!name) return
+            if (!name) {
+              return
+            }
             formData[name] = $(el).val() as string || ''
           })
           // Set checkboxes to accepted
-          formData['developerTerms'] = 'on'
-          formData['connected_terms'] = 'on'
+          formData.developerTerms = 'on'
+          formData.connected_terms = 'on'
 
-          if (!formData['_csrf']) {
+          if (!formData._csrf) {
             const csrfMeta = $('meta[name="_csrf"]').attr('content')
-            if (csrfMeta) formData['_csrf'] = csrfMeta
+            if (csrfMeta) {
+              formData._csrf = csrfMeta
+            }
           }
 
           const headers: Record<string, string> = {}
-          if (formData['_csrf']) headers['X-CSRF-TOKEN'] = formData['_csrf']
+          if (formData._csrf) {
+            headers['X-CSRF-TOKEN'] = formData._csrf
+          }
 
           const termsResp = await aclient({
             method: 'POST',
@@ -206,15 +244,23 @@ export default async function getAccessToken(username: string, password: string)
 
           const loc = termsResp.headers.location
           const gotCode = tryExtractCodeFromLocation(loc)
-          if (gotCode) return gotCode
+          if (gotCode) {
+            return gotCode
+          }
           if (loc) {
             const resolved = loc.startsWith('/') ? `${LOGIN_URL}${loc}` : loc
             const redirectResp = await aclient.get(resolved, { maxRedirects: 0, validateStatus: () => true })
             const finalCode = tryExtractCodeFromLocation(redirectResp.headers.location)
-            if (finalCode) return finalCode
-            if (redirectResp.status === 200) return await asyncHandleOkResponse(await redirectResp.data)
+            if (finalCode) {
+              return finalCode
+            }
+            if (redirectResp.status === 200) {
+              return await asyncHandleOkResponse(await redirectResp.data)
+            }
           }
-          if (termsResp.status === 200) return await asyncHandleOkResponse(await termsResp.data)
+          if (termsResp.status === 200) {
+            return await asyncHandleOkResponse(await termsResp.data)
+          }
           throw new Error('Terms acceptance failed')
         } catch (e) {
           throw new Error(`Terms handling failed: ${(e as Error).message}`)

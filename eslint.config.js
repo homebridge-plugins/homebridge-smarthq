@@ -2,7 +2,7 @@ import antfu from '@antfu/eslint-config'
 
 export default antfu(
   {
-    ignores: ['dist', 'docs'],
+    ignores: ['dist'],
     jsx: false,
     typescript: true,
     formatters: {
@@ -23,11 +23,10 @@ export default antfu(
       'style/brace-style': ['error', '1tbs', { allowSingleLine: true }],
       'style/quote-props': ['error', 'consistent-as-needed'],
       'test/no-only-tests': 'error',
-      'unicorn/no-useless-spread': 'error',
-      'unused-imports/no-unused-vars': ['error', { 
+      'unused-imports/no-unused-vars': ['error', {
         caughtErrors: 'none',
         argsIgnorePattern: '^_',
-        varsIgnorePattern: '^_'
+        varsIgnorePattern: '^_',
       }],
       'no-new': 0, // Disable the no-new rule
       'new-cap': 0, // Disable the new-cap rule

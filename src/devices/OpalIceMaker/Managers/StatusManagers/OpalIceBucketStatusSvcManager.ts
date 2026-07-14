@@ -1,9 +1,8 @@
 import type { PlatformAccessory, Service } from 'homebridge'
 
-import type { SmartHQPlatform } from '@root'
-import type { devicesConfig, SmartHqContext } from '@root'
+import type { devicesConfig, SmartHqContext, SmartHQPlatform } from '@root'
 
-import { SmartHQIceMaker } from '@opal/index.js'
+import type { SmartHQIceMaker } from '@opal/index.js'
 import { OpalDeviceBase } from '@opal/OpalDeviceBase.js'
 
 export class OpalIceBucketStatusSvcManager extends OpalDeviceBase {
@@ -16,6 +15,7 @@ export class OpalIceBucketStatusSvcManager extends OpalDeviceBase {
     ICE_BUCKET_NOT_FULL: 0,
     ICE_BUCKET_FULL: 1,
   } as const
+
   public iceBucketCurrentStatus: 0 | 1 = this.IceBucketFullStatus.ICE_BUCKET_NOT_FULL
 
   constructor(

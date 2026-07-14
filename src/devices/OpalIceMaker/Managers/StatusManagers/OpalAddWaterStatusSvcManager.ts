@@ -1,8 +1,7 @@
 import type { PlatformAccessory, Service } from 'homebridge'
 
 import type { SmartHQIceMaker } from '@opal/index.js'
-import type { SmartHQPlatform } from '@root'
-import type { devicesConfig, SmartHqContext } from '@root'
+import type { devicesConfig, SmartHqContext, SmartHQPlatform } from '@root'
 
 import { OpalDeviceBase } from '@opal/OpalDeviceBase.js'
 
@@ -16,6 +15,7 @@ export class OpalAddWaterStatusSvcManager extends OpalDeviceBase {
     WATER_OK: 0,
     ADD_WATER: 1,
   } as const
+
   public addWaterCurrentStatus: 0 | 1 = this.AddWaterCurrentStatus.WATER_OK
 
   constructor(
@@ -59,7 +59,6 @@ export class OpalAddWaterStatusSvcManager extends OpalDeviceBase {
       })
 
     return service
-
   }
 
   setAddWaterCurrentStatus(updateValue: 0 | 1) {

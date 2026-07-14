@@ -1,5 +1,5 @@
-import type { SmartHQPlatform } from '@root'
-import { ERD_TYPES, type devicesConfig, type SmartHqContext } from '@root'
+import type { devicesConfig, SmartHqContext, SmartHQPlatform } from '@root'
+import { ERD_TYPES } from '@root'
 import { OpalDeviceBase } from '@opal/OpalDeviceBase.js'
 import type { PlatformAccessory, Service } from 'homebridge'
 
@@ -51,7 +51,8 @@ export class OpalFilterMaintenanceSvcManager extends OpalDeviceBase {
       .getCharacteristic(this.platform.Characteristic.FilterChangeIndication)
       .onGet(() => {
         return this.filterMaintenanceStatus
-      }).on('change', async (chg) => {
+      })
+      .on('change', async (chg) => {
         if (chg.oldValue === this.platform.Characteristic.FilterChangeIndication.FILTER_OK && chg.newValue === this.platform.Characteristic.FilterChangeIndication.CHANGE_FILTER) {
           const notificationPath = this.platform.config.deviceOptions?.opal?.oplHKCFilterMaintenanceNotificationPath
           if (notificationPath) {
@@ -62,6 +63,7 @@ export class OpalFilterMaintenanceSvcManager extends OpalDeviceBase {
 
     return service
   }
+
   getService(): Service {
     return this.service
   }

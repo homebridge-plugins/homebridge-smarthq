@@ -1,9 +1,9 @@
 import type { PlatformAccessory, Service } from 'homebridge'
 
-import type { SmartHQPlatform, devicesConfig, SmartHqContext } from '@root'
+import type { devicesConfig, SmartHqContext, SmartHQPlatform } from '@root'
 
 import { OpalDeviceBase } from '@opal/OpalDeviceBase.js'
-import { SmartHQIceMaker } from '@opal/index.js'
+import type { SmartHQIceMaker } from '@opal/index.js'
 
 export class OpalMetadataSvcManager extends OpalDeviceBase {
   public service: Service
@@ -44,7 +44,8 @@ export class OpalMetadataSvcManager extends OpalDeviceBase {
           return acc.concat(qs)
         }
         return acc.concat(qs)
-      }, []).join(',')
+      }, [])
+      .join(',')
 
     service
       .getCharacteristic(this.platform.Characteristic.ProductData)

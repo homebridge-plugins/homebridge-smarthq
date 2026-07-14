@@ -1,6 +1,6 @@
 import type { PlatformAccessory } from 'homebridge'
 
-import type { SmartHQPlatform, devicesConfig, SmartHqContext } from '@root'
+import type { devicesConfig, SmartHqContext, SmartHQPlatform } from '@root'
 
 import axios from 'axios'
 

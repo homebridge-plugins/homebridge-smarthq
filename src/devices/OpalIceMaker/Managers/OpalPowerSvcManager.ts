@@ -1,5 +1,5 @@
 import type { PlatformAccessory, Service } from 'homebridge'
-import type { SmartHQPlatform, devicesConfig, SmartHqContext } from '@root'
+import type { devicesConfig, SmartHqContext, SmartHQPlatform } from '@root'
 
 import { ERD_TYPES } from '@root'
 import { OpalDeviceBase } from '@opal/OpalDeviceBase.js'
@@ -41,7 +41,6 @@ export class OpalPowerSvcManager extends OpalDeviceBase {
       .onSet(value => this.writeErd(ERD_TYPES.OIM_POWER, value as boolean))
 
     return service
-
   }
 
   getService(): Service {
@@ -57,7 +56,7 @@ export class OpalPowerSvcManager extends OpalDeviceBase {
 
   public getOpalPowerState() {
     return this.service.getCharacteristic(
-      this.platform.Characteristic.On
+      this.platform.Characteristic.On,
     ).value
   }
 
