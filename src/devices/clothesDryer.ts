@@ -3,14 +3,11 @@ import type { PlatformAccessory } from 'homebridge'
 import type { SmartHQPlatform } from '../platform.js'
 import type { devicesConfig, SmartHqContext } from '../settings.js'
 
-import { interval, skipWhile } from 'rxjs'
-
 import { ERD_TYPES } from '../settings.js'
 import { deviceBase } from './device.js'
 
 export class SmartHQClothesDryer extends deviceBase {
   // Updates
-  SensorUpdateInProgress!: boolean
   deviceStatus: any
 
   // Matter support override flag
@@ -39,12 +36,6 @@ export class SmartHQClothesDryer extends deviceBase {
     }
 
     // Start periodic refresh
-    this.SensorUpdateInProgress = false
-    interval(this.deviceRefreshRate * 10000)
-      .pipe(skipWhile(() => this.SensorUpdateInProgress))
-      .subscribe(async () => {
-        // await this.refreshStatus()
-      })
   }
 
   /**

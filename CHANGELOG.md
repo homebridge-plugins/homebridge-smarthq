@@ -25,6 +25,7 @@ All notable changes to this project will be documented in this file. This projec
 - feat: add support for the in-fridge keurig k-cup brewer (#95) (@dzins)
 - fix: track cached matter accessories via the configure callback
 - fix: handle websocket errors and reconnect when the connection drops
+- chore: remove the empty refresh intervals from the washer, dryer and dishwasher
 
 ## [0.4.16](https://github.com/homebridge-plugins/homebridge-smarthq/compare/v0.4.15...v0.4.16) (2026-04-09)
 

@@ -7,14 +7,11 @@ import type { PlatformAccessory } from 'homebridge'
 import type { SmartHQPlatform } from '../platform.js'
 import type { devicesConfig, SmartHqContext } from '../settings.js'
 
-import { interval, skipWhile } from 'rxjs'
-
 import { ERD_TYPES } from '../settings.js'
 import { deviceBase } from './device.js'
 
 export class SmartHQDishWasher extends deviceBase {
   // Updates
-  SensorUpdateInProgress!: boolean
   deviceStatus: any
 
   // Matter support override flag
@@ -43,12 +40,6 @@ export class SmartHQDishWasher extends deviceBase {
     }
 
     // Start periodic refresh
-    this.SensorUpdateInProgress = false
-    interval(this.deviceRefreshRate * 10000)
-      .pipe(skipWhile(() => this.SensorUpdateInProgress))
-      .subscribe(async () => {
-        // await this.refreshStatus()
-      })
   }
 
   /**
@@ -206,16 +197,5 @@ export class SmartHQDishWasher extends deviceBase {
       })
 
     // this is subject we use to track when we need to POST changes to the SmartHQ API
-    this.SensorUpdateInProgress = false
-
-    // Retrieve initial values and updateHomekit
-    // this.refreshStatus()
-
-    // Start an update interval
-    interval(this.deviceRefreshRate * 10000)
-      .pipe(skipWhile(() => this.SensorUpdateInProgress))
-      .subscribe(async () => {
-        // await this.refreshStatus()
-      })
   }
 }
