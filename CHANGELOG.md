@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file. This projec
 
 ## v0.5.0 (Pending Release)
 
+⚠️ This plugin now requires Homebridge v2 (needed for the Matter support) and Node v22 or v24.
+
 ### Changed
 
 - chore: dependency updates
@@ -30,6 +32,7 @@ All notable changes to this project will be documented in this file. This projec
 - chore: standardise the eslint setup with the other org plugins
 - refactor: store device instances on their accessories like the other org plugins
 - style: apply the standardised lint rules
+- chore: require homebridge v2 and node v22 or v24
 
 ## [0.4.16](https://github.com/homebridge-plugins/homebridge-smarthq/compare/v0.4.15...v0.4.16) (2026-04-09)
 
