@@ -55,6 +55,32 @@ export interface devicesConfig {
   defaultOperationMode?: 'cool' | 'fanOnly' | 'energySaver' | 'heat' | 'dry' // AC only: mode applied when the AC service is switched on
   createSeparateFanService?: boolean // AC only: expose a separate fan service for fan-speed control
   showDryModeSwitch?: boolean // AC only: expose the dry mode switch
+  keurig?: boolean // Override auto-detect for the built-in Keurig K-Cup brewer (e.g. PYE22PYNHFS)
+  keurigOnly?: boolean // Skip the main Refrigerator accessory; only publish the Keurig sub-accessory
+}
+
+// --- Keurig (in-fridge K-Cup brewer) types ---
+// Decoding of HOT_WATER_STATUS (0x1010) follows simbaja/gehome — see
+// gehomesdk/erd/converters/fridge/hot_water_status_converter.py
+// Research notes are attached to the pull request (#95).
+export type ErdHotWaterStatusValue
+  = | 'NOT_HEATING'
+    | 'HEATING'
+    | 'READY'
+    | 'FAULT_NEED_CLEARED'
+    | 'FAULT_LOCKED_OUT'
+    | 'NA'
+
+export type ErdPodStatusValue = 'REPLACE' | 'READY' | 'NA'
+
+export interface HotWaterStatus {
+  status: ErdHotWaterStatusValue
+  timeUntilReadyMinutes: number | null
+  currentTempF: number | null
+  tankFull: boolean | null
+  brewModulePresent: boolean | null
+  podStatus: ErdPodStatusValue
+  faulted: boolean
 }
 
 export interface options {

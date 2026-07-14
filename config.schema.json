@@ -89,6 +89,22 @@
                 "functionBody": "return (model.devices && model.devices[arrayIndices].applianceId && !model.devices[arrayIndices].hide_device && model.devices[arrayIndices].useMatter);"
               }
             },
+            "keurig": {
+              "title": "Keurig K-Cup Hot Water Services",
+              "type": "boolean",
+              "description": "Enable HomeKit services for the built-in Keurig K-Cup brewer on refrigerators that have one (e.g. PYE22PYNHFS). Leave unset to auto-detect from the appliance. Set false to disable even on supported models. Set true to force-enable if auto-detect misfires.",
+              "condition": {
+                "functionBody": "return (model.devices && model.devices[arrayIndices].applianceId && !model.devices[arrayIndices].hide_device);"
+              }
+            },
+            "keurigOnly": {
+              "title": "Keurig Only (Hide Main Refrigerator)",
+              "type": "boolean",
+              "description": "On a refrigerator with a built-in Keurig, skip the main Refrigerator HomeKit accessory and publish only the Keurig sub-accessory. Useful if you only care about the coffee maker and want to declutter Apple Home.",
+              "condition": {
+                "functionBody": "return (model.devices && model.devices[arrayIndices].applianceId && !model.devices[arrayIndices].hide_device);"
+              }
+            },
             "firmware": {
               "title": "Firmware Override",
               "type": "string",
@@ -316,6 +332,8 @@
             "devices[].applianceId",
             "devices[].useMatter",
             "devices[].matterOnly",
+            "devices[].keurig",
+            "devices[].keurigOnly",
             "devices[].hide_device",
             "devices[].defaultOperationMode",
             "devices[].createSeparateFanService",
