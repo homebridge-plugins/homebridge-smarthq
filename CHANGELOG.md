@@ -21,6 +21,7 @@ All notable changes to this project will be documented in this file. This projec
 - fix: use url resolution when following authentication redirects (#100) (@smitty078)
 - feat: add air conditioner default mode, separate fan service and dry switch options (#101) (@smitty078)
 - fix: stop air conditioner api errors from crashing the bridge (#97) (@nicholasodonnell)
+- fix: apply every per-device config override to the matching device (#94) (@dzins)
 
 ## [0.4.16](https://github.com/homebridge-plugins/homebridge-smarthq/compare/v0.4.15...v0.4.16) (2026-04-09)
 

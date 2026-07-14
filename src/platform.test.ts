@@ -153,14 +153,18 @@ describe('smartHQPlatform Per-Device Config Merge', () => {
       if (url === '/appliance') {
         return Promise.resolve({ data: { userId: 'user-1', items: apiDevices } })
       }
+      // Mock the per-device detail + feature endpoints so the discovery
+      // loop proceeds past Promise.all and actually exercises the
+      // hide_device path. Without this, the loop crashed before the
+      // hide_device check and the test passed for the wrong reason.
+      if (url.startsWith('/appliance/appliance-1')) {
+        return Promise.resolve({ data: {} })
+      }
       return Promise.reject(new Error(`Unexpected URL: ${url}`))
     })
 
     const platform = new SmartHQPlatform(mockLog, mockConfig, mockApi)
 
-    // The device is hidden and no existing accessory exists, so createSmartHQDishWasher
-    // should skip it (no register, no warn). We just verify it doesn't crash and
-    // no accessory is registered.
     await platform.discoverDevices()
 
     expect(mockApi.registerPlatformAccessories).not.toHaveBeenCalled()

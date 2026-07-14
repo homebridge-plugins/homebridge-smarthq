@@ -311,12 +311,19 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
         const devices = await axios.get('/appliance')
 
         const userId = devices.data.userId
-        const deviceConfigByApplianceId: pkg.Dictionary<devicesConfig | undefined> = keyBy(this.config.devices)
+        // keyBy without an iteratee uses _.identity, which collapses every
+        // config entry under "[object Object]" — lookups by applianceId
+        // returned undefined and hide_device was silently ignored even though
+        // the fix for #83 tried to fix this same path.
+        const deviceConfigByApplianceId: pkg.Dictionary<devicesConfig | undefined>
+          = keyBy(this.config.devices ?? [], 'applianceId')
         for (const device of devices.data.items) {
-          // Merge per-device config overrides (hide_device, refreshRate, etc.) from user config
+          // Merge per-device config overrides (hide_device, keurigOnly,
+          // refreshRate, etc.) from user config. The API response never
+          // contains these fields, so we just copy whatever the user set.
           const deviceConfig = deviceConfigByApplianceId[device.applianceId]
-          if (deviceConfig?.hide_device) {
-            device.hide_device = deviceConfig.hide_device
+          if (deviceConfig) {
+            Object.assign(device, deviceConfig)
           }
 
           const [{ data: details }, { data: features }] = await Promise.all([
