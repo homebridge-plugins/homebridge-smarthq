@@ -2,7 +2,7 @@
  *
  * platform.ts: @homebridge-plugins/homebridge-smarthq.
  */
-import type { API, DynamicPlatformPlugin, HAP, Logging, PlatformAccessory } from 'homebridge'
+import type { API, DynamicPlatformPlugin, HAP, Logging, MatterAccessory, PlatformAccessory } from 'homebridge'
 import type { TokenSet } from 'openid-client'
 
 import type { credentials, devicesConfig, options, SmartHqContext, SmartHQPlatformConfig } from './settings.js'
@@ -64,6 +64,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
   // Matter support tracking
   public matterEnabled = false
   public matterAvailable = false
+  public readonly matterAccessories: Map<string, MatterAccessory> = new Map()
 
   constructor(
     log: Logging,
@@ -133,6 +134,17 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
    * This function is invoked when homebridge restores cached accessories from disk at startup.
    * It should be used to setup event handlers for characteristics and update respective values.
    */
+  /**
+   * This function is invoked when homebridge restores cached Matter accessories
+   * from disk at startup, in the same way configureAccessory is invoked for HAP
+   * accessories. The devices register their Matter accessories on every launch,
+   * so this just tracks what homebridge already knows about.
+   */
+  configureMatterAccessory(accessory: MatterAccessory) {
+    this.debugLog(`Loading cached Matter accessory: ${accessory.displayName}`)
+    this.matterAccessories.set(accessory.UUID, accessory)
+  }
+
   configureAccessory(accessory: PlatformAccessory) {
     this.infoLog(`Loading accessory from cache: ${accessory.displayName}`)
 
