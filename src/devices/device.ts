@@ -8,6 +8,7 @@ import type { SmartHQPlatform } from '../platform.js'
 import type { devicesConfig, SmartHqContext, SmartHQPlatformConfig } from '../settings.js'
 
 import axios from 'axios'
+
 import { ERD_TYPES } from '../settings.js'
 
 // Type for Matter accessory (will be properly typed in Homebridge 2.0)
@@ -30,6 +31,14 @@ export interface MatterAccessory {
  * Unified base class for SmartHQ devices supporting both HAP and Matter protocols
  * Contains all shared functionality for ERD operations, logging, configuration, and protocol handling
  */
+// Devices keep their controlling class instance on the accessory itself,
+// the same pattern as the other plugins in this org
+declare module 'homebridge' {
+  interface PlatformAccessory {
+    control?: deviceBase
+  }
+}
+
 export abstract class deviceBase {
   public readonly api: API
   public readonly log: Logging
@@ -491,7 +500,7 @@ export abstract class deviceBase {
 
     // Log once per plugin session
     if (!this.constructor.prototype._matterAPILogged) {
-      this.infoLog(`[Matter Debug] Checking Matter API availability...`)
+      this.infoLog('[Matter Debug] Checking Matter API availability...')
       this.infoLog(`[Matter Debug] API exists: ${!!matterAPI}`)
 
       if (matterAPI) {

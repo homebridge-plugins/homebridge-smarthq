@@ -486,7 +486,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
           accessory.context = { device: deviceData, userId }
           accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
           accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
-          new SmartHQDishWasher(this, accessory, deviceData)
+          accessory.control = new SmartHQDishWasher(this, accessory, deviceData)
           this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
         } else {
           // Still using HAP, restore normally
@@ -496,7 +496,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
           existingAccessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
           this.api.updatePlatformAccessories([existingAccessory])
           this.infoLog(`[${protocol}] Restoring existing accessory from cache: ${existingAccessory.displayName}`)
-          new SmartHQDishWasher(this, existingAccessory, deviceData)
+          existingAccessory.control = new SmartHQDishWasher(this, existingAccessory, deviceData)
           await this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
         }
       } else {
@@ -509,7 +509,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       accessory.context = { device: deviceData, userId }
       accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
       accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
-      new SmartHQDishWasher(this, accessory, deviceData)
+      accessory.control = new SmartHQDishWasher(this, accessory, deviceData)
       this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
       this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
       this.accessories.push(accessory)
@@ -540,7 +540,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
           accessory.context = { device: deviceData, userId }
           accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
           accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
-          new SmartHQOven(this, accessory, deviceData)
+          accessory.control = new SmartHQOven(this, accessory, deviceData)
           this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
         } else {
           existingAccessory.context.device = deviceData
@@ -549,7 +549,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
           existingAccessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
           this.api.updatePlatformAccessories([existingAccessory])
           this.infoLog(`[${protocol}] Restoring existing accessory from cache: ${existingAccessory.displayName}`)
-          new SmartHQOven(this, existingAccessory, deviceData)
+          existingAccessory.control = new SmartHQOven(this, existingAccessory, deviceData)
           await this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
         }
       } else {
@@ -562,7 +562,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       accessory.context = { device: deviceData, userId }
       accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
       accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
-      new SmartHQOven(this, accessory, deviceData)
+      accessory.control = new SmartHQOven(this, accessory, deviceData)
       this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
       this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
       this.accessories.push(accessory)
@@ -596,7 +596,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
           accessory.context = { device: deviceData, userId }
           accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
           accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
-          new SmartHQIceMaker(this, accessory, deviceData)
+          accessory.control = new SmartHQIceMaker(this, accessory, deviceData)
           this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
         } else {
           // if you need to update the accessory.context then you should run `api.updatePlatformAccessories`. eg.:
@@ -609,7 +609,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
           // create the accessory handler for the restored accessory
           // this is imported from `platformAccessory.ts`
           this.infoLog(`[${protocol}] Restoring existing accessory from cache: ${existingAccessory.displayName}`)
-          new SmartHQIceMaker(this, existingAccessory, deviceData)
+          existingAccessory.control = new SmartHQIceMaker(this, existingAccessory, deviceData)
           this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
         }
       } else {
@@ -628,7 +628,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       // the accessory does not yet exist, so we need to create it
       // create the accessory handler for the newly create accessory
       // this is imported from `platformAccessory.ts`
-      new SmartHQIceMaker(this, accessory, deviceData)
+      accessory.control = new SmartHQIceMaker(this, accessory, deviceData)
       this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
 
       // link the accessory to your platform
@@ -670,7 +670,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
           accessory.context = { device: deviceData, userId }
           accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
           accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
-          new SmartHQRefrigerator(this, accessory, deviceData)
+          accessory.control = new SmartHQRefrigerator(this, accessory, deviceData)
           this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
         } else {
           existingAccessory.context.device = deviceData
@@ -679,7 +679,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
           existingAccessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
           this.api.updatePlatformAccessories([existingAccessory])
           this.infoLog(`[${protocol}] Restoring existing accessory from cache: ${existingAccessory.displayName}`)
-          new SmartHQRefrigerator(this, existingAccessory, deviceData)
+          existingAccessory.control = new SmartHQRefrigerator(this, existingAccessory, deviceData)
           await this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
         }
       } else {
@@ -692,7 +692,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       accessory.context = { device: deviceData, userId }
       accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
       accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
-      new SmartHQRefrigerator(this, accessory, deviceData)
+      accessory.control = new SmartHQRefrigerator(this, accessory, deviceData)
       this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
       this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
       this.accessories.push(accessory)
@@ -743,7 +743,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
         existingAccessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
         this.api.updatePlatformAccessories([existingAccessory])
         this.infoLog(`[HAP] Restoring existing accessory from cache: ${existingAccessory.displayName}`)
-        new SmartHQKeurig(this, existingAccessory, deviceData)
+        existingAccessory.control = new SmartHQKeurig(this, existingAccessory, deviceData)
         await this.debugLog(`${displayName} uuid: ${deviceData.applianceId}-keurig`)
       } else {
         // Either no Keurig (config or auto-detect says no) or the
@@ -757,7 +757,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       accessory.context = { device: deviceData, userId }
       accessory.displayName = await this.validateAndCleanDisplayName(displayName, 'nickname', displayName)
       accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
-      new SmartHQKeurig(this, accessory, deviceData)
+      accessory.control = new SmartHQKeurig(this, accessory, deviceData)
       this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
       this.accessories.push(accessory)
     }
@@ -785,7 +785,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
           accessory.context = { device: deviceData, userId }
           accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
           accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
-          new SmartHQAirConditioner(this, accessory, deviceData)
+          accessory.control = new SmartHQAirConditioner(this, accessory, deviceData)
           this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
         } else {
           existingAccessory.context.device = deviceData
@@ -794,7 +794,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
           existingAccessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
           this.api.updatePlatformAccessories([existingAccessory])
           this.infoLog(`[${protocol}] Restoring existing accessory from cache: ${existingAccessory.displayName}`)
-          new SmartHQAirConditioner(this, existingAccessory, deviceData)
+          existingAccessory.control = new SmartHQAirConditioner(this, existingAccessory, deviceData)
           this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
         }
       } else {
@@ -807,7 +807,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       accessory.context = { device: deviceData, userId }
       accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
       accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
-      new SmartHQAirConditioner(this, accessory, deviceData)
+      accessory.control = new SmartHQAirConditioner(this, accessory, deviceData)
       this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
       this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
       this.accessories.push(accessory)
@@ -837,7 +837,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
           accessory.context = { device: deviceData, userId }
           accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
           accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
-          new SmartHQHood(this, accessory, deviceData)
+          accessory.control = new SmartHQHood(this, accessory, deviceData)
           this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
         } else {
           existingAccessory.context.device = deviceData
@@ -846,7 +846,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
           existingAccessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
           this.api.updatePlatformAccessories([existingAccessory])
           this.infoLog(`[${protocol}] Restoring existing accessory from cache: ${existingAccessory.displayName}`)
-          new SmartHQHood(this, existingAccessory, deviceData)
+          existingAccessory.control = new SmartHQHood(this, existingAccessory, deviceData)
           this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
         }
       } else {
@@ -859,7 +859,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       accessory.context = { device: deviceData, userId }
       accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
       accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
-      new SmartHQHood(this, accessory, deviceData)
+      accessory.control = new SmartHQHood(this, accessory, deviceData)
       this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
       this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
       this.accessories.push(accessory)
@@ -889,7 +889,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
           accessory.context = { device: deviceData, userId }
           accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
           accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
-          new SmartHQClothesWasher(this, accessory, deviceData)
+          accessory.control = new SmartHQClothesWasher(this, accessory, deviceData)
           this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
         } else {
           existingAccessory.context.device = deviceData
@@ -898,7 +898,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
           existingAccessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
           this.api.updatePlatformAccessories([existingAccessory])
           this.infoLog(`[${protocol}] Restoring existing accessory from cache: ${existingAccessory.displayName}`)
-          new SmartHQClothesWasher(this, existingAccessory, deviceData)
+          existingAccessory.control = new SmartHQClothesWasher(this, existingAccessory, deviceData)
           this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
         }
       } else {
@@ -911,7 +911,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       accessory.context = { device: deviceData, userId }
       accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
       accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
-      new SmartHQClothesWasher(this, accessory, deviceData)
+      accessory.control = new SmartHQClothesWasher(this, accessory, deviceData)
       this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
       this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
       this.accessories.push(accessory)
@@ -941,7 +941,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
           accessory.context = { device: deviceData, userId }
           accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
           accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
-          new SmartHQClothesDryer(this, accessory, deviceData)
+          accessory.control = new SmartHQClothesDryer(this, accessory, deviceData)
           this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
         } else {
           existingAccessory.context.device = deviceData
@@ -950,7 +950,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
           existingAccessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
           this.api.updatePlatformAccessories([existingAccessory])
           this.infoLog(`[${protocol}] Restoring existing accessory from cache: ${existingAccessory.displayName}`)
-          new SmartHQClothesDryer(this, existingAccessory, deviceData)
+          existingAccessory.control = new SmartHQClothesDryer(this, existingAccessory, deviceData)
           this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
         }
       } else {
@@ -963,7 +963,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       accessory.context = { device: deviceData, userId }
       accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
       accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
-      new SmartHQClothesDryer(this, accessory, deviceData)
+      accessory.control = new SmartHQClothesDryer(this, accessory, deviceData)
       this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
       this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
       this.accessories.push(accessory)
@@ -993,7 +993,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
           accessory.context = { device: deviceData, userId }
           accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
           accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
-          new SmartHQWaterFilter(this, accessory, deviceData)
+          accessory.control = new SmartHQWaterFilter(this, accessory, deviceData)
           this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
         } else {
           existingAccessory.context.device = deviceData
@@ -1002,7 +1002,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
           existingAccessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
           this.api.updatePlatformAccessories([existingAccessory])
           this.infoLog(`[${protocol}] Restoring existing accessory from cache: ${existingAccessory.displayName}`)
-          new SmartHQWaterFilter(this, existingAccessory, deviceData)
+          existingAccessory.control = new SmartHQWaterFilter(this, existingAccessory, deviceData)
           this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
         }
       } else {
@@ -1015,7 +1015,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       accessory.context = { device: deviceData, userId }
       accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
       accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
-      new SmartHQWaterFilter(this, accessory, deviceData)
+      accessory.control = new SmartHQWaterFilter(this, accessory, deviceData)
       this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
       this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
       this.accessories.push(accessory)
@@ -1045,7 +1045,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
           accessory.context = { device: deviceData, userId }
           accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
           accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
-          new SmartHQWaterSoftener(this, accessory, deviceData)
+          accessory.control = new SmartHQWaterSoftener(this, accessory, deviceData)
           this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
         } else {
           existingAccessory.context.device = deviceData
@@ -1054,7 +1054,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
           existingAccessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
           this.api.updatePlatformAccessories([existingAccessory])
           this.infoLog(`[${protocol}] Restoring existing accessory from cache: ${existingAccessory.displayName}`)
-          new SmartHQWaterSoftener(this, existingAccessory, deviceData)
+          existingAccessory.control = new SmartHQWaterSoftener(this, existingAccessory, deviceData)
           this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
         }
       } else {
@@ -1067,7 +1067,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       accessory.context = { device: deviceData, userId }
       accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
       accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
-      new SmartHQWaterSoftener(this, accessory, deviceData)
+      accessory.control = new SmartHQWaterSoftener(this, accessory, deviceData)
       this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
       this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
       this.accessories.push(accessory)
@@ -1097,7 +1097,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
           accessory.context = { device: deviceData, userId }
           accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
           accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
-          new SmartHQWaterHeater(this, accessory, deviceData)
+          accessory.control = new SmartHQWaterHeater(this, accessory, deviceData)
           this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
         } else {
           existingAccessory.context.device = deviceData
@@ -1106,7 +1106,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
           existingAccessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
           this.api.updatePlatformAccessories([existingAccessory])
           this.infoLog(`[${protocol}] Restoring existing accessory from cache: ${existingAccessory.displayName}`)
-          new SmartHQWaterHeater(this, existingAccessory, deviceData)
+          existingAccessory.control = new SmartHQWaterHeater(this, existingAccessory, deviceData)
           this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
         }
       } else {
@@ -1119,7 +1119,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       accessory.context = { device: deviceData, userId }
       accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
       accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
-      new SmartHQWaterHeater(this, accessory, deviceData)
+      accessory.control = new SmartHQWaterHeater(this, accessory, deviceData)
       this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
       this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
       this.accessories.push(accessory)
@@ -1149,7 +1149,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
           accessory.context = { device: deviceData, userId }
           accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
           accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
-          new SmartHQAdvantium(this, accessory, deviceData)
+          accessory.control = new SmartHQAdvantium(this, accessory, deviceData)
           this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
         } else {
           existingAccessory.context.device = deviceData
@@ -1158,7 +1158,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
           existingAccessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
           this.api.updatePlatformAccessories([existingAccessory])
           this.infoLog(`[${protocol}] Restoring existing accessory from cache: ${existingAccessory.displayName}`)
-          new SmartHQAdvantium(this, existingAccessory, deviceData)
+          existingAccessory.control = new SmartHQAdvantium(this, existingAccessory, deviceData)
           this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
         }
       } else {
@@ -1171,7 +1171,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       accessory.context = { device: deviceData, userId }
       accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
       accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
-      new SmartHQAdvantium(this, accessory, deviceData)
+      accessory.control = new SmartHQAdvantium(this, accessory, deviceData)
       this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
       this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
       this.accessories.push(accessory)
@@ -1201,7 +1201,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
           accessory.context = { device: deviceData, userId }
           accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
           accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
-          new SmartHQMicrowave(this, accessory, deviceData)
+          accessory.control = new SmartHQMicrowave(this, accessory, deviceData)
           this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
         } else {
           existingAccessory.context.device = deviceData
@@ -1210,7 +1210,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
           existingAccessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
           this.api.updatePlatformAccessories([existingAccessory])
           this.infoLog(`[${protocol}] Restoring existing accessory from cache: ${existingAccessory.displayName}`)
-          new SmartHQMicrowave(this, existingAccessory, deviceData)
+          existingAccessory.control = new SmartHQMicrowave(this, existingAccessory, deviceData)
           this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
         }
       } else {
@@ -1223,7 +1223,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       accessory.context = { device: deviceData, userId }
       accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
       accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
-      new SmartHQMicrowave(this, accessory, deviceData)
+      accessory.control = new SmartHQMicrowave(this, accessory, deviceData)
       this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
       this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
       this.accessories.push(accessory)
@@ -1253,7 +1253,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
           accessory.context = { device: deviceData, userId }
           accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
           accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
-          new SmartHQCoffeeMaker(this, accessory, deviceData)
+          accessory.control = new SmartHQCoffeeMaker(this, accessory, deviceData)
           this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
         } else {
           existingAccessory.context.device = deviceData
@@ -1262,7 +1262,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
           existingAccessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
           this.api.updatePlatformAccessories([existingAccessory])
           this.infoLog(`[${protocol}] Restoring existing accessory from cache: ${existingAccessory.displayName}`)
-          new SmartHQCoffeeMaker(this, existingAccessory, deviceData)
+          existingAccessory.control = new SmartHQCoffeeMaker(this, existingAccessory, deviceData)
           this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
         }
       } else {
@@ -1275,7 +1275,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       accessory.context = { device: deviceData, userId }
       accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
       accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
-      new SmartHQCoffeeMaker(this, accessory, deviceData)
+      accessory.control = new SmartHQCoffeeMaker(this, accessory, deviceData)
       this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
       this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
       this.accessories.push(accessory)
@@ -1305,7 +1305,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
           accessory.context = { device: deviceData, userId }
           accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
           accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
-          new SmartHQBeverageCenter(this, accessory, deviceData)
+          accessory.control = new SmartHQBeverageCenter(this, accessory, deviceData)
           this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
         } else {
           existingAccessory.context.device = deviceData
@@ -1314,7 +1314,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
           existingAccessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
           this.api.updatePlatformAccessories([existingAccessory])
           this.infoLog(`[${protocol}] Restoring existing accessory from cache: ${existingAccessory.displayName}`)
-          new SmartHQBeverageCenter(this, existingAccessory, deviceData)
+          existingAccessory.control = new SmartHQBeverageCenter(this, existingAccessory, deviceData)
           this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
         }
       } else {
@@ -1327,7 +1327,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       accessory.context = { device: deviceData, userId }
       accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
       accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
-      new SmartHQBeverageCenter(this, accessory, deviceData)
+      accessory.control = new SmartHQBeverageCenter(this, accessory, deviceData)
       this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
       this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
       this.accessories.push(accessory)
