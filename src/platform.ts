@@ -66,6 +66,10 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
   public matterAvailable = false
   public readonly matterAccessories: Map<string, MatterAccessory> = new Map()
 
+  // Websocket lifecycle timers
+  private wsKeepAliveTimer?: ReturnType<typeof setInterval>
+  private wsReconnectTimer?: ReturnType<typeof setTimeout>
+
   constructor(
     log: Logging,
     config: SmartHQPlatformConfig,
@@ -239,6 +243,112 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
    * This method is used to discover the your location and devices.
    * Accessories are registered by either their DeviceClass, DeviceModel, or DeviceID
    */
+  /**
+   * Open the SmartHQ websocket for real-time ERD updates. The connection is
+   * kept alive with a periodic ping, and if it drops (or errors) it is torn
+   * down and reopened after a short delay with a freshly fetched endpoint,
+   * otherwise live updates would silently stop until the next restart.
+   */
+  async connectWebSocket() {
+    try {
+      const wssData = await axios.get('/websocket')
+
+      const connection = new ws(wssData.data.endpoint)
+
+      connection.on('message', (data) => {
+        // A malformed frame should never take down the connection handler
+        let obj: any
+        try {
+          obj = JSON.parse(data.toString())
+        } catch {
+          this.debugLog(`Ignoring non-JSON websocket frame: ${data.toString().substring(0, 100)}`)
+          return
+        }
+        this.debugLog(`data: ${JSON.stringify(obj)}`)
+
+        if (obj.kind === 'publish#erd') {
+          const accessory = find(this.accessories, a => a.context.device.applianceId === obj.item.applianceId)
+
+          if (!accessory) {
+            this.infoLog('Device not found in my list. Maybe we should rerun this plugin?')
+            return
+          }
+
+          if (ERD_CODES[obj.item.erd]) {
+            this.debugLog(`ERD_CODES: ${ERD_CODES[obj.item.erd]}`)
+            this.debugLog(`obj>item>value: ${obj.item.value}`)
+
+            if (obj.item.erd === ERD_TYPES.UPPER_OVEN_LIGHT) {
+              const service = accessory.getService('Upper Oven Light')
+              if (service) {
+                service.updateCharacteristic(this.Characteristic.On, obj.item.value === '01')
+              }
+            }
+          }
+        }
+      })
+
+      // Without an error listener, a socket error is an unhandled 'error'
+      // event which crashes the whole bridge - the close handler that
+      // follows takes care of reconnecting
+      connection.on('error', (err) => {
+        this.warnLog(`Websocket error: ${err.message}`)
+      })
+
+      connection.on('close', (_, reason) => {
+        this.debugLog(`Websocket closed: ${reason.toString()}`)
+
+        // Stop pinging a closed socket
+        if (this.wsKeepAliveTimer) {
+          clearInterval(this.wsKeepAliveTimer)
+          this.wsKeepAliveTimer = undefined
+        }
+
+        // Reconnect with a freshly fetched endpoint after a short delay
+        if (!this.wsReconnectTimer) {
+          this.warnLog(`Websocket connection lost, reconnecting in ${KEEPALIVE_TIMEOUT / 1000} seconds`)
+          this.wsReconnectTimer = setTimeout(() => {
+            this.wsReconnectTimer = undefined
+            this.connectWebSocket()
+          }, KEEPALIVE_TIMEOUT)
+        }
+      })
+
+      connection.on('open', () => {
+        connection.send(
+          JSON.stringify({
+            kind: 'websocket#subscribe',
+            action: 'subscribe',
+            resources: ['/appliance/*/erd/*'],
+          }),
+        )
+
+        this.wsKeepAliveTimer = setInterval(
+          () =>
+            connection.send(
+              JSON.stringify({
+                kind: 'websocket#ping',
+                id: 'keepalive-ping',
+                action: 'ping',
+              }),
+            ),
+          KEEPALIVE_TIMEOUT,
+        )
+      })
+    } catch (e: any) {
+      await this.errorLog(`discoverDevices, Failed to get Websocket Data, Error Message: ${e.message ?? e}, Submit Bugs Here: https://bit.ly/smarthq-bug-report`)
+
+      // The endpoint fetch failed (API blip or expired session) - retry later
+      // rather than giving up on live updates until the next restart
+      if (!this.wsReconnectTimer) {
+        this.wsReconnectTimer = setTimeout(() => {
+          this.wsReconnectTimer = undefined
+          this.connectWebSocket()
+        }, KEEPALIVE_TIMEOUT * 2)
+      }
+    }
+  }
+
   async discoverDevices() {
     try {
       const { username, password } = this.config.credentials ?? {}
@@ -259,66 +369,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
         return // Stop execution if token refresh setup fails
       }
 
-      try {
-        const wssData = await axios.get('/websocket')
-
-        const connection = new ws(wssData.data.endpoint)
-
-        connection.on('message', (data) => {
-          const obj = JSON.parse(data.toString())
-          this.debugLog(`data: ${JSON.stringify(obj)}`)
-
-          if (obj.kind === 'publish#erd') {
-            const accessory = find(this.accessories, a => a.context.device.applianceId === obj.item.applianceId)
-
-            if (!accessory) {
-              this.infoLog('Device not found in my list. Maybe we should rerun this plugin?')
-              return
-            }
-
-            if (ERD_CODES[obj.item.erd]) {
-              this.debugLog(`ERD_CODES: ${ERD_CODES[obj.item.erd]}`)
-              this.debugLog(`obj>item>value: ${obj.item.value}`)
-
-              if (obj.item.erd === ERD_TYPES.UPPER_OVEN_LIGHT) {
-                const service = accessory.getService('Upper Oven Light')
-                if (service) {
-                  service.updateCharacteristic(this.Characteristic.On, obj.item.value === '01')
-                }
-              }
-            }
-          }
-        })
-
-        connection.on('close', (_, reason) => {
-          this.debugLog('Connection closed')
-          this.debugLog(`reason: ${reason.toString()}`)
-        })
-
-        connection.on('open', () => {
-          connection.send(
-            JSON.stringify({
-              kind: 'websocket#subscribe',
-              action: 'subscribe',
-              resources: ['/appliance/*/erd/*'],
-            }),
-          )
-
-          setInterval(
-            () =>
-              connection.send(
-                JSON.stringify({
-                  kind: 'websocket#ping',
-                  id: 'keepalive-ping',
-                  action: 'ping',
-                }),
-              ),
-            KEEPALIVE_TIMEOUT,
-          )
-        })
-      } catch (e: any) {
-        await this.errorLog(`discoverDevices, Failed to get Websocket Data, Error Message: ${e.message ?? e}, Submit Bugs Here: https://bit.ly/smarthq-bug-report`)
-      }
+      await this.connectWebSocket()
 
       try {
         const devices = await axios.get('/appliance')

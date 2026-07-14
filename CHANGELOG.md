@@ -24,6 +24,7 @@ All notable changes to this project will be documented in this file. This projec
 - fix: apply every per-device config override to the matching device (#94) (@dzins)
 - feat: add support for the in-fridge keurig k-cup brewer (#95) (@dzins)
 - fix: track cached matter accessories via the configure callback
+- fix: handle websocket errors and reconnect when the connection drops
 
 ## [0.4.16](https://github.com/homebridge-plugins/homebridge-smarthq/compare/v0.4.15...v0.4.16) (2026-04-09)
 
