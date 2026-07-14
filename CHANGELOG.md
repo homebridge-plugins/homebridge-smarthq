@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file. This project uses [Semantic Versioning](https://semver.org/).
 
-## v0.4.17 (Pending Release)
+## v0.5.0 (Pending Release)
 
 ### Changed
 
@@ -13,6 +13,7 @@ All notable changes to this project will be documented in this file. This projec
 - chore: standardise the package scripts and publishing config
 - chore: update the plugin metadata for the new maintainer
 - docs: refresh the readme
+- feat: add support for more appliance types and improve existing ones (@donavanbecker)
 
 ## [0.4.16](https://github.com/homebridge-plugins/homebridge-smarthq/compare/v0.4.15...v0.4.16) (2026-04-09)
 

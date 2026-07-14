@@ -5,9 +5,8 @@
 import type { CharacteristicValue, PlatformAccessory, Service } from 'homebridge'
 
 import type { SmartHQPlatform } from '../platform.js'
-import type { devicesConfig, SmartHqContext, SmartHqERDResponse } from '../settings.js'
+import type { devicesConfig, SmartHqContext } from '../settings.js'
 
-import axios from 'axios'
 import { interval, startWith } from 'rxjs'
 
 import { ERD_TYPES } from '../settings.js'
@@ -99,66 +98,28 @@ export class SmartHQHood extends deviceBase {
       .subscribe(this.refreshState.bind(this))
   }
 
-  private getErdValue(erd: string): Promise<string> {
-    return axios
-      .get<SmartHqERDResponse>(`/appliance/${this.accessory.context.device.applianceId}/erd/${erd}`)
-      .then(response => response.data.value)
-      .catch((err) => {
-        const message = axios.isAxiosError(err) && err.response
-          ? `Failed to fetch ERD: ${err.response.data.message}`
-          : `Failed to fetch ERD: ${err instanceof Error ? err.message : 'An unknown error occurred'}`
-        throw new Error(message, { cause: err })
-      })
+  private async getFanSpeed(): Promise<FanSpeed> {
+    const value = await this.readErd(ERD_TYPES.HOOD_FAN_SPEED)
+    if (!value) {
+      throw new Error('Failed to get fan speed: ERD not available')
+    }
+    return value as FanSpeed
   }
 
-  private setErdValue(erd: string, value: string): Promise<void> {
-    return axios
-      .post(`/appliance/${this.accessory.context.device.applianceId}/erd/${erd}`, {
-        kind: 'appliance#erdListEntry',
-        userId: this.accessory.context.userId,
-        applianceId: this.accessory.context.device.applianceId,
-        erd,
-        value,
-      })
-      .then(() => {
-        this.platform.log.debug(`[${this.accessory.displayName}] Set ERD ${erd}=${value}`)
-      })
-      .catch((err) => {
-        const message = axios.isAxiosError(err) && err.response
-          ? `Failed to set ERD ${erd}=${value}: ${err.response.data.message}`
-          : `Failed to set ERD ${erd}=${value}: ${err instanceof Error ? err.message : 'An unknown error occurred'}`
-        throw new Error(message, { cause: err })
-      })
+  private async setFanSpeed(value: FanSpeed): Promise<void> {
+    await this.writeErd(ERD_TYPES.HOOD_FAN_SPEED, value)
   }
 
-  private getFanSpeed(): Promise<FanSpeed> {
-    return this.getErdValue(ERD_TYPES.HOOD_FAN_SPEED)
-      .then(value => value as FanSpeed)
-      .catch((err) => {
-        throw new Error(`Failed to get fan speed: ${err instanceof Error ? err.message : 'An unknown error occurred'}`, { cause: err })
-      })
+  private async getLightLevel(): Promise<LightLevel> {
+    const value = await this.readErd(ERD_TYPES.HOOD_LIGHT_LEVEL)
+    if (!value) {
+      throw new Error('Failed to get light level: ERD not available')
+    }
+    return value as LightLevel
   }
 
-  private setFanSpeed(value: FanSpeed): Promise<void> {
-    return this.setErdValue(ERD_TYPES.HOOD_FAN_SPEED, value)
-      .catch((err) => {
-        throw new Error(`Failed to set fan speed: ${err instanceof Error ? err.message : 'An unknown error occurred'}`, { cause: err })
-      })
-  }
-
-  private getLightLevel(): Promise<LightLevel> {
-    return this.getErdValue(ERD_TYPES.HOOD_LIGHT_LEVEL)
-      .then(value => value as LightLevel)
-      .catch((err) => {
-        throw new Error(`Failed to get light level: ${err instanceof Error ? err.message : 'An unknown error occurred'}`, { cause: err })
-      })
-  }
-
-  private setLightLevel(value: LightLevel): Promise<void> {
-    return this.setErdValue(ERD_TYPES.HOOD_LIGHT_LEVEL, value)
-      .catch((err) => {
-        throw new Error(`Failed to set light level: ${err instanceof Error ? err.message : 'An unknown error occurred'}`, { cause: err })
-      })
+  private async setLightLevel(value: LightLevel): Promise<void> {
+    await this.writeErd(ERD_TYPES.HOOD_LIGHT_LEVEL, value)
   }
 
   private fanSpeedToRotationSpeed(fanSpeed: FanSpeed): number {

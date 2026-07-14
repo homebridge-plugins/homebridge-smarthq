@@ -7,7 +7,6 @@ import type { PlatformAccessory } from 'homebridge'
 import type { SmartHQPlatform } from '../platform.js'
 import type { devicesConfig, SmartHqContext } from '../settings.js'
 
-import axios from 'axios'
 import { interval, skipWhile } from 'rxjs'
 
 import { ERD_TYPES } from '../settings.js'
@@ -35,7 +34,8 @@ export class SmartHQDishWasher extends deviceBase {
       .getCharacteristic(this.platform.Characteristic.Active)
       .onGet(async () => {
         try {
-          return await this.readErd(ERD_TYPES.DISHWASHER_CYCLE).then(r => Number.parseInt(r) !== 0 ? this.platform.Characteristic.Active.ACTIVE : this.platform.Characteristic.Active.INACTIVE)
+          const r = await this.readErd(ERD_TYPES.DISHWASHER_CYCLE)
+          return r && Number.parseInt(r) !== 0 ? this.platform.Characteristic.Active.ACTIVE : this.platform.Characteristic.Active.INACTIVE
         } catch (error: any) {
           this.warnLog?.(`Dishwasher Active error: ${error?.message ?? error}`)
           return this.platform.Characteristic.Active.INACTIVE
@@ -53,7 +53,8 @@ export class SmartHQDishWasher extends deviceBase {
       .getCharacteristic(this.platform.Characteristic.InUse)
       .onGet(async () => {
         try {
-          return await this.readErd(ERD_TYPES.DISHWASHER_CYCLE).then(r => Number.parseInt(r) !== 0 ? this.platform.Characteristic.InUse.IN_USE : this.platform.Characteristic.InUse.NOT_IN_USE)
+          const r = await this.readErd(ERD_TYPES.DISHWASHER_CYCLE)
+          return r && Number.parseInt(r) !== 0 ? this.platform.Characteristic.InUse.IN_USE : this.platform.Characteristic.InUse.NOT_IN_USE
         } catch (error: any) {
           this.warnLog?.(`Dishwasher InUse error: ${error?.message ?? error}`)
           return this.platform.Characteristic.InUse.NOT_IN_USE
@@ -66,13 +67,11 @@ export class SmartHQDishWasher extends deviceBase {
     doorSensor
       .getCharacteristic(this.platform.Characteristic.ContactSensorState)
       .onGet(async () => {
-        try {
-          // TODO: Use actual door status ERD when available
-          return this.platform.Characteristic.ContactSensorState.CONTACT_DETECTED
-        } catch (error: any) {
-          this.warnLog?.(`Dishwasher Door error: ${error?.message ?? error}`)
-          return this.platform.Characteristic.ContactSensorState.CONTACT_DETECTED
-        }
+        const r = await this.readErd(ERD_TYPES.LAUNDRY_DOOR)
+        // 0=closed (detected), 1=open (not detected)
+        return r && Number.parseInt(r) === 1
+          ? this.platform.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED
+          : this.platform.Characteristic.ContactSensorState.CONTACT_DETECTED
       })
 
     // this is subject we use to track when we need to POST changes to the SmartHQ API
@@ -87,23 +86,5 @@ export class SmartHQDishWasher extends deviceBase {
       .subscribe(async () => {
         // await this.refreshStatus()
       })
-  }
-
-  async readErd(erd: string): Promise<string> {
-    const d = await axios
-      .get(`/appliance/${this.accessory.context.device.applianceId}/erd/${erd}`)
-    return String(d.data.value)
-  }
-
-  async writeErd(erd: string, value: string | boolean) {
-    await axios
-      .post(`/appliance/${this.accessory.context.device.applianceId}/erd/${erd}`, {
-        kind: 'appliance#erdListEntry',
-        userId: this.accessory.context.userId,
-        applianceId: this.accessory.context.device.applianceId,
-        erd,
-        value: typeof value === 'boolean' ? (value ? '01' : '00') : value,
-      })
-    return undefined
   }
 }

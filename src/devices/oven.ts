@@ -9,8 +9,6 @@ import type { devicesConfig, SmartHqContext } from '../settings.js'
 
 import { Buffer } from 'node:buffer'
 
-import axios from 'axios'
-
 import { ERD_TYPES } from '../settings.js'
 import { deviceBase } from './device.js'
 
@@ -31,7 +29,8 @@ export class SmartHQOven extends deviceBase {
       .getCharacteristic(this.platform.Characteristic.On)
       .onGet(async () => {
         try {
-          return await this.readErd(ERD_TYPES.UPPER_OVEN_LIGHT).then(r => Number.parseInt(r) !== 0)
+          const r = await this.readErd(ERD_TYPES.UPPER_OVEN_LIGHT)
+          return r ? Number.parseInt(r) !== 0 : false
         } catch (error: any) {
           this.warnLog?.(`Oven Light handleGetOn error: ${error?.message ?? error}`)
           return false
@@ -53,12 +52,84 @@ export class SmartHQOven extends deviceBase {
       .onGet(async () => {
         try {
           const erdVal = await this.readErd(ERD_TYPES.UPPER_OVEN_COOK_MODE)
+          if (!erdVal) {
+            return 0
+          }
           const b = Buffer.from(erdVal, 'hex')
           return fToC(b.readUint16BE(1))
         } catch (error: any) {
           this.warnLog?.(`Oven Temperature error: ${error?.message ?? error}`)
           return 0
         }
+      })
+
+    // Probe Temperature Sensor (if available)
+    ;(async () => {
+      const probePresent = await this.has_erd_code(ERD_TYPES.UPPER_OVEN_PROBE_PRESENT)
+      if (probePresent) {
+        const probeTempSensor = this.accessory.getService('Probe Temperature') ?? this.accessory.addService(this.platform.Service.TemperatureSensor, 'Probe Temperature', 'ProbeTemp')
+        probeTempSensor.setCharacteristic(this.platform.Characteristic.Name, 'Probe Temperature')
+        probeTempSensor
+          .getCharacteristic(this.platform.Characteristic.CurrentTemperature)
+          .onGet(async () => {
+            const r = await this.readErd(ERD_TYPES.UPPER_OVEN_PROBE_DISPLAY_TEMP)
+            if (!r) {
+              return 0
+            }
+            const tempF = Number.parseInt(r)
+            return fToC(tempF)
+          })
+      }
+    })()
+
+    // Cook Time Remaining (using a valve to show remaining duration)
+    const cookTimeValve = this.accessory.getService('Cook Time') ?? this.accessory.addService(this.platform.Service.Valve, 'Cook Time', 'CookTime')
+    cookTimeValve.setCharacteristic(this.platform.Characteristic.Name, 'Cook Time')
+    cookTimeValve.setCharacteristic(this.platform.Characteristic.ValveType, this.platform.Characteristic.ValveType.GENERIC_VALVE)
+    cookTimeValve
+      .getCharacteristic(this.platform.Characteristic.Active)
+      .onGet(async () => {
+        const r = await this.readErd(ERD_TYPES.UPPER_OVEN_COOK_TIME_REMAINING)
+        // Active if time remaining is non-zero
+        return r && Number.parseInt(r, 16) > 0
+          ? this.platform.Characteristic.Active.ACTIVE
+          : this.platform.Characteristic.Active.INACTIVE
+      })
+
+    cookTimeValve
+      .getCharacteristic(this.platform.Characteristic.InUse)
+      .onGet(async () => {
+        const r = await this.readErd(ERD_TYPES.UPPER_OVEN_COOK_TIME_REMAINING)
+        return r && Number.parseInt(r, 16) > 0
+          ? this.platform.Characteristic.InUse.IN_USE
+          : this.platform.Characteristic.InUse.NOT_IN_USE
+      })
+
+    cookTimeValve
+      .getCharacteristic(this.platform.Characteristic.RemainingDuration)
+      .onGet(async () => {
+        const r = await this.readErd(ERD_TYPES.UPPER_OVEN_COOK_TIME_REMAINING)
+        if (!r) {
+          return 0
+        }
+        // Cook time remaining is stored as minutes in hex, convert to seconds
+        const minutes = Number.parseInt(r, 16)
+        const seconds = minutes * 60
+        this.debugLog(`Cook Time Remaining - Hex: ${r}, Minutes: ${minutes}, Seconds: ${seconds}`)
+        return seconds
+      })
+
+    // Remote Enabled Status (binary sensor)
+    const remoteEnabledSensor = this.accessory.getService('Remote Enabled') ?? this.accessory.addService(this.platform.Service.ContactSensor, 'Remote Enabled', 'RemoteEnabled')
+    remoteEnabledSensor.setCharacteristic(this.platform.Characteristic.Name, 'Remote Enabled')
+    remoteEnabledSensor
+      .getCharacteristic(this.platform.Characteristic.ContactSensorState)
+      .onGet(async () => {
+        const r = await this.readErd(ERD_TYPES.UPPER_OVEN_REMOTE_ENABLED)
+        // 1=enabled (open/not detected), 0=disabled (closed/detected)
+        return r && Number.parseInt(r) === 1
+          ? this.platform.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED
+          : this.platform.Characteristic.ContactSensorState.CONTACT_DETECTED
       })
 
     // Oven Door Lock (Security System for lock state)
@@ -95,22 +166,6 @@ export class SmartHQOven extends deviceBase {
           this.warnLog?.(`Oven Door Lock set error: ${error?.message ?? error}`)
         }
       })
-  }
-
-  async readErd(erd: string): Promise<string> {
-    const d = await axios.get(`/appliance/${this.accessory.context.device.applianceId}/erd/${erd}`)
-    return String(d.data.value)
-  }
-
-  async writeErd(erd: string, value: string | boolean) {
-    await axios.post(`/appliance/${this.accessory.context.device.applianceId}/erd/${erd}`, {
-      kind: 'appliance#erdListEntry',
-      userId: this.accessory.context.userId,
-      applianceId: this.accessory.context.device.applianceId,
-      erd,
-      value: typeof value === 'boolean' ? (value ? '01' : '00') : value,
-    })
-    return undefined
   }
 }
 /*
