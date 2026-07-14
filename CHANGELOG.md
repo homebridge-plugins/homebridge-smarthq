@@ -35,6 +35,7 @@ All notable changes to this project will be documented in this file. This projec
 - chore: require homebridge v2 and node v22 or v24
 - fix: raise the login request timeout from 3.5 to 15 seconds (#7) (#73)
 - feat: add an account region option for the login flow (#30)
+- chore: align the dev tooling with the other org plugins
 
 ## [0.4.16](https://github.com/homebridge-plugins/homebridge-smarthq/compare/v0.4.15...v0.4.16) (2026-04-09)
 
