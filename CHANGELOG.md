@@ -37,6 +37,7 @@ All notable changes to this project will be documented in this file. This projec
 - feat: add an account region option for the login flow (#30)
 - chore: align the dev tooling with the other org plugins
 - feat: add an option to hide heat mode on cooling-only air conditioners (#73)
+- fix: stop polling swing mode on air conditioners that do not support it (#99)
 
 ## [0.4.16](https://github.com/homebridge-plugins/homebridge-smarthq/compare/v0.4.15...v0.4.16) (2026-04-09)
 

@@ -67,6 +67,9 @@ export class SmartHQAirConditioner extends deviceBase {
   // Some models are cooling-only, so heat can be hidden from HomeKit (#73)
   private readonly showHeatMode: boolean
 
+  // Lazily flipped off when the appliance reports no swing mode ERD (#99)
+  private swingModeSupported = true
+
   private readonly defaultOperationMode: OperationMode
   private readonly createSeparateFanService: boolean
 
@@ -908,6 +911,9 @@ export class SmartHQAirConditioner extends deviceBase {
   }
 
   public async handleGetSwingMode(): Promise<CharacteristicValue> {
+    if (!this.swingModeSupported) {
+      return this.platform.Characteristic.SwingMode.SWING_DISABLED
+    }
     try {
       const value: AcSwingMode = await this.getSwingMode()
 
@@ -915,6 +921,13 @@ export class SmartHQAirConditioner extends deviceBase {
         ? this.platform.Characteristic.SwingMode.SWING_ENABLED
         : this.platform.Characteristic.SwingMode.SWING_DISABLED
     } catch (cause) {
+      // Some models (e.g. the PWDV08WWF) have no swing hardware and return no
+      // value for the swing ERD - remember that instead of erroring forever
+      if (cause instanceof Error && cause.message.includes('No value returned')) {
+        this.swingModeSupported = false
+        this.platform.log.info(`[${this.accessory.displayName}] Swing mode is not supported by this model, disabling`)
+        return this.platform.Characteristic.SwingMode.SWING_DISABLED
+      }
       const error = new Error(`Failed to handle get swing mode: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`, { cause })
       this.platform.log.error(`[${this.accessory.displayName}] ${error.message}`)
 
@@ -923,6 +936,9 @@ export class SmartHQAirConditioner extends deviceBase {
   }
 
   public async handleSetSwingMode(value: CharacteristicValue): Promise<void> {
+    if (!this.swingModeSupported) {
+      return
+    }
     try {
       const swingMode = value === this.platform.Characteristic.SwingMode.SWING_ENABLED
         ? AcSwingMode.ENABLED
