@@ -170,3 +170,66 @@ describe('smartHQPlatform Per-Device Config Merge', () => {
     expect(mockApi.registerPlatformAccessories).not.toHaveBeenCalled()
   })
 })
+
+describe('smartHQPlatform live ERD cache', () => {
+  let platform: SmartHQPlatform
+  let mockApi: API
+  let mockLog: Logging
+  let mockConfig: PlatformConfig
+
+  beforeEach(() => {
+    mockLog = { prefix: 'SmartHQ', info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logging
+    mockApi = {
+      hap: { Service: {}, Characteristic: {}, uuid: { generate: vi.fn().mockReturnValue('test-uuid') } },
+      on: vi.fn(),
+      registerPlatformAccessories: vi.fn(),
+      unregisterPlatformAccessories: vi.fn(),
+      updatePlatformAccessories: vi.fn(),
+    } as unknown as API
+    mockConfig = {
+      platform: 'SmartHQ',
+      name: 'SmartHQ',
+      credentials: { username: 'test@example.com', password: 'testpassword' },
+    }
+    platform = new SmartHQPlatform(mockLog, mockConfig, mockApi)
+    vi.clearAllMocks()
+  })
+
+  it('should have nothing live until the appliance pushes something', () => {
+    expect(platform.getLiveErd('APPLIANCE1', '0x1160')).toBeUndefined()
+  })
+
+  it('should return a value the appliance pushed', () => {
+    ;(platform as any).setLiveErd('APPLIANCE1', '0x1160', '00D3')
+
+    expect(platform.getLiveErd('APPLIANCE1', '0x1160')).toBe('00D3')
+  })
+
+  it('should match the pushed code whatever case each side uses', () => {
+    // the websocket sends 0x116D, settings.ts spells it 0x116d
+    ;(platform as any).setLiveErd('APPLIANCE1', '0x116D', '003A')
+
+    expect(platform.getLiveErd('APPLIANCE1', '0x116d')).toBe('003A')
+    expect(platform.getLiveErd('APPLIANCE1', '0x116D')).toBe('003A')
+  })
+
+  it('should keep appliances separate', () => {
+    ;(platform as any).setLiveErd('APPLIANCE1', '0x1160', '00D3')
+
+    expect(platform.getLiveErd('APPLIANCE2', '0x1160')).toBeUndefined()
+  })
+
+  it('should replace an older value with a newer push', () => {
+    ;(platform as any).setLiveErd('APPLIANCE1', '0x1160', '00D3')
+    ;(platform as any).setLiveErd('APPLIANCE1', '0x1160', '00D4')
+
+    expect(platform.getLiveErd('APPLIANCE1', '0x1160')).toBe('00D4')
+  })
+
+  it('should forget everything when the websocket drops, rather than serve stale values', () => {
+    ;(platform as any).setLiveErd('APPLIANCE1', '0x1160', '00D3')
+    ;(platform as any).clearLiveErds()
+
+    expect(platform.getLiveErd('APPLIANCE1', '0x1160')).toBeUndefined()
+  })
+})

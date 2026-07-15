@@ -31,7 +31,7 @@ import { SmartHQWaterFilter } from './devices/waterFilter.js'
 import { SmartHQWaterHeater } from './devices/waterHeater.js'
 import { SmartHQWaterSoftener } from './devices/waterSoftener.js'
 import getAccessToken, { refreshAccessToken } from './getAccessToken.js'
-import { API_URL, ERD_CODES, ERD_TYPES, KEEPALIVE_TIMEOUT, PLATFORM_NAME, PLUGIN_NAME } from './settings.js'
+import { API_URL, ERD_TYPES, KEEPALIVE_TIMEOUT, lookupErdName, normaliseErd, PLATFORM_NAME, PLUGIN_NAME } from './settings.js'
 
 const { find, keyBy } = pkg
 
@@ -65,6 +65,18 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
   public matterEnabled = false
   public matterAvailable = false
   public readonly matterAccessories: Map<string, MatterAccessory> = new Map()
+
+  /**
+   * Live ERD values pushed to us over the websocket, keyed by appliance id and
+   * then by normalised ERD code.
+   *
+   * The websocket streams every ERD change as it happens, so a value that has
+   * arrived this way is fresher than anything we could fetch, and reading it
+   * costs nothing. Only values the appliance actually pushed are stored: an
+   * ERD earns its place here by proving it reports changes, so we can never
+   * freeze a value that is only available over HTTP.
+   */
+  private readonly erdCache: Map<string, Map<string, string>> = new Map()
 
   // Websocket lifecycle timers
   private wsKeepAliveTimer?: ReturnType<typeof setInterval>
@@ -154,6 +166,31 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
 
     // add the restored accessory to the accessories cache so we can track if it has already been registered
     this.accessories.push(accessory as PlatformAccessory<SmartHqContext>)
+  }
+
+  /**
+   * The most recent value the appliance pushed for an ERD, if any.
+   */
+  public getLiveErd(applianceId: string, erd: string): string | undefined {
+    return this.erdCache.get(applianceId)?.get(normaliseErd(erd))
+  }
+
+  private setLiveErd(applianceId: string, erd: string, value: string) {
+    const applianceErds = this.erdCache.get(applianceId) ?? new Map<string, string>()
+    applianceErds.set(normaliseErd(erd), value)
+    this.erdCache.set(applianceId, applianceErds)
+  }
+
+  /**
+   * Forget every live value. Called when the websocket drops, because while we
+   * are not listening an appliance can change without telling us, and a stale
+   * value is worse than a slow one.
+   */
+  private clearLiveErds() {
+    if (this.erdCache.size > 0) {
+      this.debugLog('Discarding live ERD values while the websocket is down')
+      this.erdCache.clear()
+    }
   }
 
   /**
@@ -267,6 +304,11 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
         this.debugLog(`data: ${JSON.stringify(obj)}`)
 
         if (obj.kind === 'publish#erd') {
+          // Keep the pushed value even if we have no accessory for it yet, so
+          // a device configured later still starts from live data
+          const liveValue = typeof obj.item.value === 'object' ? JSON.stringify(obj.item.value) : String(obj.item.value)
+          this.setLiveErd(obj.item.applianceId, obj.item.erd, liveValue)
+
           const accessory = find(this.accessories, a => a.context.device.applianceId === obj.item.applianceId)
 
           if (!accessory) {
@@ -274,8 +316,9 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
             return
           }
 
-          if (ERD_CODES[obj.item.erd]) {
-            this.debugLog(`ERD_CODES: ${ERD_CODES[obj.item.erd]}`)
+          const erdName = lookupErdName(obj.item.erd)
+          if (erdName) {
+            this.debugLog(`ERD_CODES: ${erdName}`)
             this.debugLog(`obj>item>value: ${obj.item.value}`)
 
             if (obj.item.erd === ERD_TYPES.UPPER_OVEN_LIGHT) {
@@ -297,6 +340,9 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
 
       connection.on('close', (_, reason) => {
         this.debugLog(`Websocket closed: ${reason.toString()}`)
+
+        // Anything could change while we are not listening
+        this.clearLiveErds()
 
         // Stop pinging a closed socket
         if (this.wsKeepAliveTimer) {

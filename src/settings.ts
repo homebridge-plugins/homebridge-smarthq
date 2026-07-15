@@ -365,3 +365,23 @@ export const ERD_TYPES = {
 
 export const ERD_CODES = invert(ERD_TYPES)
 // export const ERD_CODES = Object.fromEntries(Object.entries(ERD_TYPES).map(([key, value]) => [value, key]))
+
+/**
+ * ERD codes are hex, and both this file and the API are inconsistent about
+ * the case of the letters in them (0x116e here, 0x116D over the websocket).
+ * Normalise before comparing or a lookup silently misses.
+ */
+export function normaliseErd(erd: string): string {
+  return erd.toLowerCase()
+}
+
+const ERD_CODES_BY_NORMALISED: Record<string, string> = Object.fromEntries(
+  Object.entries(ERD_CODES).map(([code, name]) => [normaliseErd(code), name as string]),
+)
+
+/**
+ * Look up the friendly name of an ERD code, whatever case it arrives in.
+ */
+export function lookupErdName(erd: string): string | undefined {
+  return ERD_CODES_BY_NORMALISED[normaliseErd(erd)]
+}

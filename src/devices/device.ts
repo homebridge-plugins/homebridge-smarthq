@@ -351,6 +351,15 @@ export abstract class deviceBase {
    * Read an ERD (Electronic Refrigerator Descriptor) value from the SmartHQ API
    */
   async readErd(erd: string): Promise<string | undefined> {
+    // Prefer the value the appliance pushed to us over the websocket: it is
+    // more current than anything we could fetch, free to read, and proves the
+    // ERD works whatever the REST endpoint has previously said about it
+    const liveValue = this.platform.getLiveErd(this.getApplianceId(), erd)
+    if (liveValue !== undefined) {
+      await this.debugLog(`ERD ${erd} value: ${liveValue} (live)`)
+      return liveValue
+    }
+
     // Check if we already know this ERD is not supported
     if (this.unsupportedErds.has(erd)) {
       return undefined
