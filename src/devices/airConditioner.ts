@@ -64,6 +64,9 @@ export class SmartHQAirConditioner extends deviceBase {
   private readonly supportsDryMode = true
   private readonly showDryModeSwitch: boolean
 
+  // Some models are cooling-only, so heat can be hidden from HomeKit (#73)
+  private readonly showHeatMode: boolean
+
   private readonly defaultOperationMode: OperationMode
   private readonly createSeparateFanService: boolean
 
@@ -80,6 +83,7 @@ export class SmartHQAirConditioner extends deviceBase {
     const airConditionerConfig = configuredDevices.find(config => config.applianceId === device.applianceId) ?? device
 
     this.showDryModeSwitch = airConditionerConfig.showDryModeSwitch ?? true
+    this.showHeatMode = airConditionerConfig.showHeatMode ?? true
 
     const configuredDefaultOperationMode = {
       cool: OperationMode.COOL,
@@ -89,9 +93,13 @@ export class SmartHQAirConditioner extends deviceBase {
       dry: OperationMode.DRY,
     }[airConditionerConfig.defaultOperationMode ?? 'cool'] ?? OperationMode.COOL
 
-    this.defaultOperationMode = configuredDefaultOperationMode === OperationMode.DRY && !this.supportsDryMode
+    const dryCoercedDefault = configuredDefaultOperationMode === OperationMode.DRY && !this.supportsDryMode
       ? OperationMode.ENERGY_SAVER
       : configuredDefaultOperationMode
+
+    this.defaultOperationMode = dryCoercedDefault === OperationMode.HEAT && !this.showHeatMode
+      ? OperationMode.COOL
+      : dryCoercedDefault
 
     this.createSeparateFanService = airConditionerConfig.createSeparateFanService ?? false
 
@@ -128,8 +136,16 @@ export class SmartHQAirConditioner extends deviceBase {
         ?? this.accessory.addService(this.platform.Service.Switch, `${accessory.displayName} Fan Only Mode`, `${this.MODE_SWITCH_SVC_PREFIX}_FAN_ONLY`),
       [OperationMode.ENERGY_SAVER]: this.accessory.getService(`${this.MODE_SWITCH_SVC_PREFIX}_ENERGY_SAVER`)
         ?? this.accessory.addService(this.platform.Service.Switch, `${accessory.displayName} Energy Saver Mode`, `${this.MODE_SWITCH_SVC_PREFIX}_ENERGY_SAVER`),
-      [OperationMode.HEAT]: this.accessory.getService(`${this.MODE_SWITCH_SVC_PREFIX}_HEAT`)
-        ?? this.accessory.addService(this.platform.Service.Switch, `${accessory.displayName} Heat Mode`, `${this.MODE_SWITCH_SVC_PREFIX}_HEAT`),
+    }
+
+    if (this.showHeatMode) {
+      this.modeSwitchSvc[OperationMode.HEAT] = this.accessory.getService(`${this.MODE_SWITCH_SVC_PREFIX}_HEAT`)
+        ?? this.accessory.addService(this.platform.Service.Switch, `${accessory.displayName} Heat Mode`, `${this.MODE_SWITCH_SVC_PREFIX}_HEAT`)
+    } else {
+      const existingHeatModeService = this.accessory.getService(`${this.MODE_SWITCH_SVC_PREFIX}_HEAT`)
+      if (existingHeatModeService) {
+        this.accessory.removeService(existingHeatModeService)
+      }
     }
 
     if (this.shouldExposeDryMode()) {
@@ -161,14 +177,16 @@ export class SmartHQAirConditioner extends deviceBase {
       })
       .onGet(this.handleGetCurrentHeaterCoolerState.bind(this))
 
-    // Target mode (HEAT and COOL)
+    // Target mode (COOL, plus HEAT unless hidden for cooling-only models)
     this.heaterCoolerSvc
       .getCharacteristic(this.platform.Characteristic.TargetHeaterCoolerState)
       .setProps({
-        validValues: [
-          this.platform.Characteristic.TargetHeaterCoolerState.HEAT,
-          this.platform.Characteristic.TargetHeaterCoolerState.COOL,
-        ],
+        validValues: this.showHeatMode
+          ? [
+              this.platform.Characteristic.TargetHeaterCoolerState.HEAT,
+              this.platform.Characteristic.TargetHeaterCoolerState.COOL,
+            ]
+          : [this.platform.Characteristic.TargetHeaterCoolerState.COOL],
       })
       .onGet(this.handleGetTargetHeaterCoolerState.bind(this))
       .onSet(this.handleSetTargetHeaterCoolerState.bind(this))
@@ -1134,9 +1152,14 @@ export class SmartHQAirConditioner extends deviceBase {
   }
 
   private getSupportedOperationModes(): OperationMode[] {
-    return this.shouldExposeDryMode()
-      ? [OperationMode.COOL, OperationMode.FAN_ONLY, OperationMode.ENERGY_SAVER, OperationMode.HEAT, OperationMode.DRY]
-      : [OperationMode.COOL, OperationMode.FAN_ONLY, OperationMode.ENERGY_SAVER, OperationMode.HEAT]
+    const modes = [OperationMode.COOL, OperationMode.FAN_ONLY, OperationMode.ENERGY_SAVER]
+    if (this.showHeatMode) {
+      modes.push(OperationMode.HEAT)
+    }
+    if (this.shouldExposeDryMode()) {
+      modes.push(OperationMode.DRY)
+    }
+    return modes
   }
 
   private fahrenheitToCelsius(fahrenheit: number): number {

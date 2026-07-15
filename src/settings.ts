@@ -55,6 +55,7 @@ export interface devicesConfig {
   defaultOperationMode?: 'cool' | 'fanOnly' | 'energySaver' | 'heat' | 'dry' // AC only: mode applied when the AC service is switched on
   createSeparateFanService?: boolean // AC only: expose a separate fan service for fan-speed control
   showDryModeSwitch?: boolean // AC only: expose the dry mode switch
+  showHeatMode?: boolean // AC only: expose heat in the target mode dropdown and as a mode switch
   keurig?: boolean // Override auto-detect for the built-in Keurig K-Cup brewer (e.g. PYE22PYNHFS)
   keurigOnly?: boolean // Skip the main Refrigerator accessory; only publish the Keurig sub-accessory
 }

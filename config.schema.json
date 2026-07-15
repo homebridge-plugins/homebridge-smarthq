@@ -216,6 +216,15 @@
               "condition": {
                 "functionBody": "return (model.devices && model.devices[arrayIndices].applianceId && !model.devices[arrayIndices].hide_device);"
               }
+            },
+            "showHeatMode": {
+              "title": "Show Heat Mode (Air Conditioners)",
+              "type": "boolean",
+              "default": true,
+              "description": "If disabled, heat is removed from the HomeKit mode selector and the heat mode switch is not exposed. Turn this off for cooling-only models. Only applies to air conditioners.",
+              "condition": {
+                "functionBody": "return (model.devices && model.devices[arrayIndices].applianceId && !model.devices[arrayIndices].hide_device);"
+              }
             }
           },
           "required": [
@@ -355,6 +364,7 @@
             "devices[].defaultOperationMode",
             "devices[].createSeparateFanService",
             "devices[].showDryModeSwitch",
+            "devices[].showHeatMode",
             "devices[].firmware",
             "devices[].refreshRate",
             "devices[].logging"
