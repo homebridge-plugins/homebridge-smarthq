@@ -17,6 +17,7 @@ All notable changes to this project will be documented in this file. This projec
 - docs: refresh the readme
 - feat: add support for more appliance types and improve existing ones (@donavanbecker)
 - feat: add a work-in-progress matter implementation (@donavanbecker)
+- fix: recognise home water filters that report their type without the whole prefix (#10) (@cainmp)
 - fix: log the credentials re-authentication at debug level (@donavanbecker)
 - fix: apply per-device config overrides to devices (#83) (@colbyr)
 - style: fix lint issues in the beta changes

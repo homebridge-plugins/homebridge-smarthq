@@ -429,6 +429,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
               await this.createSmartHQClothesDryer(userId, device, details, features)
               break
             case 'Whole Home Water Filter':
+            case 'Home Water Filter': // some filters report their type without the 'Whole' prefix (#10)
               await this.createSmartHQWaterFilter(userId, device, details, features)
               break
             case 'Whole Home Water Softener':
