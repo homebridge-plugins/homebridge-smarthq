@@ -148,6 +148,29 @@ export class SmartHQClothesWasher extends deviceBase {
    * Initialize HAP (HomeKit) protocol
    */
   private initializeHAP(): void {
+    // Optional read-only running switch, a simple on/off tile for automations
+    // and a clear visual in the Home app (#60)
+    const existingRunningSwitch = this.accessory!.getService('Washer Running')
+    if (this.device.showRunningSwitch) {
+      const runningSwitch = existingRunningSwitch ?? this.accessory!.addService(this.platform.Service.Switch, 'Washer Running', 'WasherRunning')
+      runningSwitch.setCharacteristic(this.platform.Characteristic.Name, 'Washer Running')
+      runningSwitch
+        .getCharacteristic(this.platform.Characteristic.On)
+        .onGet(async () => {
+          const r = await this.readErd(ERD_TYPES.LAUNDRY_MACHINE_STATE)
+          return !!r && Number.parseInt(r) !== 0
+        })
+        .onSet(async () => {
+          // Read-only: snap the tile back to the machine's real state
+          const r = await this.readErd(ERD_TYPES.LAUNDRY_MACHINE_STATE)
+          setTimeout(() => {
+            runningSwitch.updateCharacteristic(this.platform.Characteristic.On, !!r && Number.parseInt(r) !== 0)
+          }, 1000)
+        })
+    } else if (existingRunningSwitch) {
+      this.accessory!.removeService(existingRunningSwitch)
+    }
+
     // Washer Running State (Valve)
     const washerValve = this.accessory!.getService('Washer') ?? this.accessory!.addService(this.platform.Service.Valve, 'Washer', 'Washer')
     washerValve.setCharacteristic(this.platform.Characteristic.Name, 'Washer')

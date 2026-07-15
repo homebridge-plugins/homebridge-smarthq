@@ -225,6 +225,12 @@
               "condition": {
                 "functionBody": "return (model.devices && model.devices[arrayIndices].applianceId && !model.devices[arrayIndices].hide_device);"
               }
+            },
+            "showRunningSwitch": {
+              "title": "Show Running Switch",
+              "type": "boolean",
+              "default": false,
+              "description": "Washers and dryers only: expose a read-only switch that shows whether the machine is running."
             }
           },
           "required": [
@@ -365,6 +371,7 @@
             "devices[].createSeparateFanService",
             "devices[].showDryModeSwitch",
             "devices[].showHeatMode",
+            "devices[].showRunningSwitch",
             "devices[].firmware",
             "devices[].refreshRate",
             "devices[].logging"
