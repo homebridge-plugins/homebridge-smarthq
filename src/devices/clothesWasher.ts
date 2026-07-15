@@ -147,6 +147,20 @@ export class SmartHQClothesWasher extends deviceBase {
   /**
    * Initialize HAP (HomeKit) protocol
    */
+  /**
+   * Machine state values follow gehome's ErdMachineState: only genuinely active
+   * states count as running - standby (1) and cycle complete (4) do not (#60).
+   */
+  private async isMachineRunning(): Promise<boolean> {
+    const r = await this.readErd(ERD_TYPES.LAUNDRY_MACHINE_STATE)
+    if (!r) {
+      return false
+    }
+    const state = Number.parseInt(r, 16)
+    // 2 run, 3 pause, 5/6 delay run, 7 delay pause, 8 drain timeout, 10 bulk flush
+    return [2, 3, 5, 6, 7, 8, 10].includes(state)
+  }
+
   private initializeHAP(): void {
     // Optional read-only running switch, a simple on/off tile for automations
     // and a clear visual in the Home app (#60)
@@ -157,14 +171,13 @@ export class SmartHQClothesWasher extends deviceBase {
       runningSwitch
         .getCharacteristic(this.platform.Characteristic.On)
         .onGet(async () => {
-          const r = await this.readErd(ERD_TYPES.LAUNDRY_MACHINE_STATE)
-          return !!r && Number.parseInt(r) !== 0
+          return this.isMachineRunning()
         })
         .onSet(async () => {
           // Read-only: snap the tile back to the machine's real state
-          const r = await this.readErd(ERD_TYPES.LAUNDRY_MACHINE_STATE)
+          const running = await this.isMachineRunning()
           setTimeout(() => {
-            runningSwitch.updateCharacteristic(this.platform.Characteristic.On, !!r && Number.parseInt(r) !== 0)
+            runningSwitch.updateCharacteristic(this.platform.Characteristic.On, running)
           }, 1000)
         })
     } else if (existingRunningSwitch) {
@@ -186,16 +199,13 @@ export class SmartHQClothesWasher extends deviceBase {
     washerValve
       .getCharacteristic(this.platform.Characteristic.Active)
       .onGet(async () => {
-        const r = await this.readErd(ERD_TYPES.LAUNDRY_MACHINE_STATE)
-        // Machine state: 0=idle, 1=running
-        return r && Number.parseInt(r) !== 0 ? this.platform.Characteristic.Active.ACTIVE : this.platform.Characteristic.Active.INACTIVE
+        return await this.isMachineRunning() ? this.platform.Characteristic.Active.ACTIVE : this.platform.Characteristic.Active.INACTIVE
       })
 
     washerValve
       .getCharacteristic(this.platform.Characteristic.InUse)
       .onGet(async () => {
-        const r = await this.readErd(ERD_TYPES.LAUNDRY_MACHINE_STATE)
-        return r && Number.parseInt(r) !== 0 ? this.platform.Characteristic.InUse.IN_USE : this.platform.Characteristic.InUse.NOT_IN_USE
+        return await this.isMachineRunning() ? this.platform.Characteristic.InUse.IN_USE : this.platform.Characteristic.InUse.NOT_IN_USE
       })
 
     washerValve
@@ -203,8 +213,7 @@ export class SmartHQClothesWasher extends deviceBase {
       .setProps({ maxValue: 86400 }) // default max is 3600s, laundry cycles can run longer (#60)
       .onGet(async () => {
         // Check if machine is running first
-        const machineState = await this.readErd(ERD_TYPES.LAUNDRY_MACHINE_STATE)
-        if (!machineState || Number.parseInt(machineState) === 0) {
+        if (!await this.isMachineRunning()) {
           return 0 // Machine is idle, no time remaining
         }
 
@@ -250,8 +259,8 @@ export class SmartHQClothesWasher extends deviceBase {
       .getCharacteristic(this.platform.Characteristic.ContactSensorState)
       .onGet(async () => {
         const r = await this.readErd(ERD_TYPES.LAUNDRY_DOOR)
-        // 0=closed, 1=open
-        return r && Number.parseInt(r) === 1
+        // gehome ErdLaundryDoorStatus: 0=open, 1=closed, 255=unknown
+        return r && Number.parseInt(r, 16) === 0
           ? this.platform.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED
           : this.platform.Characteristic.ContactSensorState.CONTACT_DETECTED
       })
@@ -305,6 +314,11 @@ export class SmartHQClothesWasher extends deviceBase {
     cycleSensor
       .getCharacteristic(this.platform.Characteristic.MotionDetected)
       .onGet(async () => {
+        // A cycle is always selected on the dial, so gate on the machine
+        // actually running rather than on the cycle code (#60)
+        if (!await this.isMachineRunning()) {
+          return false
+        }
         const cycleCode = await this.readErd(ERD_TYPES.LAUNDRY_CYCLE)
         const subCycleCode = await this.readErd(ERD_TYPES.LAUNDRY_SUB_CYCLE)
 
