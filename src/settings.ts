@@ -56,6 +56,7 @@ export interface devicesConfig {
   createSeparateFanService?: boolean // AC only: expose a separate fan service for fan-speed control
   showDryModeSwitch?: boolean // AC only: expose the dry mode switch
   showHeatMode?: boolean // AC only: expose heat in the target mode dropdown and as a mode switch
+  showRunningSwitch?: boolean // laundry only: expose a read-only switch that mirrors whether the machine is running
   keurig?: boolean // Override auto-detect for the built-in Keurig K-Cup brewer (e.g. PYE22PYNHFS)
   keurigOnly?: boolean // Skip the main Refrigerator accessory; only publish the Keurig sub-accessory
 }
@@ -301,6 +302,7 @@ export const ERD_TYPES = {
   CLOSED_LOOP_COOKING_CONFIGURATION: '0x5770' as const,
 
   DISHWASHER_CYCLE: '0x6000' as const,
+  DISHWASHER_DOOR_STATUS: '0x3037' as const,
   DISHWASHER_CYCLE_PHASE: '0x6001' as const,
   DISHWASHER_CYCLE_PHASE_DESCRIPTION: '0x6002' as const,
   DISHWASHER_CYCLE_PHASE_TIME_REMAINING: '0x6003' as const,
@@ -327,15 +329,17 @@ export const ERD_TYPES = {
   RESOURCE_MANAGEMENT_V1_ELECTRICAL_ENERGY_USAGE_V2: '0x7010' as const,
 
   // Laundry (Washer/Dryer)
+  // Laundry codes follow simbaja/gehome's erd_codes.py — the previous sequential
+  // guesses polled the wrong ERDs (#60: door lock read 0x200a, which is the cycle)
   LAUNDRY_MACHINE_STATE: '0x2000' as const,
-  LAUNDRY_CYCLE: '0x2001' as const,
-  LAUNDRY_SUB_CYCLE: '0x2002' as const,
-  LAUNDRY_END_OF_CYCLE: '0x2003' as const,
+  LAUNDRY_CYCLE: '0x200a' as const,
+  LAUNDRY_SUB_CYCLE: '0x2001' as const,
+  LAUNDRY_END_OF_CYCLE: '0x2002' as const,
   LAUNDRY_TIME_REMAINING: '0x2007' as const,
-  LAUNDRY_DELAY_TIME_REMAINING: '0x2008' as const,
-  LAUNDRY_DOOR: '0x2009' as const,
-  LAUNDRY_DOOR_LOCK: '0x200a' as const,
-  LAUNDRY_REMOTE_STATUS: '0x200d' as const,
+  LAUNDRY_DELAY_TIME_REMAINING: '0x2010' as const,
+  LAUNDRY_DOOR: '0x2012' as const,
+  LAUNDRY_DOOR_LOCK: '0x2013' as const,
+  LAUNDRY_REMOTE_STATUS: '0x2039' as const,
 
   // Air Conditioner
   AIR_CONDITIONER_AMBIENT_TEMPERATURE: '0x7A02' as const,

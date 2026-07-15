@@ -17,6 +17,8 @@ All notable changes to this project will be documented in this file. This projec
 - docs: refresh the readme
 - feat: add support for more appliance types and improve existing ones (@donavanbecker)
 - feat: add a work-in-progress matter implementation (@donavanbecker)
+- fix: poll the correct erd codes for the laundry cycle, door and door lock (#60) (@Wazza151)
+- feat: add an optional running switch for washers and dryers (#60) (@Wazza151)
 - fix: treat the laundry time remaining value as seconds and clamp it for homekit (#60) (@Wazza151)
 - fix: recognise home water filters that report their type without the whole prefix (#10) (@cainmp)
 - fix: log the credentials re-authentication at debug level (@donavanbecker)

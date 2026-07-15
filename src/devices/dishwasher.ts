@@ -189,7 +189,7 @@ export class SmartHQDishWasher extends deviceBase {
     doorSensor
       .getCharacteristic(this.platform.Characteristic.ContactSensorState)
       .onGet(async () => {
-        const r = await this.readErd(ERD_TYPES.LAUNDRY_DOOR)
+        const r = await this.readErd(ERD_TYPES.DISHWASHER_DOOR_STATUS)
         // 0=closed (detected), 1=open (not detected)
         return r && Number.parseInt(r) === 1
           ? this.platform.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED
