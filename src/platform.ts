@@ -436,6 +436,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
               await this.createSmartHQWaterSoftener(userId, device, details, features)
               break
             case 'Whole Home Water Heater':
+            case 'Water Heater': // the GeoSpring reports its type without the 'Whole Home' prefix (#62)
               await this.createSmartHQWaterHeater(userId, device, details, features)
               break
             case 'Advantium':
