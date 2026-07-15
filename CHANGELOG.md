@@ -17,6 +17,7 @@ All notable changes to this project will be documented in this file. This projec
 - docs: refresh the readme
 - feat: add support for more appliance types and improve existing ones (@donavanbecker)
 - feat: add a work-in-progress matter implementation (@donavanbecker)
+- feat: read real filter life, water flow and leak data for home water filters (#10) (@fratinize)
 - fix: correct the laundry door contact direction and running state detection (#60) (@Wazza151)
 - fix: poll the correct erd codes for the laundry cycle, door and door lock (#60) (@Wazza151)
 - feat: add an optional running switch for washers and dryers (#60) (@Wazza151)

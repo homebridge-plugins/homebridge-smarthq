@@ -226,6 +226,13 @@ export const ERD_TYPES = {
   TURBO_COOL_STATUS: '0x100f' as const,
   TURBO_FREEZE_STATUS: '0x100e' as const,
   WATER_FILTER_STATUS: '0x1009' as const,
+  // Whole-home water filter codes follow simbaja/gehome's erd_codes.py (#10)
+  WATER_FILTER_VALVE_STATE: '0x115e' as const,
+  WATER_FILTER_MODE: '0x115f' as const,
+  WATER_FILTER_FLOW_RATE: '0x1160' as const,
+  WATER_FILTER_LIFE_REMAINING: '0x1164' as const,
+  WATER_FILTER_FLOW_ALERT: '0x1169' as const,
+  WATER_FILTER_LEAK_VALIDITY: '0x116e' as const,
   FRIDGE_UNKNOWN_1012: '0x1012' as const,
   FRIDGE_UNKNOWN_1013: '0x1013' as const,
   FRIDGE_UNKNOWN_1019: '0x1019' as const,
