@@ -183,6 +183,7 @@ export class SmartHQClothesDryer extends deviceBase {
 
     dryerValve
       .getCharacteristic(this.platform.Characteristic.RemainingDuration)
+      .setProps({ maxValue: 86400 }) // default max is 3600s, laundry cycles can run longer (#60)
       .onGet(async () => {
         // Check if machine is running first
         const machineState = await this.readErd(ERD_TYPES.LAUNDRY_MACHINE_STATE)
@@ -194,12 +195,13 @@ export class SmartHQClothesDryer extends deviceBase {
         if (!r) {
           return 0
         }
-        // Value is in hex, convert to decimal (appears to be in deciseconds or needs /10)
-        const value = Number.parseInt(r, 16)
-        const minutes = value / 10
-        const seconds = Math.round(minutes * 60) // Don't cap, let it show actual time
-        this.infoLog(`Time Remaining - Hex: ${r}, Decimal: ${value}, Minutes: ${minutes}, Seconds: ${seconds}`)
-        return seconds
+        // The raw value is already in seconds: live pushes decrement it by 60
+        // every minute of wall time (#60). HomeKit's RemainingDuration is capped
+        // by its maxValue, so clamp long cycles rather than send illegal values.
+        const seconds = Number.parseInt(r, 16)
+        const clamped = Math.min(seconds, 86400)
+        this.infoLog(`Time Remaining - Hex: ${r}, Seconds: ${seconds}`)
+        return clamped
       })
 
     // Door Lock
