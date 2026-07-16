@@ -48,6 +48,7 @@ All notable changes to this project will be documented in this file. This projec
 - fix: recognise water heaters that report their type without the whole home prefix (#62) (@socalcal)
 - feat: read appliance values from the live websocket feed instead of fetching them (#10) (@fratinize)
 - fix: match erd codes regardless of the case they are written in (#10) (@fratinize)
+- fix: update the water filter tiles the moment the appliance reports a change (#10) (@cainmp) (@fratinize)
 
 ## [0.4.16](https://github.com/homebridge-plugins/homebridge-smarthq/compare/v0.4.15...v0.4.16) (2026-04-09)
 

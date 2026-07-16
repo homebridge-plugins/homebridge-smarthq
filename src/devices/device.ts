@@ -350,6 +350,18 @@ export abstract class deviceBase {
   /**
    * Read an ERD (Electronic Refrigerator Descriptor) value from the SmartHQ API
    */
+  /**
+   * Called by the platform when the appliance pushes a new ERD value over the
+   * websocket. Device classes that can reflect the change in HomeKit straight
+   * away should override this; the default does nothing, so devices update on
+   * their next read as before. The erd code arrives normalised (lowercase).
+   */
+  onErdUpdate(erd: string, value: string): void {
+    // no live updates by default
+    void erd
+    void value
+  }
+
   async readErd(erd: string): Promise<string | undefined> {
     // Prefer the value the appliance pushed to us over the websocket: it is
     // more current than anything we could fetch, free to read, and proves the

@@ -328,6 +328,14 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
               }
             }
           }
+
+          // Let the device reflect the change in HomeKit straight away,
+          // rather than waiting to be asked (#10)
+          try {
+            accessory.control?.onErdUpdate(normaliseErd(obj.item.erd), liveValue)
+          } catch (error) {
+            this.debugLog(`onErdUpdate failed for ${obj.item.erd}: ${error}`)
+          }
         }
       })
 

@@ -2,7 +2,7 @@
  *
  * waterFilter.ts: @homebridge-plugins/homebridge-smarthq.
  */
-import type { PlatformAccessory } from 'homebridge'
+import type { PlatformAccessory, Service } from 'homebridge'
 
 import type { SmartHQPlatform } from '../platform.js'
 import type { devicesConfig, SmartHqContext } from '../settings.js'
@@ -11,6 +11,10 @@ import { ERD_TYPES } from '../settings.js'
 import { deviceBase } from './device.js'
 
 export class SmartHQWaterFilter extends deviceBase {
+  private filterService: Service
+  private valveService: Service
+  private leakService: Service
+
   constructor(
     readonly platform: SmartHQPlatform,
     accessory: PlatformAccessory<SmartHqContext>,
@@ -20,9 +24,9 @@ export class SmartHQWaterFilter extends deviceBase {
     this.debugLog(`Water Filter Features: ${JSON.stringify(accessory.context.device.features)}`)
 
     // Water Filter Maintenance
-    const filterService = this.accessory!.getService('Water Filter') ?? this.accessory!.addService(this.platform.Service.FilterMaintenance, 'Water Filter', 'WaterFilter')
-    filterService.setCharacteristic(this.platform.Characteristic.Name, 'Water Filter')
-    filterService
+    this.filterService = this.accessory!.getService('Water Filter') ?? this.accessory!.addService(this.platform.Service.FilterMaintenance, 'Water Filter', 'WaterFilter')
+    this.filterService.setCharacteristic(this.platform.Characteristic.Name, 'Water Filter')
+    this.filterService
       .getCharacteristic(this.platform.Characteristic.FilterChangeIndication)
       .onGet(async () => {
         const life = await this.getFilterLifePercent()
@@ -31,7 +35,7 @@ export class SmartHQWaterFilter extends deviceBase {
           : this.platform.Characteristic.FilterChangeIndication.FILTER_OK
       })
 
-    filterService
+    this.filterService
       .getCharacteristic(this.platform.Characteristic.FilterLifeLevel)
       .onGet(async () => {
         const life = await this.getFilterLifePercent()
@@ -40,10 +44,10 @@ export class SmartHQWaterFilter extends deviceBase {
 
     // Water Flow Valve: active when the valve is in its filtered position,
     // in use when water is actually flowing
-    const valveService = this.accessory!.getService('Water Flow') ?? this.accessory!.addService(this.platform.Service.Valve, 'Water Flow', 'WaterFlow')
-    valveService.setCharacteristic(this.platform.Characteristic.Name, 'Water Flow')
-    valveService.setCharacteristic(this.platform.Characteristic.ValveType, this.platform.Characteristic.ValveType.WATER_FAUCET)
-    valveService
+    this.valveService = this.accessory!.getService('Water Flow') ?? this.accessory!.addService(this.platform.Service.Valve, 'Water Flow', 'WaterFlow')
+    this.valveService.setCharacteristic(this.platform.Characteristic.Name, 'Water Flow')
+    this.valveService.setCharacteristic(this.platform.Characteristic.ValveType, this.platform.Characteristic.ValveType.WATER_FAUCET)
+    this.valveService
       .getCharacteristic(this.platform.Characteristic.Active)
       .onGet(async () => {
         try {
@@ -59,7 +63,7 @@ export class SmartHQWaterFilter extends deviceBase {
         }
       })
 
-    valveService
+    this.valveService
       .getCharacteristic(this.platform.Characteristic.InUse)
       .onGet(async () => {
         const flowing = await this.isWaterFlowing()
@@ -70,9 +74,9 @@ export class SmartHQWaterFilter extends deviceBase {
 
     // Leak Sensor: combines the filter's leak detection with its flow alert,
     // so continuous unexpected flow also raises a HomeKit leak notification
-    const leakService = this.accessory!.getService('Water Leak') ?? this.accessory!.addService(this.platform.Service.LeakSensor, 'Water Leak', 'WaterLeak')
-    leakService.setCharacteristic(this.platform.Characteristic.Name, 'Water Leak')
-    leakService
+    this.leakService = this.accessory!.getService('Water Leak') ?? this.accessory!.addService(this.platform.Service.LeakSensor, 'Water Leak', 'WaterLeak')
+    this.leakService.setCharacteristic(this.platform.Characteristic.Name, 'Water Leak')
+    this.leakService
       .getCharacteristic(this.platform.Characteristic.LeakDetected)
       .onGet(async () => {
         const leak = await this.isLeakDetected()
@@ -80,6 +84,68 @@ export class SmartHQWaterFilter extends deviceBase {
           ? this.platform.Characteristic.LeakDetected.LEAK_DETECTED
           : this.platform.Characteristic.LeakDetected.LEAK_NOT_DETECTED
       })
+  }
+
+  /**
+   * Reflect a pushed ERD change in HomeKit as it happens, instead of waiting
+   * for HomeKit to ask. The platform stores the pushed value in its live
+   * cache before calling this, so the existing read helpers see fresh data
+   * (#10).
+   */
+  onErdUpdate(erd: string): void {
+    void this.applyLiveUpdate(erd)
+  }
+
+  private async applyLiveUpdate(erd: string): Promise<void> {
+    try {
+      switch (erd) {
+        case ERD_TYPES.WATER_FILTER_VALVE_STATE: {
+          const r = await this.readErd(ERD_TYPES.WATER_FILTER_VALVE_STATE)
+          const state = r ? Number.parseInt(r, 16) : -1
+          this.valveService.updateCharacteristic(
+            this.platform.Characteristic.Active,
+            [2, 3].includes(state)
+              ? this.platform.Characteristic.Active.ACTIVE
+              : this.platform.Characteristic.Active.INACTIVE,
+          )
+          break
+        }
+        case ERD_TYPES.WATER_FILTER_FLOW_RATE: {
+          const flowing = await this.isWaterFlowing()
+          this.valveService.updateCharacteristic(
+            this.platform.Characteristic.InUse,
+            flowing
+              ? this.platform.Characteristic.InUse.IN_USE
+              : this.platform.Characteristic.InUse.NOT_IN_USE,
+          )
+          break
+        }
+        case ERD_TYPES.WATER_FILTER_LIFE_REMAINING: {
+          const life = await this.getFilterLifePercent()
+          this.filterService.updateCharacteristic(this.platform.Characteristic.FilterLifeLevel, life ?? 100)
+          this.filterService.updateCharacteristic(
+            this.platform.Characteristic.FilterChangeIndication,
+            life !== null && life <= 10
+              ? this.platform.Characteristic.FilterChangeIndication.CHANGE_FILTER
+              : this.platform.Characteristic.FilterChangeIndication.FILTER_OK,
+          )
+          break
+        }
+        case ERD_TYPES.WATER_FILTER_LEAK_VALIDITY:
+        case ERD_TYPES.WATER_FILTER_FLOW_ALERT: {
+          const leak = await this.isLeakDetected()
+          this.leakService.updateCharacteristic(
+            this.platform.Characteristic.LeakDetected,
+            leak
+              ? this.platform.Characteristic.LeakDetected.LEAK_DETECTED
+              : this.platform.Characteristic.LeakDetected.LEAK_NOT_DETECTED,
+          )
+          break
+        }
+      }
+    } catch (error: any) {
+      this.warnLog?.(`Water Filter live update error: ${error?.message ?? error}`)
+    }
   }
 
   /**
