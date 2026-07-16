@@ -160,6 +160,15 @@ export class SmartHQOven extends deviceBase {
    * Initialize HAP (HomeKit) protocol
    */
   private initializeHAP(): void {
+    // Log the raw light availability and remote enable values once at startup —
+    // many GE ovens accept the light write over the cloud but the appliance
+    // ignores it when remote light control is not supported (#8)
+    ;(async () => {
+      const lightAvailability = await this.readErd(ERD_TYPES.UPPER_OVEN_LIGHT_AVAILABILITY)
+      const remoteEnabled = await this.readErd(ERD_TYPES.UPPER_OVEN_REMOTE_ENABLED)
+      this.debugLog(`Oven light availability raw: ${lightAvailability ?? 'not reported'}, remote enabled raw: ${remoteEnabled ?? 'not reported'}`)
+    })()
+
     // Oven Light
     const ovenLight = this.accessory!.getService('Oven Light') ?? this.accessory!.addService(this.platform.Service.Lightbulb, 'Oven Light', 'OvenLight')
     ovenLight.setCharacteristic(this.platform.Characteristic.Name, 'Oven Light')
@@ -233,6 +242,18 @@ export class SmartHQOven extends deviceBase {
           ? this.platform.Characteristic.Active.ACTIVE
           : this.platform.Characteristic.Active.INACTIVE
       })
+      .onSet(async () => {
+        // The tile is a read-only display of the remaining cook time — revert
+        // the toggle to the real state so a tap doesn't silently pretend to work
+        this.infoLog('Cook Time is a read-only display; starting or stopping cooking from HomeKit is not yet supported')
+        const r = await this.readErd(ERD_TYPES.UPPER_OVEN_COOK_TIME_REMAINING)
+        cookTimeValve.updateCharacteristic(
+          this.platform.Characteristic.Active,
+          r && Number.parseInt(r, 16) > 0
+            ? this.platform.Characteristic.Active.ACTIVE
+            : this.platform.Characteristic.Active.INACTIVE,
+        )
+      })
 
     cookTimeValve
       .getCharacteristic(this.platform.Characteristic.InUse)
@@ -270,40 +291,12 @@ export class SmartHQOven extends deviceBase {
           : this.platform.Characteristic.ContactSensorState.CONTACT_DETECTED
       })
 
-    // Oven Door Lock (Security System for lock state)
-    const ovenDoorLock = this.accessory!.getService('Oven Door Lock') ?? this.accessory!.addService(this.platform.Service.LockMechanism, 'Oven Door Lock', 'OvenDoorLock')
-    ovenDoorLock.setCharacteristic(this.platform.Characteristic.Name, 'Oven Door Lock')
-    ovenDoorLock
-      .getCharacteristic(this.platform.Characteristic.LockCurrentState)
-      .onGet(async () => {
-        try {
-          // TODO: Use actual ERD for door lock state when available
-          return this.platform.Characteristic.LockCurrentState.UNSECURED
-        } catch (error: any) {
-          this.warnLog?.(`Oven Door Lock error: ${error?.message ?? error}`)
-          return this.platform.Characteristic.LockCurrentState.UNSECURED
-        }
-      })
-
-    ovenDoorLock
-      .getCharacteristic(this.platform.Characteristic.LockTargetState)
-      .onGet(async () => {
-        try {
-          // TODO: Use actual ERD for door lock state when available
-          return this.platform.Characteristic.LockTargetState.UNSECURED
-        } catch (error: any) {
-          this.warnLog?.(`Oven Door Lock error: ${error?.message ?? error}`)
-          return this.platform.Characteristic.LockTargetState.UNSECURED
-        }
-      })
-      .onSet(async (value) => {
-        try {
-          // TODO: Implement door lock control when ERD is available
-          this.debugLog(`Oven Door Lock set to: ${value}`)
-        } catch (error: any) {
-          this.warnLog?.(`Oven Door Lock set error: ${error?.message ?? error}`)
-        }
-      })
+    // Oven Door Lock: removed until a real door lock ERD is implemented — the
+    // previous service was a stub whose lock control did nothing (#8)
+    const staleDoorLock = this.accessory!.getService('Oven Door Lock')
+    if (staleDoorLock) {
+      this.accessory!.removeService(staleDoorLock)
+    }
   }
 }
 /*
