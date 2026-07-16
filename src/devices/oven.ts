@@ -169,27 +169,40 @@ export class SmartHQOven extends deviceBase {
       this.debugLog(`Oven light availability raw: ${lightAvailability ?? 'not reported'}, remote enabled raw: ${remoteEnabled ?? 'not reported'}`)
     })()
 
-    // Oven Light
-    const ovenLight = this.accessory!.getService('Oven Light') ?? this.accessory!.addService(this.platform.Service.Lightbulb, 'Oven Light', 'OvenLight')
-    ovenLight.setCharacteristic(this.platform.Characteristic.Name, 'Oven Light')
-    ovenLight
-      .getCharacteristic(this.platform.Characteristic.On)
-      .onGet(async () => {
-        try {
-          const r = await this.readErd(ERD_TYPES.UPPER_OVEN_LIGHT)
-          return r ? Number.parseInt(r) !== 0 : false
-        } catch (error: any) {
-          this.warnLog?.(`Oven Light handleGetOn error: ${error?.message ?? error}`)
-          return false
+    // Oven Light: only shown when the oven reports its light over the api —
+    // some ranges (e.g. the JS760SP6SS) have no remote light control at all,
+    // the GE app hides it too, and a tile here could never work (#8)
+    ;(async () => {
+      const lightSupported = await this.has_erd_code(ERD_TYPES.UPPER_OVEN_LIGHT)
+      if (!lightSupported) {
+        const staleLight = this.accessory!.getService('Oven Light')
+        if (staleLight) {
+          this.accessory!.removeService(staleLight)
+          this.infoLog('This oven does not report its light over the SmartHQ api, so the Oven Light tile has been removed')
         }
-      })
-      .onSet(async (value) => {
-        try {
-          await this.writeErd(ERD_TYPES.UPPER_OVEN_LIGHT, value as boolean)
-        } catch (error: any) {
-          this.warnLog?.(`Oven Light handleSetOn error: ${error?.message ?? error}`)
-        }
-      })
+        return
+      }
+      const ovenLight = this.accessory!.getService('Oven Light') ?? this.accessory!.addService(this.platform.Service.Lightbulb, 'Oven Light', 'OvenLight')
+      ovenLight.setCharacteristic(this.platform.Characteristic.Name, 'Oven Light')
+      ovenLight
+        .getCharacteristic(this.platform.Characteristic.On)
+        .onGet(async () => {
+          try {
+            const r = await this.readErd(ERD_TYPES.UPPER_OVEN_LIGHT)
+            return r ? Number.parseInt(r) !== 0 : false
+          } catch (error: any) {
+            this.warnLog?.(`Oven Light handleGetOn error: ${error?.message ?? error}`)
+            return false
+          }
+        })
+        .onSet(async (value) => {
+          try {
+            await this.writeErd(ERD_TYPES.UPPER_OVEN_LIGHT, value as boolean)
+          } catch (error: any) {
+            this.warnLog?.(`Oven Light handleSetOn error: ${error?.message ?? error}`)
+          }
+        })
+    })()
 
     // Oven Current Temperature Sensor
     const ovenTempSensor = this.accessory!.getService('Oven Temperature') ?? this.accessory!.addService(this.platform.Service.TemperatureSensor, 'Oven Temperature', 'OvenTemp')
@@ -278,18 +291,31 @@ export class SmartHQOven extends deviceBase {
         return seconds
       })
 
-    // Remote Enabled Status (binary sensor)
-    const remoteEnabledSensor = this.accessory!.getService('Remote Enabled') ?? this.accessory!.addService(this.platform.Service.ContactSensor, 'Remote Enabled', 'RemoteEnabled')
-    remoteEnabledSensor.setCharacteristic(this.platform.Characteristic.Name, 'Remote Enabled')
-    remoteEnabledSensor
-      .getCharacteristic(this.platform.Characteristic.ContactSensorState)
-      .onGet(async () => {
-        const r = await this.readErd(ERD_TYPES.UPPER_OVEN_REMOTE_ENABLED)
-        // 1=enabled (open/not detected), 0=disabled (closed/detected)
-        return r && Number.parseInt(r) === 1
-          ? this.platform.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED
-          : this.platform.Characteristic.ContactSensorState.CONTACT_DETECTED
-      })
+    // Remote Enabled Status (binary sensor): only shown when the oven reports
+    // this value — on models that don't, the tile sat on "closed" forever and
+    // read as "remote disabled" when nothing of the sort was known (#8)
+    ;(async () => {
+      const remoteEnabledSupported = await this.has_erd_code(ERD_TYPES.UPPER_OVEN_REMOTE_ENABLED)
+      if (!remoteEnabledSupported) {
+        const staleRemoteEnabled = this.accessory!.getService('Remote Enabled')
+        if (staleRemoteEnabled) {
+          this.accessory!.removeService(staleRemoteEnabled)
+          this.infoLog('This oven does not report its remote enable state over the SmartHQ api, so the Remote Enabled tile has been removed')
+        }
+        return
+      }
+      const remoteEnabledSensor = this.accessory!.getService('Remote Enabled') ?? this.accessory!.addService(this.platform.Service.ContactSensor, 'Remote Enabled', 'RemoteEnabled')
+      remoteEnabledSensor.setCharacteristic(this.platform.Characteristic.Name, 'Remote Enabled')
+      remoteEnabledSensor
+        .getCharacteristic(this.platform.Characteristic.ContactSensorState)
+        .onGet(async () => {
+          const r = await this.readErd(ERD_TYPES.UPPER_OVEN_REMOTE_ENABLED)
+          // 1=enabled (open/not detected), 0=disabled (closed/detected)
+          return r && Number.parseInt(r) === 1
+            ? this.platform.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED
+            : this.platform.Characteristic.ContactSensorState.CONTACT_DETECTED
+        })
+    })()
 
     // Oven Door Lock: removed until a real door lock ERD is implemented — the
     // previous service was a stub whose lock control did nothing (#8)
