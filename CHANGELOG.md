@@ -49,6 +49,7 @@ All notable changes to this project will be documented in this file. This projec
 - feat: read appliance values from the live websocket feed instead of fetching them (#10) (@fratinize)
 - fix: match erd codes regardless of the case they are written in (#10) (@fratinize)
 - fix: update the water filter tiles the moment the appliance reports a change (#10) (@cainmp) (@fratinize)
+- fix: show the water flow tile as a plain off/running instead of "stopping" on some filters (#10) (@fratinize)
 - fix: remove the oven door lock tile and stop the cook time tile pretending to be a control (#8) (@dfinstein)
 - chore: log the oven light availability and remote enable values at startup to aid support (#8) (@dfinstein)
 

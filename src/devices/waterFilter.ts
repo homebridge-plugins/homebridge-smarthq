@@ -42,25 +42,20 @@ export class SmartHQWaterFilter extends deviceBase {
         return life ?? 100
       })
 
-    // Water Flow Valve: active when the valve is in its filtered position,
-    // in use when water is actually flowing
+    // Water Flow Valve: both Active and InUse follow the live flow rate, so
+    // the Home app tile reads a plain Off/Running. Deriving Active from the
+    // valve-state erd instead showed "Stopping" (in use but inactive) on
+    // filters that report that erd differently to the GXWH70M (#10)
     this.valveService = this.accessory!.getService('Water Flow') ?? this.accessory!.addService(this.platform.Service.Valve, 'Water Flow', 'WaterFlow')
     this.valveService.setCharacteristic(this.platform.Characteristic.Name, 'Water Flow')
     this.valveService.setCharacteristic(this.platform.Characteristic.ValveType, this.platform.Characteristic.ValveType.WATER_FAUCET)
     this.valveService
       .getCharacteristic(this.platform.Characteristic.Active)
       .onGet(async () => {
-        try {
-          // gehome ErdWaterFilterValveState: 0 bypass, 1 off, 2 filtered, 3 manual override
-          const r = await this.readErd(ERD_TYPES.WATER_FILTER_VALVE_STATE)
-          const state = r ? Number.parseInt(r, 16) : -1
-          return [2, 3].includes(state)
-            ? this.platform.Characteristic.Active.ACTIVE
-            : this.platform.Characteristic.Active.INACTIVE
-        } catch (error: any) {
-          this.warnLog?.(`Water Flow error: ${error?.message ?? error}`)
-          return this.platform.Characteristic.Active.INACTIVE
-        }
+        const flowing = await this.isWaterFlowing()
+        return flowing
+          ? this.platform.Characteristic.Active.ACTIVE
+          : this.platform.Characteristic.Active.INACTIVE
       })
 
     this.valveService
@@ -100,18 +95,20 @@ export class SmartHQWaterFilter extends deviceBase {
     try {
       switch (erd) {
         case ERD_TYPES.WATER_FILTER_VALVE_STATE: {
+          // Not mapped to a characteristic yet — models disagree on what they
+          // report here, so collect the raw values for a future mode tile
           const r = await this.readErd(ERD_TYPES.WATER_FILTER_VALVE_STATE)
-          const state = r ? Number.parseInt(r, 16) : -1
-          this.valveService.updateCharacteristic(
-            this.platform.Characteristic.Active,
-            [2, 3].includes(state)
-              ? this.platform.Characteristic.Active.ACTIVE
-              : this.platform.Characteristic.Active.INACTIVE,
-          )
+          this.debugLog(`Water filter valve state raw: ${r ?? 'not reported'}`)
           break
         }
         case ERD_TYPES.WATER_FILTER_FLOW_RATE: {
           const flowing = await this.isWaterFlowing()
+          this.valveService.updateCharacteristic(
+            this.platform.Characteristic.Active,
+            flowing
+              ? this.platform.Characteristic.Active.ACTIVE
+              : this.platform.Characteristic.Active.INACTIVE,
+          )
           this.valveService.updateCharacteristic(
             this.platform.Characteristic.InUse,
             flowing
