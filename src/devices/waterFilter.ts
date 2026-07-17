@@ -14,6 +14,7 @@ export class SmartHQWaterFilter extends deviceBase {
   private filterService: Service
   private valveService: Service
   private leakService: Service
+  private batteryService?: Service
 
   constructor(
     readonly platform: SmartHQPlatform,
@@ -22,6 +23,40 @@ export class SmartHQWaterFilter extends deviceBase {
   ) {
     super(platform, accessory, device)
     this.debugLog(`Water Filter Features: ${JSON.stringify(accessory.context.device.features)}`)
+
+    // Per-device config is looked up by applianceId as the device record passed
+    // in does not carry the custom per-device properties
+    const configuredDevices = (platform.config as { devices?: devicesConfig[] }).devices ?? []
+    const waterFilterConfig = configuredDevices.find(config => config.applianceId === device.applianceId) ?? device
+    const showFilterBattery = waterFilterConfig.showFilterBattery ?? false
+
+    // Filter life as a battery (opt-in): HomeKit has no native tile for filter
+    // life, so this surfaces the percentage and a low warning the way battery
+    // levels show (#10)
+    if (showFilterBattery) {
+      this.batteryService = this.accessory!.getService('Filter Life') ?? this.accessory!.addService(this.platform.Service.Battery, 'Filter Life', 'FilterLife')
+      this.batteryService.setCharacteristic(this.platform.Characteristic.Name, 'Filter Life')
+      this.batteryService.setCharacteristic(this.platform.Characteristic.ChargingState, this.platform.Characteristic.ChargingState.NOT_CHARGEABLE)
+      this.batteryService
+        .getCharacteristic(this.platform.Characteristic.BatteryLevel)
+        .onGet(async () => {
+          const life = await this.getFilterLifePercent()
+          return life ?? 100
+        })
+      this.batteryService
+        .getCharacteristic(this.platform.Characteristic.StatusLowBattery)
+        .onGet(async () => {
+          const life = await this.getFilterLifePercent()
+          return life !== null && life <= 10
+            ? this.platform.Characteristic.StatusLowBattery.BATTERY_LEVEL_LOW
+            : this.platform.Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL
+        })
+    } else {
+      const staleBattery = this.accessory!.getService('Filter Life')
+      if (staleBattery) {
+        this.accessory!.removeService(staleBattery)
+      }
+    }
 
     // Water Filter Maintenance
     this.filterService = this.accessory!.getService('Water Filter') ?? this.accessory!.addService(this.platform.Service.FilterMaintenance, 'Water Filter', 'WaterFilter')
@@ -125,6 +160,13 @@ export class SmartHQWaterFilter extends deviceBase {
             life !== null && life <= 10
               ? this.platform.Characteristic.FilterChangeIndication.CHANGE_FILTER
               : this.platform.Characteristic.FilterChangeIndication.FILTER_OK,
+          )
+          this.batteryService?.updateCharacteristic(this.platform.Characteristic.BatteryLevel, life ?? 100)
+          this.batteryService?.updateCharacteristic(
+            this.platform.Characteristic.StatusLowBattery,
+            life !== null && life <= 10
+              ? this.platform.Characteristic.StatusLowBattery.BATTERY_LEVEL_LOW
+              : this.platform.Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL,
           )
           break
         }

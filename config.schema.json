@@ -231,6 +231,12 @@
               "type": "boolean",
               "default": false,
               "description": "Washers and dryers only: expose a read-only switch that shows whether the machine is running."
+            },
+            "showFilterBattery": {
+              "title": "Show Filter Life As Battery",
+              "type": "boolean",
+              "default": false,
+              "description": "Water filters only: expose the filter life percentage as a battery, so it is visible at a glance in HomeKit with a low warning at 10%."
             }
           },
           "required": [
@@ -372,6 +378,7 @@
             "devices[].showDryModeSwitch",
             "devices[].showHeatMode",
             "devices[].showRunningSwitch",
+            "devices[].showFilterBattery",
             "devices[].firmware",
             "devices[].refreshRate",
             "devices[].logging"

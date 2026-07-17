@@ -57,6 +57,7 @@ export interface devicesConfig {
   showDryModeSwitch?: boolean // AC only: expose the dry mode switch
   showHeatMode?: boolean // AC only: expose heat in the target mode dropdown and as a mode switch
   showRunningSwitch?: boolean // laundry only: expose a read-only switch that mirrors whether the machine is running
+  showFilterBattery?: boolean // water filter only: expose the filter life as a battery so the percentage is glanceable in HomeKit
   keurig?: boolean // Override auto-detect for the built-in Keurig K-Cup brewer (e.g. PYE22PYNHFS)
   keurigOnly?: boolean // Skip the main Refrigerator accessory; only publish the Keurig sub-accessory
 }
