@@ -226,6 +226,15 @@
                 "functionBody": "return (model.devices && model.devices[arrayIndices].applianceId && !model.devices[arrayIndices].hide_device);"
               }
             },
+            "showModeSwitches": {
+              "title": "Show Mode Switches (Air Conditioners)",
+              "type": "boolean",
+              "default": true,
+              "description": "If disabled, the individual mode switches (cool, heat, fan only, dry, energy saver) are hidden for a minimal tile. Note: heat and cool stay available in the HomeKit mode selector, but Apple's selector cannot hold the other modes — those would then only be reachable from the SmartHQ app. Only applies to air conditioners.",
+              "condition": {
+                "functionBody": "return (model.devices && model.devices[arrayIndices].applianceId && !model.devices[arrayIndices].hide_device);"
+              }
+            },
             "showRunningSwitch": {
               "title": "Show Running Switch",
               "type": "boolean",
@@ -377,6 +386,7 @@
             "devices[].createSeparateFanService",
             "devices[].showDryModeSwitch",
             "devices[].showHeatMode",
+            "devices[].showModeSwitches",
             "devices[].showRunningSwitch",
             "devices[].showFilterBattery",
             "devices[].firmware",

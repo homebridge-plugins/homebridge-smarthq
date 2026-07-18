@@ -66,6 +66,7 @@ export class SmartHQAirConditioner extends deviceBase {
 
   // Some models are cooling-only, so heat can be hidden from HomeKit (#73)
   private readonly showHeatMode: boolean
+  private readonly showModeSwitches: boolean
 
   // Lazily flipped off when the appliance reports no swing mode ERD (#99)
   private swingModeSupported = true
@@ -87,6 +88,7 @@ export class SmartHQAirConditioner extends deviceBase {
 
     this.showDryModeSwitch = airConditionerConfig.showDryModeSwitch ?? true
     this.showHeatMode = airConditionerConfig.showHeatMode ?? true
+    this.showModeSwitches = airConditionerConfig.showModeSwitches ?? true
 
     const configuredDefaultOperationMode = {
       cool: OperationMode.COOL,
@@ -131,33 +133,49 @@ export class SmartHQAirConditioner extends deviceBase {
       }
     }
 
-    // Mode SwitchServices
-    this.modeSwitchSvc = {
-      [OperationMode.COOL]: this.accessory.getService(`${this.MODE_SWITCH_SVC_PREFIX}_COOL`)
-        ?? this.accessory.addService(this.platform.Service.Switch, `${accessory.displayName} Cool Mode`, `${this.MODE_SWITCH_SVC_PREFIX}_COOL`),
-      [OperationMode.FAN_ONLY]: this.accessory.getService(`${this.MODE_SWITCH_SVC_PREFIX}_FAN_ONLY`)
-        ?? this.accessory.addService(this.platform.Service.Switch, `${accessory.displayName} Fan Only Mode`, `${this.MODE_SWITCH_SVC_PREFIX}_FAN_ONLY`),
-      [OperationMode.ENERGY_SAVER]: this.accessory.getService(`${this.MODE_SWITCH_SVC_PREFIX}_ENERGY_SAVER`)
-        ?? this.accessory.addService(this.platform.Service.Switch, `${accessory.displayName} Energy Saver Mode`, `${this.MODE_SWITCH_SVC_PREFIX}_ENERGY_SAVER`),
+    // Mode SwitchServices: an opt-out for people who prefer a minimal tile
+    // of just the mode selector and fan — note the switches are the only
+    // HomeKit route into fan-only, dry and energy saver, as Apple's mode
+    // selector cannot hold them (#76)
+    this.modeSwitchSvc = {}
+    if (this.showModeSwitches) {
+      this.modeSwitchSvc[OperationMode.COOL] = this.accessory.getService(`${this.MODE_SWITCH_SVC_PREFIX}_COOL`)
+        ?? this.accessory.addService(this.platform.Service.Switch, `${accessory.displayName} Cool Mode`, `${this.MODE_SWITCH_SVC_PREFIX}_COOL`)
+      this.modeSwitchSvc[OperationMode.FAN_ONLY] = this.accessory.getService(`${this.MODE_SWITCH_SVC_PREFIX}_FAN_ONLY`)
+        ?? this.accessory.addService(this.platform.Service.Switch, `${accessory.displayName} Fan Only Mode`, `${this.MODE_SWITCH_SVC_PREFIX}_FAN_ONLY`)
+      this.modeSwitchSvc[OperationMode.ENERGY_SAVER] = this.accessory.getService(`${this.MODE_SWITCH_SVC_PREFIX}_ENERGY_SAVER`)
+        ?? this.accessory.addService(this.platform.Service.Switch, `${accessory.displayName} Energy Saver Mode`, `${this.MODE_SWITCH_SVC_PREFIX}_ENERGY_SAVER`)
     }
 
-    if (this.showHeatMode) {
+    if (this.showModeSwitches && this.showHeatMode) {
       this.modeSwitchSvc[OperationMode.HEAT] = this.accessory.getService(`${this.MODE_SWITCH_SVC_PREFIX}_HEAT`)
         ?? this.accessory.addService(this.platform.Service.Switch, `${accessory.displayName} Heat Mode`, `${this.MODE_SWITCH_SVC_PREFIX}_HEAT`)
-    } else {
-      const existingHeatModeService = this.accessory.getService(`${this.MODE_SWITCH_SVC_PREFIX}_HEAT`)
-      if (existingHeatModeService) {
-        this.accessory.removeService(existingHeatModeService)
-      }
     }
 
-    if (this.shouldExposeDryMode()) {
+    if (this.showModeSwitches && this.shouldExposeDryMode()) {
       this.modeSwitchSvc[OperationMode.DRY] = this.accessory.getService(`${this.MODE_SWITCH_SVC_PREFIX}_DRY`)
         ?? this.accessory.addService(this.platform.Service.Switch, `${accessory.displayName} Dry Mode`, `${this.MODE_SWITCH_SVC_PREFIX}_DRY`)
-    } else {
-      const existingDryModeService = this.accessory.getService(`${this.MODE_SWITCH_SVC_PREFIX}_DRY`)
-      if (existingDryModeService) {
-        this.accessory.removeService(existingDryModeService)
+    }
+
+    // Remove any switches the current options no longer create
+    const wantedSuffixes = new Set<string>()
+    if (this.showModeSwitches) {
+      wantedSuffixes.add('COOL')
+      wantedSuffixes.add('FAN_ONLY')
+      wantedSuffixes.add('ENERGY_SAVER')
+      if (this.showHeatMode) {
+        wantedSuffixes.add('HEAT')
+      }
+      if (this.shouldExposeDryMode()) {
+        wantedSuffixes.add('DRY')
+      }
+    }
+    for (const suffix of ['COOL', 'FAN_ONLY', 'ENERGY_SAVER', 'HEAT', 'DRY']) {
+      if (!wantedSuffixes.has(suffix)) {
+        const existing = this.accessory.getService(`${this.MODE_SWITCH_SVC_PREFIX}_${suffix}`)
+        if (existing) {
+          this.accessory.removeService(existing)
+        }
       }
     }
 

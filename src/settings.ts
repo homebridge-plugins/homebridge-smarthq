@@ -56,6 +56,7 @@ export interface devicesConfig {
   createSeparateFanService?: boolean // AC only: expose a separate fan service for fan-speed control
   showDryModeSwitch?: boolean // AC only: expose the dry mode switch
   showHeatMode?: boolean // AC only: expose heat in the target mode dropdown and as a mode switch
+  showModeSwitches?: boolean // AC only: expose the individual mode switches; disable for a minimal tile of just the mode selector and fan
   showRunningSwitch?: boolean // laundry only: expose a read-only switch that mirrors whether the machine is running
   showFilterBattery?: boolean // water filter only: expose the filter life as a battery so the percentage is glanceable in HomeKit
   keurig?: boolean // Override auto-detect for the built-in Keurig K-Cup brewer (e.g. PYE22PYNHFS)
