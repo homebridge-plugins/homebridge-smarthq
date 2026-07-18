@@ -320,13 +320,6 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
           if (erdName) {
             this.debugLog(`ERD_CODES: ${erdName}`)
             this.debugLog(`obj>item>value: ${obj.item.value}`)
-
-            if (obj.item.erd === ERD_TYPES.UPPER_OVEN_LIGHT) {
-              const service = accessory.getService('Upper Oven Light')
-              if (service) {
-                service.updateCharacteristic(this.Characteristic.On, obj.item.value === '01')
-              }
-            }
           }
 
           // Let the device reflect the change in HomeKit straight away,

@@ -385,6 +385,63 @@ export class SmartHQOven extends deviceBase {
     }
   }
 
+  /**
+   * Reflect a pushed ERD change in HomeKit as it happens, instead of waiting
+   * for HomeKit to ask. The platform stores the pushed value in its live
+   * cache before calling this, so the read helpers see fresh data (#8).
+   */
+  onErdUpdate(erd: string): void {
+    if (this.useMatterOverride) {
+      return
+    }
+    void this.applyLiveUpdate(erd)
+  }
+
+  private async applyLiveUpdate(erd: string): Promise<void> {
+    try {
+      switch (erd) {
+        case ERD_TYPES.UPPER_OVEN_LIGHT: {
+          const r = await this.try_get_erd_value(ERD_TYPES.UPPER_OVEN_LIGHT)
+          this.ovenLight?.updateCharacteristic(this.platform.Characteristic.On, !!r && Number.parseInt(r) !== 0)
+          break
+        }
+        case ERD_TYPES.UPPER_OVEN_RAW_TEMPERATURE:
+        case ERD_TYPES.UPPER_OVEN_DISPLAY_TEMPERATURE: {
+          this.ovenTempSensor?.updateCharacteristic(this.platform.Characteristic.CurrentTemperature, await this.getCavityTempC())
+          break
+        }
+        case ERD_TYPES.UPPER_OVEN_CURRENT_STATE: {
+          const running = await this.isOvenRunning()
+          this.cookTimeValve?.updateCharacteristic(
+            this.platform.Characteristic.Active,
+            running ? this.platform.Characteristic.Active.ACTIVE : this.platform.Characteristic.Active.INACTIVE,
+          )
+          this.cookTimeValve?.updateCharacteristic(
+            this.platform.Characteristic.InUse,
+            running ? this.platform.Characteristic.InUse.IN_USE : this.platform.Characteristic.InUse.NOT_IN_USE,
+          )
+          break
+        }
+        case ERD_TYPES.UPPER_OVEN_COOK_TIME_REMAINING: {
+          const r = await this.try_get_erd_value(ERD_TYPES.UPPER_OVEN_COOK_TIME_REMAINING)
+          const minutes = r ? Number.parseInt(r, 16) : 0
+          this.cookTimeValve?.updateCharacteristic(this.platform.Characteristic.RemainingDuration, minutes * 60)
+          break
+        }
+        case ERD_TYPES.UPPER_OVEN_PROBE_PRESENT: {
+          await this.syncProbeSensor()
+          break
+        }
+        case ERD_TYPES.UPPER_OVEN_PROBE_DISPLAY_TEMP: {
+          const r = await this.try_get_erd_value(ERD_TYPES.UPPER_OVEN_PROBE_DISPLAY_TEMP)
+          this.probeTempSensor?.updateCharacteristic(this.platform.Characteristic.CurrentTemperature, r ? fToC(Number.parseInt(r, 16)) : 0)
+          break
+        }
+      }
+    } catch (error: any) {
+      this.debugLog(`Live oven update for ${erd} failed: ${error?.message ?? error}`)
+    }
+  }
 }
 /*
 function cToF(celsius: number) {
