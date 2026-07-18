@@ -2,7 +2,7 @@
   "name": "@homebridge-plugins/homebridge-smarthq",
   "displayName": "Homebridge SmartHQ",
   "type": "module",
-  "version": "0.4.16",
+  "version": "0.5.0",
   "description": "Homebridge plugin to integrate SmartHQ appliances into HomeKit.",
   "author": {
     "name": "bwp91",
