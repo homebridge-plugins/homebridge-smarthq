@@ -55,6 +55,8 @@ All notable changes to this project will be documented in this file. This projec
 - fix: remove the oven door lock tile and stop the cook time tile pretending to be a control (#8) (@dfinstein)
 - fix: hide the oven light and remote enabled tiles on ovens that do not report them (#8) (@dfinstein)
 - chore: log the oven light availability and remote enable values at startup to aid support (#8) (@dfinstein)
+- docs: remove the old svg banner now the readme uses the png
+- chore(deps): dependency updates
 
 ## [0.4.16](https://github.com/homebridge-plugins/homebridge-smarthq/compare/v0.4.15...v0.4.16) (2026-04-09)
 
