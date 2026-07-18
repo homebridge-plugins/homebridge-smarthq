@@ -2,12 +2,10 @@
  *
  * oven.ts: @homebridge-plugins/homebridge-smarthq.
  */
-import type { PlatformAccessory } from 'homebridge'
+import type { PlatformAccessory, Service } from 'homebridge'
 
 import type { SmartHQPlatform } from '../platform.js'
 import type { devicesConfig, SmartHqContext } from '../settings.js'
-
-import { Buffer } from 'node:buffer'
 
 import { ERD_TYPES } from '../settings.js'
 import { deviceBase } from './device.js'
@@ -15,6 +13,13 @@ import { deviceBase } from './device.js'
 export class SmartHQOven extends deviceBase {
   // Matter support override flag
   private useMatterOverride: boolean = false
+
+  // HAP services kept for live websocket updates (#8)
+  private ovenLight?: Service
+  private ovenTempSensor?: Service
+  private probeTempSensor?: Service
+  private cookTimeValve?: Service
+  private probeRemovalLogged: boolean = false
 
   constructor(
     readonly platform: SmartHQPlatform,
@@ -183,6 +188,7 @@ export class SmartHQOven extends deviceBase {
         return
       }
       const ovenLight = this.accessory!.getService('Oven Light') ?? this.accessory!.addService(this.platform.Service.Lightbulb, 'Oven Light', 'OvenLight')
+      this.ovenLight = ovenLight
       ovenLight.setCharacteristic(this.platform.Characteristic.Name, 'Oven Light')
       ovenLight
         .getCharacteristic(this.platform.Characteristic.On)
@@ -204,65 +210,54 @@ export class SmartHQOven extends deviceBase {
         })
     })()
 
-    // Oven Current Temperature Sensor
+    // Oven Current Temperature Sensor: shows the ACTUAL cavity temperature,
+    // not the cook-mode target it used to show — the target regularly exceeds
+    // HomeKit's default 100°C sensor maximum, which clamped a 350°F setpoint
+    // to 100°C and displayed it as a baffling 212°F (#8)
     const ovenTempSensor = this.accessory!.getService('Oven Temperature') ?? this.accessory!.addService(this.platform.Service.TemperatureSensor, 'Oven Temperature', 'OvenTemp')
+    this.ovenTempSensor = ovenTempSensor
     ovenTempSensor.setCharacteristic(this.platform.Characteristic.Name, 'Oven Temperature')
     ovenTempSensor
       .getCharacteristic(this.platform.Characteristic.CurrentTemperature)
+      .setProps({ minValue: -20, maxValue: 500, minStep: 0.1 })
       .onGet(async () => {
         try {
-          const erdVal = await this.readErd(ERD_TYPES.UPPER_OVEN_COOK_MODE)
-          if (!erdVal) {
-            return 0
-          }
-          const b = Buffer.from(erdVal, 'hex')
-          return fToC(b.readUint16BE(1))
+          return await this.getCavityTempC()
         } catch (error: any) {
           this.warnLog?.(`Oven Temperature error: ${error?.message ?? error}`)
           return 0
         }
       })
 
-    // Probe Temperature Sensor (if available)
+    // Probe Temperature Sensor: only when a probe is actually plugged in —
+    // checking mere ERD support left a permanent 0° sensor on probe-capable
+    // ovens with no probe fitted (#8)
     ;(async () => {
-      const probePresent = await this.has_erd_code(ERD_TYPES.UPPER_OVEN_PROBE_PRESENT)
-      if (probePresent) {
-        const probeTempSensor = this.accessory!.getService('Probe Temperature') ?? this.accessory!.addService(this.platform.Service.TemperatureSensor, 'Probe Temperature', 'ProbeTemp')
-        probeTempSensor.setCharacteristic(this.platform.Characteristic.Name, 'Probe Temperature')
-        probeTempSensor
-          .getCharacteristic(this.platform.Characteristic.CurrentTemperature)
-          .onGet(async () => {
-            const r = await this.readErd(ERD_TYPES.UPPER_OVEN_PROBE_DISPLAY_TEMP)
-            if (!r) {
-              return 0
-            }
-            const tempF = Number.parseInt(r)
-            return fToC(tempF)
-          })
-      }
+      await this.syncProbeSensor()
     })()
 
-    // Cook Time Remaining (using a valve to show remaining duration)
+    // Cook Time valve: on/off now reflects whether the oven is actually
+    // cooking (UPPER_OVEN_CURRENT_STATE) — it used to key off the cook TIMER,
+    // so an untimed bake showed as "off" the whole time (#8). The remaining
+    // duration still comes from the timer when one is set.
     const cookTimeValve = this.accessory!.getService('Cook Time') ?? this.accessory!.addService(this.platform.Service.Valve, 'Cook Time', 'CookTime')
+    this.cookTimeValve = cookTimeValve
     cookTimeValve.setCharacteristic(this.platform.Characteristic.Name, 'Cook Time')
     cookTimeValve.setCharacteristic(this.platform.Characteristic.ValveType, this.platform.Characteristic.ValveType.GENERIC_VALVE)
     cookTimeValve
       .getCharacteristic(this.platform.Characteristic.Active)
       .onGet(async () => {
-        const r = await this.readErd(ERD_TYPES.UPPER_OVEN_COOK_TIME_REMAINING)
-        // Active if time remaining is non-zero
-        return r && Number.parseInt(r, 16) > 0
+        return await this.isOvenRunning()
           ? this.platform.Characteristic.Active.ACTIVE
           : this.platform.Characteristic.Active.INACTIVE
       })
       .onSet(async () => {
-        // The tile is a read-only display of the remaining cook time — revert
-        // the toggle to the real state so a tap doesn't silently pretend to work
+        // The tile is a read-only display — revert the toggle to the real
+        // state so a tap doesn't silently pretend to work
         this.infoLog('Cook Time is a read-only display; starting or stopping cooking from HomeKit is not yet supported')
-        const r = await this.readErd(ERD_TYPES.UPPER_OVEN_COOK_TIME_REMAINING)
         cookTimeValve.updateCharacteristic(
           this.platform.Characteristic.Active,
-          r && Number.parseInt(r, 16) > 0
+          await this.isOvenRunning()
             ? this.platform.Characteristic.Active.ACTIVE
             : this.platform.Characteristic.Active.INACTIVE,
         )
@@ -271,8 +266,7 @@ export class SmartHQOven extends deviceBase {
     cookTimeValve
       .getCharacteristic(this.platform.Characteristic.InUse)
       .onGet(async () => {
-        const r = await this.readErd(ERD_TYPES.UPPER_OVEN_COOK_TIME_REMAINING)
-        return r && Number.parseInt(r, 16) > 0
+        return await this.isOvenRunning()
           ? this.platform.Characteristic.InUse.IN_USE
           : this.platform.Characteristic.InUse.NOT_IN_USE
       })
@@ -324,6 +318,73 @@ export class SmartHQOven extends deviceBase {
       this.accessory!.removeService(staleDoorLock)
     }
   }
+
+  /**
+   * The actual cavity temperature in °C. The raw thermistor reading updates
+   * far more often over the websocket than the display temperature, so it is
+   * preferred; both arrive as hex-encoded °F.
+   */
+  private async getCavityTempC(): Promise<number> {
+    const hex = await this.try_get_erd_value(ERD_TYPES.UPPER_OVEN_RAW_TEMPERATURE)
+      ?? await this.try_get_erd_value(ERD_TYPES.UPPER_OVEN_DISPLAY_TEMPERATURE)
+    if (!hex) {
+      return 0
+    }
+    return fToC(Number.parseInt(hex, 16))
+  }
+
+  /**
+   * Whether the oven is currently cooking (any non-zero current state:
+   * preheat, bake, broil, etc.)
+   */
+  private async isOvenRunning(): Promise<boolean> {
+    const r = await this.try_get_erd_value(ERD_TYPES.UPPER_OVEN_CURRENT_STATE)
+    return !!r && Number.parseInt(r, 16) !== 0
+  }
+
+  /**
+   * Whether a temperature probe is physically plugged in right now — not
+   * merely whether the oven supports one.
+   */
+  private async isProbeFitted(): Promise<boolean> {
+    const r = await this.try_get_erd_value(ERD_TYPES.UPPER_OVEN_PROBE_PRESENT)
+    return !!r && Number.parseInt(r, 16) === 1
+  }
+
+  /**
+   * Add the probe sensor when a probe is fitted, remove it when not. Safe to
+   * call repeatedly — it also runs when the oven pushes a probe-present
+   * change, so plugging the probe in shows the sensor without a restart.
+   */
+  private async syncProbeSensor(): Promise<void> {
+    if (await this.isProbeFitted()) {
+      const probeTempSensor = this.accessory!.getService('Probe Temperature') ?? this.accessory!.addService(this.platform.Service.TemperatureSensor, 'Probe Temperature', 'ProbeTemp')
+      this.probeTempSensor = probeTempSensor
+      this.probeRemovalLogged = false
+      probeTempSensor.setCharacteristic(this.platform.Characteristic.Name, 'Probe Temperature')
+      probeTempSensor
+        .getCharacteristic(this.platform.Characteristic.CurrentTemperature)
+        .setProps({ minValue: -20, maxValue: 500, minStep: 0.1 })
+        .onGet(async () => {
+          const r = await this.try_get_erd_value(ERD_TYPES.UPPER_OVEN_PROBE_DISPLAY_TEMP)
+          if (!r) {
+            return 0
+          }
+          return fToC(Number.parseInt(r, 16))
+        })
+      return
+    }
+    const staleProbe = this.accessory!.getService('Probe Temperature')
+    if (staleProbe) {
+      this.accessory!.removeService(staleProbe)
+    }
+    this.probeTempSensor = undefined
+    if (!this.probeRemovalLogged) {
+      this.probeRemovalLogged = true
+      this.infoLog('No temperature probe is plugged into the oven, so the Probe Temperature tile is not shown (it appears when a probe is fitted)')
+    }
+  }
+
 }
 /*
 function cToF(celsius: number) {

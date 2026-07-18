@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. This project uses [Semantic Versioning](https://semver.org/).
 
+## v0.5.1 (Pending Release)
+
+### Changed
+
+- fix: show the oven's real temperature, probe presence and cooking state instead of misleading values (#8) (@dfinstein)
+
 ## v0.5.0 (2026-07-18)
 
 ⚠️ This plugin now requires Homebridge v2 (needed for the Matter support) and Node v22 or v24.
