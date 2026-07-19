@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. This project uses [Semantic Versioning](https://semver.org/).
 
+## v0.6.0 (Pending Release)
+
+### Changed
+
+- feat: control the oven from homekit - start a bake, set the temperature and turn it off (#8)
+- fix: read the dishwasher's real state codes instead of fabricated ones, with live updates and time remaining (#22)
+
 ## v0.5.2 (2026-07-20)
 
 ### Changed
