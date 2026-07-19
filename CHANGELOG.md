@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file. This projec
 
 - feat: control the oven from homekit - start a bake, set the temperature and turn it off (#8)
 - fix: read the dishwasher's real state codes instead of fabricated ones, with live updates and time remaining (#22)
+- fix(schema): restore the settings screen banner, which pointed at a deleted svg
 
 ## v0.5.2 (2026-07-20)
 
