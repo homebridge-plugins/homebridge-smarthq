@@ -21,14 +21,18 @@ Homebridge plugin to integrate SmartHQ appliances into HomeKit
   - requires your SmartHQ account credentials to work
   - connects to the SmartHQ cloud to discover and control your appliances
 
+### Prerequisites
+
+- To use this plugin, you will need to already have:
+  - [Node](https://nodejs.org): latest version of `v22` or `v24` - any other major version is not supported.
+  - [Homebridge](https://homebridge.io): `v2` - refer to link for more information and installation instructions.
+
 ### Setup
 
-- Installation
-  - Search for "SmartHQ" on the plugin screen of the [Homebridge UI](https://github.com/homebridge/homebridge-config-ui-x) and click **Install**.
-- Configuration
-  1. Enter your SmartHQ username and password in the plugin settings.
-  2. Click **Save**.
-  3. Restart Homebridge.
+- [Installation](https://github.com/homebridge-plugins/homebridge-smarthq/wiki/Installation)
+- [Configuration](https://github.com/homebridge-plugins/homebridge-smarthq/wiki/Configuration)
+- [Beta Version](https://github.com/homebridge-plugins/homebridge-smarthq/wiki/Beta-Version)
+- [Node Version](https://github.com/homebridge-plugins/homebridge-smarthq/wiki/Node-Version)
 
 ### Features
 
@@ -41,6 +45,7 @@ Homebridge plugin to integrate SmartHQ appliances into HomeKit
 
 ### Help/About
 
+- [Common Errors](https://github.com/homebridge-plugins/homebridge-smarthq/wiki/Common-Errors)
 - [Support Request](https://github.com/homebridge-plugins/homebridge-smarthq/issues/new/choose)
 - [Changelog](https://github.com/homebridge-plugins/homebridge-smarthq/blob/latest/CHANGELOG.md)
 - [About Me](https://github.com/sponsors/bwp91)
