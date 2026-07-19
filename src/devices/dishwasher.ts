@@ -2,7 +2,7 @@
  *
  * oven.ts: @homebridge-plugins/homebridge-smarthq.
  */
-import type { PlatformAccessory } from 'homebridge'
+import type { PlatformAccessory, Service } from 'homebridge'
 
 import type { SmartHQPlatform } from '../platform.js'
 import type { devicesConfig, SmartHqContext } from '../settings.js'
@@ -13,6 +13,10 @@ import { deviceBase } from './device.js'
 export class SmartHQDishWasher extends deviceBase {
   // Updates
   deviceStatus: any
+
+  // HAP services kept for live websocket updates (#22)
+  private dishwasherValve?: Service
+  private doorSensor?: Service
 
   // Matter support override flag
   private useMatterOverride: boolean = false
@@ -148,54 +152,139 @@ export class SmartHQDishWasher extends deviceBase {
    * Initialize HAP (HomeKit) protocol
    */
   private initializeHAP(): void {
-    // Dishwasher Running State (Valve for active/inactive)
+    // Dishwasher Running State: keyed on the real operating mode ERD (0x3001,
+    // gehome ErdOperatingMode) - the previous 0x6000-series codes were
+    // fabricated and every read of them returned a 400 (#22). The tile is a
+    // read-only display: 3=delay start, 4=paused, 5=cycle active count as
+    // engaged, with in-use meaning an actively running cycle.
     const dishwasherValve = this.accessory!.getService('Dishwasher') ?? this.accessory!.addService(this.platform.Service.Valve, 'Dishwasher', 'Dishwasher')
+    this.dishwasherValve = dishwasherValve
     dishwasherValve.setCharacteristic(this.platform.Characteristic.Name, 'Dishwasher')
     dishwasherValve.setCharacteristic(this.platform.Characteristic.ValveType, this.platform.Characteristic.ValveType.GENERIC_VALVE)
     dishwasherValve
       .getCharacteristic(this.platform.Characteristic.Active)
       .onGet(async () => {
-        try {
-          const r = await this.readErd(ERD_TYPES.DISHWASHER_CYCLE)
-          return r && Number.parseInt(r) !== 0 ? this.platform.Characteristic.Active.ACTIVE : this.platform.Characteristic.Active.INACTIVE
-        } catch (error: any) {
-          this.warnLog?.(`Dishwasher Active error: ${error?.message ?? error}`)
-          return this.platform.Characteristic.Active.INACTIVE
-        }
+        return await this.isCycleEngaged()
+          ? this.platform.Characteristic.Active.ACTIVE
+          : this.platform.Characteristic.Active.INACTIVE
       })
-      .onSet(async (value) => {
-        try {
-          await this.writeErd(ERD_TYPES.DISHWASHER_CYCLE, value === this.platform.Characteristic.Active.ACTIVE)
-        } catch (error: any) {
-          this.warnLog?.(`Dishwasher Active set error: ${error?.message ?? error}`)
-        }
+      .onSet(async () => {
+        // Read-only display - revert the toggle so a tap doesn't silently
+        // pretend to work (dishwashers cannot be started remotely over the
+        // SmartHQ api)
+        this.infoLog('The Dishwasher tile is a read-only display; starting or stopping a cycle from HomeKit is not supported')
+        dishwasherValve.updateCharacteristic(
+          this.platform.Characteristic.Active,
+          await this.isCycleEngaged()
+            ? this.platform.Characteristic.Active.ACTIVE
+            : this.platform.Characteristic.Active.INACTIVE,
+        )
       })
 
     dishwasherValve
       .getCharacteristic(this.platform.Characteristic.InUse)
       .onGet(async () => {
-        try {
-          const r = await this.readErd(ERD_TYPES.DISHWASHER_CYCLE)
-          return r && Number.parseInt(r) !== 0 ? this.platform.Characteristic.InUse.IN_USE : this.platform.Characteristic.InUse.NOT_IN_USE
-        } catch (error: any) {
-          this.warnLog?.(`Dishwasher InUse error: ${error?.message ?? error}`)
-          return this.platform.Characteristic.InUse.NOT_IN_USE
-        }
+        return await this.isCycleRunning()
+          ? this.platform.Characteristic.InUse.IN_USE
+          : this.platform.Characteristic.InUse.NOT_IN_USE
       })
+
+    dishwasherValve
+      .getCharacteristic(this.platform.Characteristic.RemainingDuration)
+      .onGet(async () => this.getRemainingSeconds())
 
     // Dishwasher Door Sensor
     const doorSensor = this.accessory!.getService('Dishwasher Door') ?? this.accessory!.addService(this.platform.Service.ContactSensor, 'Dishwasher Door', 'DishwasherDoor')
+    this.doorSensor = doorSensor
     doorSensor.setCharacteristic(this.platform.Characteristic.Name, 'Dishwasher Door')
     doorSensor
       .getCharacteristic(this.platform.Characteristic.ContactSensorState)
       .onGet(async () => {
         const r = await this.readErd(ERD_TYPES.DISHWASHER_DOOR_STATUS)
         // 0=closed (detected), 1=open (not detected)
-        return r && Number.parseInt(r) === 1
+        return r && Number.parseInt(r, 16) === 1
           ? this.platform.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED
           : this.platform.Characteristic.ContactSensorState.CONTACT_DETECTED
       })
+  }
 
-    // this is subject we use to track when we need to POST changes to the SmartHQ API
+  /**
+   * Whether a cycle is engaged in any form: delay start (3), paused (4) or
+   * actively running (5) - per gehome's ErdOperatingMode
+   */
+  private async isCycleEngaged(): Promise<boolean> {
+    const r = await this.try_get_erd_value(ERD_TYPES.DISHWASHER_OPERATING_MODE)
+    return !!r && [3, 4, 5].includes(Number.parseInt(r, 16))
+  }
+
+  /** Whether a cycle is actively running right now (operating mode 5) */
+  private async isCycleRunning(): Promise<boolean> {
+    const r = await this.try_get_erd_value(ERD_TYPES.DISHWASHER_OPERATING_MODE)
+    return !!r && Number.parseInt(r, 16) === 5
+  }
+
+  /**
+   * Remaining cycle time in seconds, clamped to HomeKit's maximum. The raw
+   * value is treated as minutes (gehome's timespan convention) - to be
+   * confirmed against a real appliance log (#22).
+   */
+  private async getRemainingSeconds(): Promise<number> {
+    const r = await this.try_get_erd_value(ERD_TYPES.DISHWASHER_TIME_REMAINING)
+    if (!r) {
+      return 0
+    }
+    const minutes = Number.parseInt(r, 16)
+    if (Number.isNaN(minutes) || minutes <= 0) {
+      return 0
+    }
+    return Math.min(minutes * 60, 86400)
+  }
+
+  /**
+   * Reflect pushed ERD changes in HomeKit as they happen (#22)
+   */
+  onErdUpdate(erd: string): void {
+    if (this.useMatterOverride) {
+      return
+    }
+    void this.applyLiveUpdate(erd)
+  }
+
+  private async applyLiveUpdate(erd: string): Promise<void> {
+    try {
+      switch (erd) {
+        case ERD_TYPES.DISHWASHER_OPERATING_MODE: {
+          this.dishwasherValve?.updateCharacteristic(
+            this.platform.Characteristic.Active,
+            await this.isCycleEngaged()
+              ? this.platform.Characteristic.Active.ACTIVE
+              : this.platform.Characteristic.Active.INACTIVE,
+          )
+          this.dishwasherValve?.updateCharacteristic(
+            this.platform.Characteristic.InUse,
+            await this.isCycleRunning()
+              ? this.platform.Characteristic.InUse.IN_USE
+              : this.platform.Characteristic.InUse.NOT_IN_USE,
+          )
+          break
+        }
+        case ERD_TYPES.DISHWASHER_TIME_REMAINING: {
+          this.dishwasherValve?.updateCharacteristic(this.platform.Characteristic.RemainingDuration, await this.getRemainingSeconds())
+          break
+        }
+        case ERD_TYPES.DISHWASHER_DOOR_STATUS: {
+          const r = await this.try_get_erd_value(ERD_TYPES.DISHWASHER_DOOR_STATUS)
+          this.doorSensor?.updateCharacteristic(
+            this.platform.Characteristic.ContactSensorState,
+            r && Number.parseInt(r, 16) === 1
+              ? this.platform.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED
+              : this.platform.Characteristic.ContactSensorState.CONTACT_DETECTED,
+          )
+          break
+        }
+      }
+    } catch (error: any) {
+      this.debugLog(`Live dishwasher update for ${erd} failed: ${error?.message ?? error}`)
+    }
   }
 }
