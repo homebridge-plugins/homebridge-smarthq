@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file. This projec
 
 - fix: show the oven's real temperature, probe presence and cooking state instead of misleading values (#8) (@dfinstein)
 - feat: update the oven's homekit tiles live as the appliance pushes changes (#8) (@dfinstein)
+- feat: show a cooktop on/off tile when the range reports its cooktop status (#8) (@dfinstein)
 
 ## v0.5.0 (2026-07-18)
 

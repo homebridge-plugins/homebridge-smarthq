@@ -19,6 +19,7 @@ export class SmartHQOven extends deviceBase {
   private ovenTempSensor?: Service
   private probeTempSensor?: Service
   private cookTimeValve?: Service
+  private cooktopSensor?: Service
   private probeRemovalLogged: boolean = false
 
   constructor(
@@ -236,6 +237,14 @@ export class SmartHQOven extends deviceBase {
       await this.syncProbeSensor()
     })()
 
+    // Cooktop on/off sensor: read-only status for ranges that report their
+    // cooktop over the api (#8). Some models reject the direct read but push
+    // the status over the websocket, so the tile may first appear once the
+    // cooktop is used after startup.
+    ;(async () => {
+      await this.syncCooktopSensor()
+    })()
+
     // Cook Time valve: on/off now reflects whether the oven is actually
     // cooking (UPPER_OVEN_CURRENT_STATE) — it used to key off the cook TIMER,
     // so an untimed bake showed as "off" the whole time (#8). The remaining
@@ -386,6 +395,39 @@ export class SmartHQOven extends deviceBase {
   }
 
   /**
+   * Whether any part of the cooktop is currently on. The status arrives as a
+   * hex string whose first byte is the overall on/off summary; the remaining
+   * per-burner bytes are not reliably populated on all models.
+   */
+  private async isCooktopOn(): Promise<boolean> {
+    const r = await this.try_get_erd_value(ERD_TYPES.COOKTOP_STATUS)
+    return !!r && Number.parseInt(r.substring(0, 2), 16) !== 0
+  }
+
+  /**
+   * Add the cooktop sensor when the range reports its cooktop status. Safe to
+   * call repeatedly — it also runs on a pushed status, so models that reject
+   * the direct read still gain the tile the first time they push.
+   */
+  private async syncCooktopSensor(): Promise<void> {
+    const r = await this.try_get_erd_value(ERD_TYPES.COOKTOP_STATUS)
+    if (r === undefined) {
+      return
+    }
+    const cooktopSensor = this.accessory!.getService('Cooktop') ?? this.accessory!.addService(this.platform.Service.ContactSensor, 'Cooktop', 'Cooktop')
+    this.cooktopSensor = cooktopSensor
+    cooktopSensor.setCharacteristic(this.platform.Characteristic.Name, 'Cooktop')
+    cooktopSensor
+      .getCharacteristic(this.platform.Characteristic.ContactSensorState)
+      .onGet(async () => {
+        // open (not detected) = cooktop on, matching the remote-enable mapping
+        return await this.isCooktopOn()
+          ? this.platform.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED
+          : this.platform.Characteristic.ContactSensorState.CONTACT_DETECTED
+      })
+  }
+
+  /**
    * Reflect a pushed ERD change in HomeKit as it happens, instead of waiting
    * for HomeKit to ask. The platform stores the pushed value in its live
    * cache before calling this, so the read helpers see fresh data (#8).
@@ -430,6 +472,16 @@ export class SmartHQOven extends deviceBase {
         }
         case ERD_TYPES.UPPER_OVEN_PROBE_PRESENT: {
           await this.syncProbeSensor()
+          break
+        }
+        case ERD_TYPES.COOKTOP_STATUS: {
+          await this.syncCooktopSensor()
+          this.cooktopSensor?.updateCharacteristic(
+            this.platform.Characteristic.ContactSensorState,
+            await this.isCooktopOn()
+              ? this.platform.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED
+              : this.platform.Characteristic.ContactSensorState.CONTACT_DETECTED,
+          )
           break
         }
         case ERD_TYPES.UPPER_OVEN_PROBE_DISPLAY_TEMP: {
