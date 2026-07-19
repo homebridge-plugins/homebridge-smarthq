@@ -2,10 +2,12 @@
  *
  * oven.ts: @homebridge-plugins/homebridge-smarthq.
  */
-import type { PlatformAccessory, Service } from 'homebridge'
+import type { CharacteristicValue, PlatformAccessory, Service } from 'homebridge'
 
 import type { SmartHQPlatform } from '../platform.js'
 import type { devicesConfig, SmartHqContext } from '../settings.js'
+
+import { Buffer } from 'node:buffer'
 
 import { ERD_TYPES } from '../settings.js'
 import { deviceBase } from './device.js'
@@ -16,11 +18,13 @@ export class SmartHQOven extends deviceBase {
 
   // HAP services kept for live websocket updates (#8)
   private ovenLight?: Service
-  private ovenTempSensor?: Service
+  private ovenThermostat?: Service
   private probeTempSensor?: Service
   private cookTimeValve?: Service
   private cooktopSensor?: Service
   private probeRemovalLogged: boolean = false
+  /** Last known bake target in Fahrenheit, used when starting a bake from HomeKit */
+  private lastTargetTempF = 350
 
   constructor(
     readonly platform: SmartHQPlatform,
@@ -211,14 +215,18 @@ export class SmartHQOven extends deviceBase {
         })
     })()
 
-    // Oven Current Temperature Sensor: shows the ACTUAL cavity temperature,
-    // not the cook-mode target it used to show — the target regularly exceeds
-    // HomeKit's default 100°C sensor maximum, which clamped a 350°F setpoint
-    // to 100°C and displayed it as a baffling 212°F (#8)
-    const ovenTempSensor = this.accessory!.getService('Oven Temperature') ?? this.accessory!.addService(this.platform.Service.TemperatureSensor, 'Oven Temperature', 'OvenTemp')
-    this.ovenTempSensor = ovenTempSensor
-    ovenTempSensor.setCharacteristic(this.platform.Characteristic.Name, 'Oven Temperature')
-    ovenTempSensor
+    // Oven Thermostat: shows the ACTUAL cavity temperature and adds remote
+    // control - setting HEAT starts a bake at the target temperature (the
+    // same write the official app performs), OFF turns the oven off (#8).
+    // It replaces the read-only temperature sensor from earlier versions.
+    const staleTempSensor = this.accessory!.getService('Oven Temperature')
+    if (staleTempSensor) {
+      this.accessory!.removeService(staleTempSensor)
+    }
+    const ovenThermostat = this.accessory!.getService('Oven') ?? this.accessory!.addService(this.platform.Service.Thermostat, 'Oven', 'OvenThermostat')
+    this.ovenThermostat = ovenThermostat
+    ovenThermostat.setCharacteristic(this.platform.Characteristic.Name, 'Oven')
+    ovenThermostat
       .getCharacteristic(this.platform.Characteristic.CurrentTemperature)
       .setProps({ minValue: -20, maxValue: 500, minStep: 0.1 })
       .onGet(async () => {
@@ -229,6 +237,60 @@ export class SmartHQOven extends deviceBase {
           return 0
         }
       })
+    ovenThermostat
+      .getCharacteristic(this.platform.Characteristic.TargetTemperature)
+      .setProps({ minValue: 76.5, maxValue: 288, minStep: 0.5 })
+      .onGet(async () => {
+        const cookMode = await this.readCookMode()
+        if (cookMode && cookMode.mode !== 0 && cookMode.tempF > 0) {
+          this.lastTargetTempF = cookMode.tempF
+        }
+        return fToC(this.lastTargetTempF)
+      })
+      .onSet(async (value: CharacteristicValue) => {
+        // GE ovens take Fahrenheit targets in 5 degree steps
+        const tempF = Math.round(cToF(value as number) / 5) * 5
+        this.lastTargetTempF = tempF
+        const cookMode = await this.readCookMode()
+        if (cookMode && cookMode.mode !== 0) {
+          // Oven is already cooking - adjust the temperature within the
+          // current mode
+          await this.writeCookMode(cookMode.mode, tempF)
+        }
+        // When the oven is off the new target simply waits for HEAT to be set
+      })
+    ovenThermostat
+      .getCharacteristic(this.platform.Characteristic.CurrentHeatingCoolingState)
+      .setProps({ validValues: [0, 1] })
+      .onGet(async () => {
+        return await this.isOvenRunning()
+          ? this.platform.Characteristic.CurrentHeatingCoolingState.HEAT
+          : this.platform.Characteristic.CurrentHeatingCoolingState.OFF
+      })
+    ovenThermostat
+      .getCharacteristic(this.platform.Characteristic.TargetHeatingCoolingState)
+      .setProps({ validValues: [0, 1] })
+      .onGet(async () => {
+        const cookMode = await this.readCookMode()
+        return cookMode && cookMode.mode !== 0
+          ? this.platform.Characteristic.TargetHeatingCoolingState.HEAT
+          : this.platform.Characteristic.TargetHeatingCoolingState.OFF
+      })
+      .onSet(async (value: CharacteristicValue) => {
+        if (value === this.platform.Characteristic.TargetHeatingCoolingState.HEAT) {
+          // Start a plain bake at the target temperature (mode 1 =
+          // BAKE_NOOPTION, the same as the appliance reports for a bake
+          // started at the oven itself)
+          this.infoLog(`Starting bake at ${this.lastTargetTempF}F from HomeKit`)
+          await this.writeCookMode(1, this.lastTargetTempF)
+        } else {
+          this.infoLog('Turning the oven off from HomeKit')
+          await this.writeCookMode(0, 0)
+        }
+      })
+    ovenThermostat
+      .getCharacteristic(this.platform.Characteristic.TemperatureDisplayUnits)
+      .onGet(async () => this.platform.Characteristic.TemperatureDisplayUnits.FAHRENHEIT)
 
     // Probe Temperature Sensor: only when a probe is actually plugged in —
     // checking mere ERD support left a permanent 0° sensor on probe-capable
@@ -343,6 +405,34 @@ export class SmartHQOven extends deviceBase {
   }
 
   /**
+   * The current cook mode setting: mode byte plus target temperature in
+   * Fahrenheit. The 13-byte payload layout (mode 1B, temp 2B, cook time,
+   * probe temp, delay and two-temp fields) matches the gehome project's
+   * OvenCookModeConverter and was confirmed byte-for-byte on a real JS760
+   * (bake at 350F reports 01015E00000000000000000000).
+   */
+  private async readCookMode(): Promise<{ mode: number, tempF: number } | undefined> {
+    const r = await this.try_get_erd_value(ERD_TYPES.UPPER_OVEN_COOK_MODE)
+    if (!r || r.length < 6) {
+      return undefined
+    }
+    const b = Buffer.from(r, 'hex')
+    return { mode: b.readUint8(0), tempF: b.readUint16BE(1) }
+  }
+
+  /**
+   * Write a cook mode: mode 1 with a temperature starts a bake, mode 0
+   * turns the oven off. Remaining payload fields (times, probe, delay)
+   * are zero - a plain immediate bake, exactly like pressing Bake+Start.
+   */
+  private async writeCookMode(mode: number, tempF: number): Promise<void> {
+    const payload = mode.toString(16).padStart(2, '0')
+      + tempF.toString(16).padStart(4, '0')
+      + '0'.repeat(20)
+    await this.writeErd(ERD_TYPES.UPPER_OVEN_COOK_MODE, payload)
+  }
+
+  /**
    * Whether the oven is currently cooking (any non-zero current state:
    * preheat, bake, broil, etc.)
    */
@@ -449,11 +539,31 @@ export class SmartHQOven extends deviceBase {
         }
         case ERD_TYPES.UPPER_OVEN_RAW_TEMPERATURE:
         case ERD_TYPES.UPPER_OVEN_DISPLAY_TEMPERATURE: {
-          this.ovenTempSensor?.updateCharacteristic(this.platform.Characteristic.CurrentTemperature, await this.getCavityTempC())
+          this.ovenThermostat?.updateCharacteristic(this.platform.Characteristic.CurrentTemperature, await this.getCavityTempC())
+          break
+        }
+        case ERD_TYPES.UPPER_OVEN_COOK_MODE: {
+          const cookMode = await this.readCookMode()
+          if (cookMode && cookMode.mode !== 0 && cookMode.tempF > 0) {
+            this.lastTargetTempF = cookMode.tempF
+            this.ovenThermostat?.updateCharacteristic(this.platform.Characteristic.TargetTemperature, fToC(cookMode.tempF))
+          }
+          this.ovenThermostat?.updateCharacteristic(
+            this.platform.Characteristic.TargetHeatingCoolingState,
+            cookMode && cookMode.mode !== 0
+              ? this.platform.Characteristic.TargetHeatingCoolingState.HEAT
+              : this.platform.Characteristic.TargetHeatingCoolingState.OFF,
+          )
           break
         }
         case ERD_TYPES.UPPER_OVEN_CURRENT_STATE: {
           const running = await this.isOvenRunning()
+          this.ovenThermostat?.updateCharacteristic(
+            this.platform.Characteristic.CurrentHeatingCoolingState,
+            running
+              ? this.platform.Characteristic.CurrentHeatingCoolingState.HEAT
+              : this.platform.Characteristic.CurrentHeatingCoolingState.OFF,
+          )
           this.cookTimeValve?.updateCharacteristic(
             this.platform.Characteristic.Active,
             running ? this.platform.Characteristic.Active.ACTIVE : this.platform.Characteristic.Active.INACTIVE,
@@ -495,11 +605,9 @@ export class SmartHQOven extends deviceBase {
     }
   }
 }
-/*
 function cToF(celsius: number) {
   return (celsius * 9) / 5 + 32
 }
-*/
 function fToC(fahrenheit: number) {
   return ((fahrenheit - 32) * 5) / 9
 }
