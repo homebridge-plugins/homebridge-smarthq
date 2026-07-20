@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. This project uses [Semantic Versioning](https://semver.org/).
 
+## v0.5.2 (2026-07-20)
+
+### Changed
+
+- fix(schema): give the logging levels clear, distinct names
+- chore(deps): dependency updates
+
 ## v0.5.1 (2026-07-19)
 
 ### Changed
