@@ -21,6 +21,7 @@ import { SmartHQBeverageCenter } from './devices/beverageCenter.js'
 import { SmartHQClothesDryer } from './devices/clothesDryer.js'
 import { SmartHQClothesWasher } from './devices/clothesWasher.js'
 import { SmartHQCoffeeMaker } from './devices/coffeeMaker.js'
+import { SmartHQCombinationWasherDryer } from './devices/combinationWasherDryer.js'
 import { SmartHQDishWasher } from './devices/dishwasher.js'
 import { SmartHQHood } from './devices/hood.js'
 import { decideKeurigCapability, parseHotWaterStatus, SmartHQKeurig } from './devices/keurig.js'
@@ -474,6 +475,9 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
               break
             case 'Clothes Dryer':
               await this.createSmartHQClothesDryer(userId, device, details, features)
+              break
+            case 'Combination Washer Dryer':
+              await this.createSmartHQCombinationWasherDryer(userId, device, details, features)
               break
             case 'Whole Home Water Filter':
             case 'Home Water Filter': // some filters report their type without the 'Whole' prefix (#10)
@@ -1013,6 +1017,58 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
       accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
       accessory.control = new SmartHQClothesDryer(this, accessory, deviceData)
+      this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
+      this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
+      this.accessories.push(accessory)
+    } else {
+      this.debugErrorLog(`Unable to Register new device: ${JSON.stringify(deviceData.nickname)}`)
+    }
+  }
+
+  private async createSmartHQCombinationWasherDryer(userId: any, device: any, details: any, features: any) {
+    // Merge device data
+    const deviceData = { brand: 'GE', ...details, ...features, ...device }
+
+    // Determine protocol (Matter or HAP)
+    deviceData.useMatter = this.shouldUseMatter(deviceData)
+
+    const uuid = this.api.hap.uuid.generate(deviceData.applianceId)
+    const existingAccessory = this.accessories.find(accessory => accessory.UUID === uuid)
+
+    const protocol = deviceData.useMatter ? 'Matter' : 'HAP'
+
+    if (existingAccessory) {
+      if (!deviceData.hide_device) {
+        // Check if protocol changed to Matter - if so, remove from HAP bridge
+        if (this.shouldUnregisterForMatter(existingAccessory, deviceData)) {
+          const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+          accessory.context.device = deviceData
+          accessory.context = { device: deviceData, userId }
+          accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
+          accessory.control = new SmartHQCombinationWasherDryer(this, accessory, deviceData)
+          this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
+        } else {
+          existingAccessory.context.device = deviceData
+          existingAccessory.context = { device: deviceData, userId }
+          existingAccessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          existingAccessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
+          this.api.updatePlatformAccessories([existingAccessory])
+          this.infoLog(`[${protocol}] Restoring existing accessory from cache: ${existingAccessory.displayName}`)
+          existingAccessory.control = new SmartHQCombinationWasherDryer(this, existingAccessory, deviceData)
+          this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
+        }
+      } else {
+        this.unregisterPlatformAccessories(existingAccessory)
+      }
+    } else if (!deviceData.hide_device && !existingAccessory) {
+      this.infoLog(`[${protocol}] Adding new accessory: ${deviceData.nickname}`)
+      const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+      accessory.context.device = deviceData
+      accessory.context = { device: deviceData, userId }
+      accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+      accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
+      accessory.control = new SmartHQCombinationWasherDryer(this, accessory, deviceData)
       this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
       this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
       this.accessories.push(accessory)
