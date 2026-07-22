@@ -38,6 +38,7 @@
   },
   "keywords": [
     "homebridge-plugin",
+    "supports-matter",
     "oven",
     "SmartHQ",
     "homebridge"
