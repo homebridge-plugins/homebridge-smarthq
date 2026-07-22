@@ -240,7 +240,7 @@
               "title": "Show Running Switch",
               "type": "boolean",
               "default": false,
-              "description": "Washers and dryers only: expose a read-only switch that shows whether the machine is running."
+              "description": "Washers, dryers, and combination washer/dryers only: expose a read-only switch that shows whether the machine is running."
             },
             "showFilterBattery": {
               "title": "Show Filter Life As Battery",
