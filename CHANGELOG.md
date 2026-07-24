@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file. This projec
 - fix: read the dishwasher's real state codes instead of fabricated ones, with live updates and time remaining (#22)
 - fix(schema): restore the settings screen banner, which pointed at a deleted svg
 - feat: add combination washer/dryer support for GE all-in-one units (#96)
+- feat: add the lower oven on double ovens - light, temperature, probe and cook time (#46)
 
 ## v0.5.2 (2026-07-20)
 

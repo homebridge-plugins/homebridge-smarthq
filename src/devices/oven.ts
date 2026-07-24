@@ -26,6 +26,21 @@ export class SmartHQOven extends deviceBase {
   /** Last known bake target in Fahrenheit, used when starting a bake from HomeKit */
   private lastTargetTempF = 350
 
+  // Lower cavity services, only created on double ovens (#46). Kept separate
+  // from the upper set rather than sharing one parameterised path: the upper
+  // cavity carries extra behaviour (cook control, cooktop, remote-enabled)
+  // and has had a lot of model-specific fixing, so the lower cavity is added
+  // alongside it rather than by reworking a path that already works.
+  //
+  // These are read-only on purpose. The lower cavity's reporting is confirmed
+  // against a real double oven, but its cook-mode writes are not, and starting
+  // an oven is not something to ship on an untested guess.
+  private lowerOvenLight?: Service
+  private lowerOvenTempSensor?: Service
+  private lowerProbeTempSensor?: Service
+  private lowerCookTimeValve?: Service
+  private lowerProbeRemovalLogged: boolean = false
+
   constructor(
     readonly platform: SmartHQPlatform,
     accessory: PlatformAccessory<SmartHqContext>,
@@ -388,6 +403,199 @@ export class SmartHQOven extends deviceBase {
     if (staleDoorLock) {
       this.accessory!.removeService(staleDoorLock)
     }
+
+    // Lower cavity, for double ovens (#46)
+    ;(async () => {
+      await this.initializeLowerCavity()
+    })()
+  }
+
+  /**
+   * Add the lower cavity's services on double ovens. Everything is gated on
+   * the oven actually reporting a lower cavity, so single ovens are left
+   * exactly as they were rather than gaining tiles that could never work.
+   *
+   * Confirmed against a GE Cafe double oven (#46), which reports the lower
+   * light (0x5211), temperature (0x520D), probe (0x5203) and elapsed cook
+   * time (0x5208). That oven reports no door state at all, so there is
+   * deliberately no door sensor here.
+   */
+  private async initializeLowerCavity(): Promise<void> {
+    const isDoubleOven = await this.has_erd_code(ERD_TYPES.LOWER_OVEN_RAW_TEMPERATURE)
+      || await this.has_erd_code(ERD_TYPES.LOWER_OVEN_CURRENT_STATE)
+
+    if (!isDoubleOven) {
+      // Drop any lower-cavity tiles left behind by a cached accessory
+      ;['Lower Oven Light', 'Lower Oven Temperature', 'Lower Probe Temperature', 'Lower Cook Time'].forEach((name) => {
+        const stale = this.accessory!.getService(name)
+        if (stale) {
+          this.accessory!.removeService(stale)
+        }
+      })
+      return
+    }
+
+    this.debugLog('This oven reports a lower cavity, so the lower oven tiles have been added')
+
+    // Lower Oven Light — same on/off shape as the upper light
+    if (await this.has_erd_code(ERD_TYPES.LOWER_OVEN_LIGHT)) {
+      const lowerOvenLight = this.accessory!.getService('Lower Oven Light')
+        ?? this.accessory!.addService(this.platform.Service.Lightbulb, 'Lower Oven Light', 'LowerOvenLight')
+      this.lowerOvenLight = lowerOvenLight
+      lowerOvenLight.setCharacteristic(this.platform.Characteristic.Name, 'Lower Oven Light')
+      lowerOvenLight
+        .getCharacteristic(this.platform.Characteristic.On)
+        .onGet(async () => {
+          try {
+            const r = await this.readErd(ERD_TYPES.LOWER_OVEN_LIGHT)
+            return r ? Number.parseInt(r) !== 0 : false
+          } catch (error: any) {
+            this.warnLog?.(`Lower Oven Light handleGetOn error: ${error?.message ?? error}`)
+            return false
+          }
+        })
+        .onSet(async (value) => {
+          try {
+            await this.writeErd(ERD_TYPES.LOWER_OVEN_LIGHT, value as boolean)
+          } catch (error: any) {
+            this.warnLog?.(`Lower Oven Light handleSetOn error: ${error?.message ?? error}`)
+          }
+        })
+    }
+
+    // Lower Oven Temperature — a read-only sensor rather than a thermostat,
+    // since cook control is not confirmed for the lower cavity
+    const lowerOvenTempSensor = this.accessory!.getService('Lower Oven Temperature')
+      ?? this.accessory!.addService(this.platform.Service.TemperatureSensor, 'Lower Oven Temperature', 'LowerOvenTemp')
+    this.lowerOvenTempSensor = lowerOvenTempSensor
+    lowerOvenTempSensor.setCharacteristic(this.platform.Characteristic.Name, 'Lower Oven Temperature')
+    lowerOvenTempSensor
+      .getCharacteristic(this.platform.Characteristic.CurrentTemperature)
+      .setProps({ minValue: -20, maxValue: 500, minStep: 0.1 })
+      .onGet(async () => {
+        try {
+          return await this.getLowerCavityTempC()
+        } catch (error: any) {
+          this.warnLog?.(`Lower Oven Temperature error: ${error?.message ?? error}`)
+          return 0
+        }
+      })
+
+    // Lower Probe Temperature — only while a probe is actually fitted
+    await this.syncLowerProbeSensor()
+
+    // Lower Cook Time — read-only, mirroring the upper cavity's valve
+    const lowerCookTimeValve = this.accessory!.getService('Lower Cook Time')
+      ?? this.accessory!.addService(this.platform.Service.Valve, 'Lower Cook Time', 'LowerCookTime')
+    this.lowerCookTimeValve = lowerCookTimeValve
+    lowerCookTimeValve.setCharacteristic(this.platform.Characteristic.Name, 'Lower Cook Time')
+    lowerCookTimeValve.setCharacteristic(this.platform.Characteristic.ValveType, this.platform.Characteristic.ValveType.GENERIC_VALVE)
+    lowerCookTimeValve
+      .getCharacteristic(this.platform.Characteristic.Active)
+      .onGet(async () => {
+        return await this.isLowerOvenRunning()
+          ? this.platform.Characteristic.Active.ACTIVE
+          : this.platform.Characteristic.Active.INACTIVE
+      })
+      .onSet(async () => {
+        this.infoLog('Lower Cook Time is a read-only display; starting or stopping the lower oven from HomeKit is not supported')
+        lowerCookTimeValve.updateCharacteristic(
+          this.platform.Characteristic.Active,
+          await this.isLowerOvenRunning()
+            ? this.platform.Characteristic.Active.ACTIVE
+            : this.platform.Characteristic.Active.INACTIVE,
+        )
+      })
+
+    lowerCookTimeValve
+      .getCharacteristic(this.platform.Characteristic.InUse)
+      .onGet(async () => {
+        return await this.isLowerOvenRunning()
+          ? this.platform.Characteristic.InUse.IN_USE
+          : this.platform.Characteristic.InUse.NOT_IN_USE
+      })
+
+    lowerCookTimeValve
+      .getCharacteristic(this.platform.Characteristic.RemainingDuration)
+      .onGet(async () => {
+        const r = await this.readErd(ERD_TYPES.LOWER_OVEN_COOK_TIME_REMAINING)
+        if (!r) {
+          return 0
+        }
+        const minutes = Number.parseInt(r, 16)
+        this.debugLog(`Lower Cook Time Remaining - Hex: ${r}, Minutes: ${minutes}`)
+        return minutes * 60
+      })
+  }
+
+  /**
+   * The lower cavity's actual temperature in °C, using the same raw-then-display
+   * preference as the upper cavity. Both arrive as hex-encoded °F.
+   */
+  private async getLowerCavityTempC(): Promise<number> {
+    const hex = await this.try_get_erd_value(ERD_TYPES.LOWER_OVEN_RAW_TEMPERATURE)
+      ?? await this.try_get_erd_value(ERD_TYPES.LOWER_OVEN_DISPLAY_TEMPERATURE)
+    if (!hex) {
+      return 0
+    }
+    return fToC(Number.parseInt(hex, 16))
+  }
+
+  /**
+   * Whether the lower cavity is currently cooking (any non-zero state).
+   */
+  private async isLowerOvenRunning(): Promise<boolean> {
+    const r = await this.try_get_erd_value(ERD_TYPES.LOWER_OVEN_CURRENT_STATE)
+    return !!r && Number.parseInt(r, 16) !== 0
+  }
+
+  /**
+   * Whether a probe is plugged into the lower cavity. Ovens that report a
+   * probe temperature without a probe-present flag are treated as fitted, so
+   * a working probe is not hidden by a missing flag (#46).
+   */
+  private async isLowerProbeFitted(): Promise<boolean> {
+    const present = await this.try_get_erd_value(ERD_TYPES.LOWER_OVEN_PROBE_PRESENT)
+    if (present !== undefined) {
+      return Number.parseInt(present, 16) === 1
+    }
+    const temp = await this.try_get_erd_value(ERD_TYPES.LOWER_OVEN_PROBE_DISPLAY_TEMP)
+    return temp !== undefined && Number.parseInt(temp, 16) > 0
+  }
+
+  /**
+   * Add the lower cavity's probe sensor while a probe is fitted, remove it
+   * when not. Safe to call repeatedly, so plugging a probe in shows the tile
+   * without a restart.
+   */
+  private async syncLowerProbeSensor(): Promise<void> {
+    if (await this.isLowerProbeFitted()) {
+      const lowerProbeTempSensor = this.accessory!.getService('Lower Probe Temperature')
+        ?? this.accessory!.addService(this.platform.Service.TemperatureSensor, 'Lower Probe Temperature', 'LowerProbeTemp')
+      this.lowerProbeTempSensor = lowerProbeTempSensor
+      this.lowerProbeRemovalLogged = false
+      lowerProbeTempSensor.setCharacteristic(this.platform.Characteristic.Name, 'Lower Probe Temperature')
+      lowerProbeTempSensor
+        .getCharacteristic(this.platform.Characteristic.CurrentTemperature)
+        .setProps({ minValue: -20, maxValue: 500, minStep: 0.1 })
+        .onGet(async () => {
+          const r = await this.try_get_erd_value(ERD_TYPES.LOWER_OVEN_PROBE_DISPLAY_TEMP)
+          if (!r) {
+            return 0
+          }
+          return fToC(Number.parseInt(r, 16))
+        })
+      return
+    }
+    const staleProbe = this.accessory!.getService('Lower Probe Temperature')
+    if (staleProbe) {
+      this.accessory!.removeService(staleProbe)
+    }
+    this.lowerProbeTempSensor = undefined
+    if (!this.lowerProbeRemovalLogged) {
+      this.lowerProbeRemovalLogged = true
+      this.infoLog('No temperature probe is plugged into the lower oven, so the Lower Probe Temperature tile is not shown (it appears when a probe is fitted)')
+    }
   }
 
   /**
@@ -578,6 +786,49 @@ export class SmartHQOven extends deviceBase {
           const r = await this.try_get_erd_value(ERD_TYPES.UPPER_OVEN_COOK_TIME_REMAINING)
           const minutes = r ? Number.parseInt(r, 16) : 0
           this.cookTimeValve?.updateCharacteristic(this.platform.Characteristic.RemainingDuration, minutes * 60)
+          break
+        }
+        // Lower cavity, double ovens only (#46)
+        case ERD_TYPES.LOWER_OVEN_LIGHT: {
+          const r = await this.try_get_erd_value(ERD_TYPES.LOWER_OVEN_LIGHT)
+          this.lowerOvenLight?.updateCharacteristic(this.platform.Characteristic.On, !!r && Number.parseInt(r) !== 0)
+          break
+        }
+        case ERD_TYPES.LOWER_OVEN_RAW_TEMPERATURE:
+        case ERD_TYPES.LOWER_OVEN_DISPLAY_TEMPERATURE: {
+          this.lowerOvenTempSensor?.updateCharacteristic(this.platform.Characteristic.CurrentTemperature, await this.getLowerCavityTempC())
+          break
+        }
+        case ERD_TYPES.LOWER_OVEN_CURRENT_STATE: {
+          const lowerRunning = await this.isLowerOvenRunning()
+          this.lowerCookTimeValve?.updateCharacteristic(
+            this.platform.Characteristic.Active,
+            lowerRunning ? this.platform.Characteristic.Active.ACTIVE : this.platform.Characteristic.Active.INACTIVE,
+          )
+          this.lowerCookTimeValve?.updateCharacteristic(
+            this.platform.Characteristic.InUse,
+            lowerRunning ? this.platform.Characteristic.InUse.IN_USE : this.platform.Characteristic.InUse.NOT_IN_USE,
+          )
+          break
+        }
+        case ERD_TYPES.LOWER_OVEN_COOK_TIME_REMAINING: {
+          const r = await this.try_get_erd_value(ERD_TYPES.LOWER_OVEN_COOK_TIME_REMAINING)
+          const minutes = r ? Number.parseInt(r, 16) : 0
+          this.lowerCookTimeValve?.updateCharacteristic(this.platform.Characteristic.RemainingDuration, minutes * 60)
+          break
+        }
+        case ERD_TYPES.LOWER_OVEN_PROBE_PRESENT: {
+          await this.syncLowerProbeSensor()
+          break
+        }
+        case ERD_TYPES.LOWER_OVEN_PROBE_DISPLAY_TEMP: {
+          // The tile can be absent when the oven reports no probe-present flag
+          // and the probe read cold at startup, so make sure it exists (#46)
+          if (!this.lowerProbeTempSensor) {
+            await this.syncLowerProbeSensor()
+          }
+          const r = await this.try_get_erd_value(ERD_TYPES.LOWER_OVEN_PROBE_DISPLAY_TEMP)
+          this.lowerProbeTempSensor?.updateCharacteristic(this.platform.Characteristic.CurrentTemperature, r ? fToC(Number.parseInt(r, 16)) : 0)
           break
         }
         case ERD_TYPES.UPPER_OVEN_PROBE_PRESENT: {
