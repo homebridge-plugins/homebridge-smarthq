@@ -32,7 +32,7 @@
 </div>
 <div id="menuWrapper" class="btn-group w-100 mb-0" role="group" aria-label="UI Menu" style="display: none">
   <button type="button" class="btn btn-primary" id="menuSettings">Settings</button>
-  <button type="button" class="btn btn-primary" id="menuDevices">Devices</button>
+  <button type="button" class="btn btn-primary" id="menuDevices">My Devices</button>
   <button type="button" class="btn btn-primary mr-0" id="menuHome">Support</button>
 </div>
 <div id="disabledBanner" class="alert alert-secondary mb-0 mt-3" role="alert" style="display: none">
@@ -117,47 +117,57 @@
 </div>
 <div id="pageSupport" class="mt-4" style="display: none">
   <p class="text-center lead">Thank you for using <strong>homebridge-smarthq</strong></p>
-  <p class="text-center">The links below will take you to our GitHub wiki</p>
+  <h5>Plugin Information</h5>
+<ul>
+  <li>This plugin allows you to view and control your <a href="https://www.geappliances.com/connect" target="_blank">SmartHQ</a> appliances within HomeKit. The plugin:</li>
+  <ul>
+    <li>requires your SmartHQ account credentials to work</li>
+    <li>connects to the SmartHQ cloud to discover and control your appliances</li>
+  </ul>
+</ul>
+  <h5>Prerequisites</h5>
+<ul>
+  <li>To use this plugin, you will need to already have:</li>
+  <ul>
+    <li><a href="https://nodejs.org" target="_blank">Node</a>: latest version of <code>v22</code> or <code>v24</code> - any other major version is not supported.</li>
+    <li><a href="https://homebridge.io" target="_blank">Homebridge</a>: <code>v2</code> - refer to link for more information and installation instructions.</li>
+  </ul>
+</ul>
   <h5>Setup</h5>
-  <ul>
-    <li>
-      <a href="https://github.com/homebridge-plugins/homebridge-smarthq/wiki" target="_blank">Wiki Home</a>
-    </li>
-    <li>
-      <a href="https://github.com/homebridge-plugins/homebridge-smarthq/wiki/Configuration"
-        target="_blank">Configuration</a>
-    </li>
-    <li>
-      <a href="https://github.com/homebridge-plugins/homebridge-smarthq/wiki/Beta-Version" target="_blank">Beta
-        Version</a>
-    </li>
-    <li>
-      <a href="https://github.com/homebridge-plugins/homebridge-smarthq/wiki/Node-Version" target="_blank">Node
-        Version</a>
-    </li>
-    <li>
-      <a href="https://github.com/homebridge-plugins/homebridge-smarthq/wiki/Uninstallation"
-        target="_blank">Uninstallation</a>
-    </li>
-  </ul>
+<ul>
+  <li><a href="https://github.com/homebridge-plugins/homebridge-smarthq/wiki/Installation" target="_blank">Installation</a></li>
+  <li><a href="https://github.com/homebridge-plugins/homebridge-smarthq/wiki/Configuration" target="_blank">Configuration</a></li>
+  <li><a href="https://github.com/homebridge-plugins/homebridge-smarthq/wiki/Beta-Version" target="_blank">Beta Version</a></li>
+  <li><a href="https://github.com/homebridge-plugins/homebridge-smarthq/wiki/Node-Version" target="_blank">Node Version</a></li>
+</ul>
   <h5>Features</h5>
+<ul>
+  <li><strong>HomeKit Controller notifications</strong> are supported for the Opal Ice Maker. To set up, install the HomeKit Controller app and configure notifications for each respective event. Put your HomeKit Controller client secret in the plugin advanced options, and the path associated with each available notification in the Opal device options. Supported events:</li>
   <ul>
-    <li>
-      <a href="https://github.com/homebridge-plugins/homebridge-smarthq/wiki/Supported-Devices"
-        target="_blank">Supported Devices</a>
-    </li>
+    <li>Ice Bucket Full</li>
+    <li>Production Progress Complete</li>
+    <li>Filter Maintenance Change Alert</li>
+    <li>Descale Needed Alert</li>
+    <li>Add Water Alert</li>
   </ul>
+</ul>
   <h5>Help/About</h5>
-  <ul>
-    <li>
-      <a href="https://github.com/homebridge-plugins/homebridge-smarthq/issues/new/choose" target="_blank">Support
-        Request</a>
-    </li>
-    <li>
-      <a href="https://github.com/homebridge-plugins/homebridge-smarthq/blob/latest/CHANGELOG.md"
-        target="_blank">Changelog</a>
-    </li>
-  </ul>
+<ul>
+  <li><a href="https://github.com/homebridge-plugins/homebridge-smarthq/wiki/Common-Errors" target="_blank">Common Errors</a></li>
+  <li><a href="https://github.com/homebridge-plugins/homebridge-smarthq/issues/new/choose" target="_blank">Support Request</a></li>
+  <li><a href="https://github.com/homebridge-plugins/homebridge-smarthq/blob/latest/CHANGELOG.md" target="_blank">Changelog</a></li>
+  <li><a href="https://github.com/sponsors/bwp91" target="_blank">About Me</a></li>
+</ul>
+  <h5>Credits</h5>
+<ul>
+  <li>To <a href="https://github.com/donavanbecker" target="_blank">@donavanbecker</a>: the original creator and maintainer of this plugin.</li>
+  <li>To the creators/contributors of <a href="https://homebridge.io" target="_blank">Homebridge</a> who make this plugin possible.</li>
+</ul>
+  <h5>Disclaimer</h5>
+<ul>
+  <li>I am in no way affiliated with SmartHQ or GE Appliances and this plugin is a personal project that I maintain in my free time.</li>
+  <li>Use this plugin entirely at your own risk - please see licence for more information.</li>
+</ul>
   <style>
     /* iOS Switch Style */
     .ios-switch {
