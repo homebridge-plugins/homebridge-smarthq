@@ -11,6 +11,9 @@ All notable changes to this project will be documented in this file. This projec
 - fix(schema): restore the settings screen banner, which pointed at a deleted svg
 - feat: add combination washer/dryer support for GE all-in-one units (#96)
 - feat: add the lower oven on double ovens - light, temperature, probe and cook time (#46)
+- fix(ui): fix the custom UI banner image, which still pointed at the deleted svg
+- fix: give every homekit tile its proper name instead of generic labels like Switch 1
+- feat: support accounts with 2fa and reuse the saved login token across restarts
 
 ## v0.5.2 (2026-07-20)
 

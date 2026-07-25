@@ -28,8 +28,12 @@ export async function refreshAccessToken(refresh_token: string) {
   return client.grant({ refresh_token, grant_type: 'refresh_token' })
 }
 
-export default async function getAccessToken(username: string, password: string, region?: string) {
+export default async function getAccessToken(username: string, password: string, region?: string, mfaCode?: string) {
   const client = await oidcClient
+
+  // Guards the 2FA challenge handler below: a code is submitted at most once
+  // per login attempt, so a wrong/expired code cannot loop forever
+  let mfaAttempted = false
 
   const oauthUrl = client.authorizationUrl()
 
@@ -316,7 +320,106 @@ export default async function getAccessToken(username: string, password: string,
         }
       }
 
-      throw new Error('Authentication failed: No authorization code received and no known intermediate page detected')
+      // 2FA verification challenge page — the account already has multi-factor
+      // authentication turned on (distinct from the enrollment page above,
+      // which offers to add it). This page has never been captured from a real
+      // account, so it is detected generically: a page that talks about a
+      // verification code, containing a form whose visible input looks like a
+      // code field. Debug details are included in the errors so a failed guess
+      // is reportable.
+      if (/verification code|security code|multi-?factor|two-?factor|one-?time (?:pass)?code|enter (?:the |your )?code/i.test(respText)) {
+        const $ = cheerio.load(respText)
+        let challengeFormEl: any = null
+        let codeInputName: string | undefined
+
+        $('form').each((_, formEl) => {
+          if (challengeFormEl) {
+            return
+          }
+          $(formEl).find('input').each((__, inputEl) => {
+            if (codeInputName) {
+              return
+            }
+            const input = $(inputEl)
+            const type = (input.attr('type') ?? 'text').toLowerCase()
+            if (['hidden', 'submit', 'checkbox', 'password', 'email'].includes(type)) {
+              return
+            }
+            const nameAndId = `${input.attr('name') ?? ''} ${input.attr('id') ?? ''}`
+            if (/code|otp|pin|mfa|token/i.test(nameAndId)) {
+              challengeFormEl = formEl
+              codeInputName = input.attr('name')
+            }
+          })
+        })
+
+        if (challengeFormEl && codeInputName) {
+          if (mfaAttempted) {
+            throw new Error('2FA verification failed: the code was not accepted (wrong or expired). Restart Homebridge to trigger a fresh code, update the "2FA Verification Code" setting with the new code, then restart once more.')
+          }
+          if (!mfaCode) {
+            throw new Error('Your SmartHQ account has two-factor authentication (2FA) turned on. Check your email or phone for a verification code, paste it into the plugin\'s "2FA Verification Code" setting, then restart Homebridge. After one successful login the plugin saves a token and will not ask again. Alternatively, turn off 2FA on your SmartHQ account.')
+          }
+          mfaAttempted = true
+
+          const challengeForm = $(challengeFormEl)
+          const formData: Record<string, string> = {}
+          challengeForm.find('input').each((i, el) => {
+            const name = $(el).attr('name')
+            if (!name) {
+              return
+            }
+            formData[name] = $(el).val() as string || ''
+          })
+          formData[codeInputName] = mfaCode
+          if (!formData._csrf) {
+            const csrfMeta = $('meta[name="_csrf"]').attr('content')
+            if (csrfMeta) {
+              formData._csrf = csrfMeta
+            }
+          }
+
+          const submitUrl = new URL(challengeForm.attr('action') || '/oauth2/g_authenticate', LOGIN_URL).toString()
+          const mfaResp = await aclient({
+            method: 'POST',
+            url: submitUrl,
+            data: new URLSearchParams(formData),
+            headers: { 'content-type': 'application/x-www-form-urlencoded' },
+            maxRedirects: 0,
+            validateStatus: () => true,
+          })
+
+          const loc = mfaResp.headers.location
+          const gotCode = tryExtractCodeFromLocation(loc)
+          if (gotCode) {
+            return gotCode
+          }
+          if (loc) {
+            const redirectResult = await followRedirectsForCode(loc)
+            if (redirectResult.code) {
+              return redirectResult.code
+            }
+            if (redirectResult.response?.status === 200 && typeof redirectResult.response.data === 'string') {
+              // A successful code entry may still land on another interstitial
+              // (for example Terms); the mfaAttempted guard stops a loop if it
+              // is the challenge page again
+              return await asyncHandleOkResponse(redirectResult.response.data)
+            }
+          }
+          if (mfaResp.status === 200 && typeof mfaResp.data === 'string') {
+            return await asyncHandleOkResponse(mfaResp.data)
+          }
+          throw new Error('2FA verification failed: the code was not accepted (wrong or expired). Restart Homebridge to trigger a fresh code, update the "2FA Verification Code" setting with the new code, then restart once more.')
+        }
+      }
+
+      // Include what the page looked like so unknown interstitials can be
+      // reported and added to the handlers above
+      const $unknown = cheerio.load(respText)
+      const pageTitle = $unknown('title').text().trim()
+      const pageForms = $unknown('form').map((i, el) => $unknown(el).attr('id') || $unknown(el).attr('name') || $unknown(el).attr('action') || 'unnamed').get().join(', ')
+      const pageDetails = [pageTitle ? `page title: "${pageTitle}"` : '', pageForms ? `forms: ${pageForms}` : ''].filter(Boolean).join('; ')
+      throw new Error(`Authentication failed: No authorization code received and no known intermediate page detected${pageDetails ? ` (${pageDetails})` : ''}`)
     }
 
     // If we have HTML in the response, try to handle it

@@ -40,6 +40,7 @@ export interface SmartHQPlatformConfig extends PlatformConfig {
 export interface credentials {
   username?: string
   password?: string
+  mfaCode?: string
 }
 
 export interface devicesConfig {

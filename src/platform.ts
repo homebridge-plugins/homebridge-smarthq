@@ -7,7 +7,8 @@ import type { TokenSet } from 'openid-client'
 
 import type { credentials, devicesConfig, options, SmartHqContext, SmartHQPlatformConfig } from './settings.js'
 
-import { readFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { argv } from 'node:process'
 
 import { SmartHQIceMaker } from '@opal/index.js'
@@ -210,6 +211,38 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
     }
   }
 
+  /**
+   * The token cache lets a restart reuse the refresh token from a previous
+   * login instead of doing a fresh username/password login every time. For
+   * accounts with 2FA turned on this is what makes the verification code a
+   * one-time step.
+   */
+  private tokenCachePath(): string {
+    return join(this.api.user.storagePath(), 'smarthq-token.json')
+  }
+
+  private async saveTokenSet(): Promise<void> {
+    try {
+      const cache = { username: this.config.credentials?.username, tokenSet: this.tokenSet }
+      writeFileSync(this.tokenCachePath(), JSON.stringify(cache), { mode: 0o600 })
+    } catch (e: any) {
+      await this.debugWarnLog(`Failed to save token cache: ${e.message ?? e}`)
+    }
+  }
+
+  private loadCachedRefreshToken(): string | undefined {
+    try {
+      const cache = JSON.parse(readFileSync(this.tokenCachePath(), 'utf8'))
+      // A saved token for a different account than the one now configured is useless
+      if (cache.username !== this.config.credentials?.username) {
+        return undefined
+      }
+      return cache.tokenSet?.refresh_token
+    } catch {
+      return undefined
+    }
+  }
+
   async startRefreshTokenLogic() {
     if (!this.tokenSet) {
       throw new Error('Token set is undefined')
@@ -218,6 +251,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
     if (this.tokenSet.refresh_token) {
       try {
         this.tokenSet = await refreshAccessToken(this.tokenSet.refresh_token)
+        await this.saveTokenSet()
       } catch (e: any) {
         await this.debugErrorLog(`Failed to refresh Access Token, Error Message: ${e.message ?? e}`)
 
@@ -226,10 +260,11 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
           await this.debugWarnLog('Refresh token is invalid or expired. Attempting to re-authenticate with username and password...')
 
           // Try to get a new token using username/password
-          const { username, password } = this.config.credentials ?? {}
+          const { username, password, mfaCode } = this.config.credentials ?? {}
           if (username && password) {
             try {
-              this.tokenSet = await getAccessToken(username, password, this.config.options?.region)
+              this.tokenSet = await getAccessToken(username, password, this.config.options?.region, mfaCode)
+              await this.saveTokenSet()
               await this.debugSuccessLog('Successfully re-authenticated with credentials')
 
               // Set up axios with new token
@@ -399,16 +434,35 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
 
   async discoverDevices() {
     try {
-      const { username, password } = this.config.credentials ?? {}
+      const { username, password, mfaCode } = this.config.credentials ?? {}
       if (!username || !password) {
         throw new Error('Username or password is undefined')
       }
-      try {
-        this.tokenSet = await getAccessToken(username, password, this.config.options?.region)
-      } catch (e: any) {
-        await this.errorLog(`discoverDevices, Failed to get Access Token, Error Message: ${e.message ?? e}, Submit Bugs Here: https://bit.ly/smarthq-bug-report`)
-        return // Stop execution if authentication fails
+
+      // Prefer the refresh token saved from a previous login over a fresh
+      // username/password login — it is faster, and for 2FA accounts it is
+      // the only path that does not need a new verification code
+      let signedInFromCache = false
+      const cachedRefreshToken = this.loadCachedRefreshToken()
+      if (cachedRefreshToken) {
+        try {
+          this.tokenSet = await refreshAccessToken(cachedRefreshToken)
+          signedInFromCache = true
+          await this.debugSuccessLog('Signed in using the saved token from a previous login')
+        } catch (e: any) {
+          await this.debugWarnLog(`Saved token no longer valid (${e.message ?? e}), falling back to username/password login`)
+        }
       }
+
+      if (!signedInFromCache) {
+        try {
+          this.tokenSet = await getAccessToken(username, password, this.config.options?.region, mfaCode)
+        } catch (e: any) {
+          await this.errorLog(`discoverDevices, Failed to get Access Token, Error Message: ${e.message ?? e}, Submit Bugs Here: https://bit.ly/smarthq-bug-report`)
+          return // Stop execution if authentication fails
+        }
+      }
+      await this.saveTokenSet()
 
       try {
         await this.startRefreshTokenLogic()

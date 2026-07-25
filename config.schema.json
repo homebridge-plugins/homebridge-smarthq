@@ -33,6 +33,12 @@
               "type": "password"
             }
           },
+          "mfaCode": {
+            "type": "string",
+            "title": "2FA Verification Code",
+            "placeholder": "123456",
+            "description": "Only needed if your SmartHQ account has two-factor authentication (2FA) turned on. When login fails asking for a code, check your email or phone for the code, enter it here, then restart Homebridge. After one successful login the plugin saves a token and this box can be left empty."
+          },
           "notice": {
             "title": "Notice",
             "type": "string",
