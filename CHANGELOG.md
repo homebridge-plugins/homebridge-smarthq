@@ -16,6 +16,7 @@ All notable changes to this project will be documented in this file. This projec
 - feat: support accounts with 2fa and reuse the saved login token across restarts
 - feat(ui): add, remove and hide devices from the config via the devices tab
 - style(ui): standardise the custom ui layout and sync the support tab with the readme
+- feat(ui): add a remove all devices action to the my devices tab
 
 ## v0.5.2 (2026-07-20)
 
