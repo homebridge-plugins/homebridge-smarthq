@@ -105,7 +105,7 @@ export class SmartHQKeurig extends deviceBase {
     // Mirrors simbaja/ha_gehome's GeKCupSwitch.
     const kcupSwitch = this.accessory!.getService('K-Cup Hot Water')
       ?? this.accessory!.addService(this.platform.Service.Switch, 'K-Cup Hot Water', 'KeurigKCupSwitch')
-    kcupSwitch.setCharacteristic(this.platform.Characteristic.Name, 'K-Cup Hot Water')
+    this.setServiceName(kcupSwitch, 'K-Cup Hot Water')
     kcupSwitch
       .getCharacteristic(this.platform.Characteristic.On)
       .onGet(async () => {
@@ -122,7 +122,7 @@ export class SmartHQKeurig extends deviceBase {
     // Hot Water Ready — occupied when HOT_WATER_STATUS.status === READY
     const readySensor = this.accessory!.getService('Hot Water Ready')
       ?? this.accessory!.addService(this.platform.Service.OccupancySensor, 'Hot Water Ready', 'KeurigReady')
-    readySensor.setCharacteristic(this.platform.Characteristic.Name, 'Hot Water Ready')
+    this.setServiceName(readySensor, 'Hot Water Ready')
     readySensor
       .getCharacteristic(this.platform.Characteristic.OccupancyDetected)
       .onGet(async () => {
@@ -136,7 +136,7 @@ export class SmartHQKeurig extends deviceBase {
     // Hot Water Dispensing — occupied while a brew/dispense is in progress
     const dispensingSensor = this.accessory!.getService('Hot Water Dispensing')
       ?? this.accessory!.addService(this.platform.Service.OccupancySensor, 'Hot Water Dispensing', 'KeurigDispensing')
-    dispensingSensor.setCharacteristic(this.platform.Characteristic.Name, 'Hot Water Dispensing')
+    this.setServiceName(dispensingSensor, 'Hot Water Dispensing')
     dispensingSensor
       .getCharacteristic(this.platform.Characteristic.OccupancyDetected)
       .onGet(async () => {

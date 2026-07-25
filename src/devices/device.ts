@@ -496,6 +496,24 @@ export abstract class deviceBase {
   }
 
   /**
+   * Give a service the name the Home app actually displays.
+   *
+   * Setting Characteristic.Name alone is not enough: the Home app ignores it
+   * on secondary services and falls back to generic labels like "Switch 1",
+   * "Switch 2". ConfiguredName is what the Home app reads, but it is not part
+   * of most service definitions, so it is added as an optional characteristic
+   * first to avoid the HAP "characteristic not in definition" warning.
+   */
+  protected setServiceName(service: Service, name: string): Service {
+    service.setCharacteristic(this.hap.Characteristic.Name, name)
+    if (!service.testCharacteristic(this.hap.Characteristic.ConfiguredName)) {
+      service.addOptionalCharacteristic(this.hap.Characteristic.ConfiguredName)
+    }
+    service.setCharacteristic(this.hap.Characteristic.ConfiguredName, name)
+    return service
+  }
+
+  /**
    * Create Matter accessory configuration
    * Should be overridden by device-specific implementations that support Matter
    */

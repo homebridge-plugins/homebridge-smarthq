@@ -35,7 +35,7 @@ export class SmartHQWaterFilter extends deviceBase {
     // levels show (#10)
     if (showFilterBattery) {
       this.batteryService = this.accessory!.getService('Filter Life') ?? this.accessory!.addService(this.platform.Service.Battery, 'Filter Life', 'FilterLife')
-      this.batteryService.setCharacteristic(this.platform.Characteristic.Name, 'Filter Life')
+      this.setServiceName(this.batteryService, 'Filter Life')
       this.batteryService.setCharacteristic(this.platform.Characteristic.ChargingState, this.platform.Characteristic.ChargingState.NOT_CHARGEABLE)
       this.batteryService
         .getCharacteristic(this.platform.Characteristic.BatteryLevel)
@@ -60,7 +60,7 @@ export class SmartHQWaterFilter extends deviceBase {
 
     // Water Filter Maintenance
     this.filterService = this.accessory!.getService('Water Filter') ?? this.accessory!.addService(this.platform.Service.FilterMaintenance, 'Water Filter', 'WaterFilter')
-    this.filterService.setCharacteristic(this.platform.Characteristic.Name, 'Water Filter')
+    this.setServiceName(this.filterService, 'Water Filter')
     this.filterService
       .getCharacteristic(this.platform.Characteristic.FilterChangeIndication)
       .onGet(async () => {
@@ -82,7 +82,7 @@ export class SmartHQWaterFilter extends deviceBase {
     // valve-state erd instead showed "Stopping" (in use but inactive) on
     // filters that report that erd differently to the GXWH70M (#10)
     this.valveService = this.accessory!.getService('Water Flow') ?? this.accessory!.addService(this.platform.Service.Valve, 'Water Flow', 'WaterFlow')
-    this.valveService.setCharacteristic(this.platform.Characteristic.Name, 'Water Flow')
+    this.setServiceName(this.valveService, 'Water Flow')
     this.valveService.setCharacteristic(this.platform.Characteristic.ValveType, this.platform.Characteristic.ValveType.WATER_FAUCET)
     this.valveService
       .getCharacteristic(this.platform.Characteristic.Active)
@@ -105,7 +105,7 @@ export class SmartHQWaterFilter extends deviceBase {
     // Leak Sensor: combines the filter's leak detection with its flow alert,
     // so continuous unexpected flow also raises a HomeKit leak notification
     this.leakService = this.accessory!.getService('Water Leak') ?? this.accessory!.addService(this.platform.Service.LeakSensor, 'Water Leak', 'WaterLeak')
-    this.leakService.setCharacteristic(this.platform.Characteristic.Name, 'Water Leak')
+    this.setServiceName(this.leakService, 'Water Leak')
     this.leakService
       .getCharacteristic(this.platform.Characteristic.LeakDetected)
       .onGet(async () => {

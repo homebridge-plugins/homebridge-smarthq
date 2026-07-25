@@ -209,7 +209,7 @@ export class SmartHQOven extends deviceBase {
       }
       const ovenLight = this.accessory!.getService('Oven Light') ?? this.accessory!.addService(this.platform.Service.Lightbulb, 'Oven Light', 'OvenLight')
       this.ovenLight = ovenLight
-      ovenLight.setCharacteristic(this.platform.Characteristic.Name, 'Oven Light')
+      this.setServiceName(ovenLight, 'Oven Light')
       ovenLight
         .getCharacteristic(this.platform.Characteristic.On)
         .onGet(async () => {
@@ -240,7 +240,7 @@ export class SmartHQOven extends deviceBase {
     }
     const ovenThermostat = this.accessory!.getService('Oven') ?? this.accessory!.addService(this.platform.Service.Thermostat, 'Oven', 'OvenThermostat')
     this.ovenThermostat = ovenThermostat
-    ovenThermostat.setCharacteristic(this.platform.Characteristic.Name, 'Oven')
+    this.setServiceName(ovenThermostat, 'Oven')
     ovenThermostat
       .getCharacteristic(this.platform.Characteristic.CurrentTemperature)
       .setProps({ minValue: -20, maxValue: 500, minStep: 0.1 })
@@ -328,7 +328,7 @@ export class SmartHQOven extends deviceBase {
     // duration still comes from the timer when one is set.
     const cookTimeValve = this.accessory!.getService('Cook Time') ?? this.accessory!.addService(this.platform.Service.Valve, 'Cook Time', 'CookTime')
     this.cookTimeValve = cookTimeValve
-    cookTimeValve.setCharacteristic(this.platform.Characteristic.Name, 'Cook Time')
+    this.setServiceName(cookTimeValve, 'Cook Time')
     cookTimeValve.setCharacteristic(this.platform.Characteristic.ValveType, this.platform.Characteristic.ValveType.GENERIC_VALVE)
     cookTimeValve
       .getCharacteristic(this.platform.Characteristic.Active)
@@ -385,7 +385,7 @@ export class SmartHQOven extends deviceBase {
         return
       }
       const remoteEnabledSensor = this.accessory!.getService('Remote Enabled') ?? this.accessory!.addService(this.platform.Service.ContactSensor, 'Remote Enabled', 'RemoteEnabled')
-      remoteEnabledSensor.setCharacteristic(this.platform.Characteristic.Name, 'Remote Enabled')
+      this.setServiceName(remoteEnabledSensor, 'Remote Enabled')
       remoteEnabledSensor
         .getCharacteristic(this.platform.Characteristic.ContactSensorState)
         .onGet(async () => {
@@ -442,7 +442,7 @@ export class SmartHQOven extends deviceBase {
       const lowerOvenLight = this.accessory!.getService('Lower Oven Light')
         ?? this.accessory!.addService(this.platform.Service.Lightbulb, 'Lower Oven Light', 'LowerOvenLight')
       this.lowerOvenLight = lowerOvenLight
-      lowerOvenLight.setCharacteristic(this.platform.Characteristic.Name, 'Lower Oven Light')
+      this.setServiceName(lowerOvenLight, 'Lower Oven Light')
       lowerOvenLight
         .getCharacteristic(this.platform.Characteristic.On)
         .onGet(async () => {
@@ -468,7 +468,7 @@ export class SmartHQOven extends deviceBase {
     const lowerOvenTempSensor = this.accessory!.getService('Lower Oven Temperature')
       ?? this.accessory!.addService(this.platform.Service.TemperatureSensor, 'Lower Oven Temperature', 'LowerOvenTemp')
     this.lowerOvenTempSensor = lowerOvenTempSensor
-    lowerOvenTempSensor.setCharacteristic(this.platform.Characteristic.Name, 'Lower Oven Temperature')
+    this.setServiceName(lowerOvenTempSensor, 'Lower Oven Temperature')
     lowerOvenTempSensor
       .getCharacteristic(this.platform.Characteristic.CurrentTemperature)
       .setProps({ minValue: -20, maxValue: 500, minStep: 0.1 })
@@ -488,7 +488,7 @@ export class SmartHQOven extends deviceBase {
     const lowerCookTimeValve = this.accessory!.getService('Lower Cook Time')
       ?? this.accessory!.addService(this.platform.Service.Valve, 'Lower Cook Time', 'LowerCookTime')
     this.lowerCookTimeValve = lowerCookTimeValve
-    lowerCookTimeValve.setCharacteristic(this.platform.Characteristic.Name, 'Lower Cook Time')
+    this.setServiceName(lowerCookTimeValve, 'Lower Cook Time')
     lowerCookTimeValve.setCharacteristic(this.platform.Characteristic.ValveType, this.platform.Characteristic.ValveType.GENERIC_VALVE)
     lowerCookTimeValve
       .getCharacteristic(this.platform.Characteristic.Active)
@@ -574,7 +574,7 @@ export class SmartHQOven extends deviceBase {
         ?? this.accessory!.addService(this.platform.Service.TemperatureSensor, 'Lower Probe Temperature', 'LowerProbeTemp')
       this.lowerProbeTempSensor = lowerProbeTempSensor
       this.lowerProbeRemovalLogged = false
-      lowerProbeTempSensor.setCharacteristic(this.platform.Characteristic.Name, 'Lower Probe Temperature')
+      this.setServiceName(lowerProbeTempSensor, 'Lower Probe Temperature')
       lowerProbeTempSensor
         .getCharacteristic(this.platform.Characteristic.CurrentTemperature)
         .setProps({ minValue: -20, maxValue: 500, minStep: 0.1 })
@@ -668,7 +668,7 @@ export class SmartHQOven extends deviceBase {
       const probeTempSensor = this.accessory!.getService('Probe Temperature') ?? this.accessory!.addService(this.platform.Service.TemperatureSensor, 'Probe Temperature', 'ProbeTemp')
       this.probeTempSensor = probeTempSensor
       this.probeRemovalLogged = false
-      probeTempSensor.setCharacteristic(this.platform.Characteristic.Name, 'Probe Temperature')
+      this.setServiceName(probeTempSensor, 'Probe Temperature')
       probeTempSensor
         .getCharacteristic(this.platform.Characteristic.CurrentTemperature)
         .setProps({ minValue: -20, maxValue: 500, minStep: 0.1 })
@@ -714,7 +714,7 @@ export class SmartHQOven extends deviceBase {
     }
     const cooktopSensor = this.accessory!.getService('Cooktop') ?? this.accessory!.addService(this.platform.Service.ContactSensor, 'Cooktop', 'Cooktop')
     this.cooktopSensor = cooktopSensor
-    cooktopSensor.setCharacteristic(this.platform.Characteristic.Name, 'Cooktop')
+    this.setServiceName(cooktopSensor, 'Cooktop')
     cooktopSensor
       .getCharacteristic(this.platform.Characteristic.ContactSensorState)
       .onGet(async () => {

@@ -123,6 +123,7 @@ export class SmartHQHood extends deviceBase {
         `${this.accessory.displayName} Fan`,
         this.FAN_SVC_NAME,
       )
+    this.setServiceName(this.fanSvc, `${this.accessory!.displayName} Fan`)
 
     this.lightSvc = this.accessory!.getService(this.LIGHT_SVC_NAME)
       ?? this.accessory!.addService(
@@ -130,6 +131,7 @@ export class SmartHQHood extends deviceBase {
         `${this.accessory.displayName} Light`,
         this.LIGHT_SVC_NAME,
       )
+    this.setServiceName(this.lightSvc, `${this.accessory!.displayName} Light`)
 
     const fanSwitchSvc = this.accessory!.getService('HOOD_FAN_SWITCH')
     if (fanSwitchSvc) {

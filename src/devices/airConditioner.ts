@@ -115,6 +115,7 @@ export class SmartHQAirConditioner extends deviceBase {
         accessory.displayName,
         this.HEATER_COOLER_SVC_NAME,
       )
+    this.setServiceName(this.heaterCoolerSvc, accessory.displayName)
 
     // Optional separate Fan service
     if (this.createSeparateFanService) {
@@ -124,6 +125,7 @@ export class SmartHQAirConditioner extends deviceBase {
           `${accessory.displayName} Fan`,
           this.FAN_SVC_NAME,
         )
+      this.setServiceName(this.fanSvc, `${accessory.displayName} Fan`)
 
       this.heaterCoolerSvc.addLinkedService(this.fanSvc)
     } else {
@@ -141,20 +143,25 @@ export class SmartHQAirConditioner extends deviceBase {
     if (this.showModeSwitches) {
       this.modeSwitchSvc[OperationMode.COOL] = this.accessory.getService(`${this.MODE_SWITCH_SVC_PREFIX}_COOL`)
         ?? this.accessory.addService(this.platform.Service.Switch, `${accessory.displayName} Cool Mode`, `${this.MODE_SWITCH_SVC_PREFIX}_COOL`)
+      this.setServiceName(this.modeSwitchSvc[OperationMode.COOL], `${accessory.displayName} Cool Mode`)
       this.modeSwitchSvc[OperationMode.FAN_ONLY] = this.accessory.getService(`${this.MODE_SWITCH_SVC_PREFIX}_FAN_ONLY`)
         ?? this.accessory.addService(this.platform.Service.Switch, `${accessory.displayName} Fan Only Mode`, `${this.MODE_SWITCH_SVC_PREFIX}_FAN_ONLY`)
+      this.setServiceName(this.modeSwitchSvc[OperationMode.FAN_ONLY], `${accessory.displayName} Fan Only Mode`)
       this.modeSwitchSvc[OperationMode.ENERGY_SAVER] = this.accessory.getService(`${this.MODE_SWITCH_SVC_PREFIX}_ENERGY_SAVER`)
         ?? this.accessory.addService(this.platform.Service.Switch, `${accessory.displayName} Energy Saver Mode`, `${this.MODE_SWITCH_SVC_PREFIX}_ENERGY_SAVER`)
+      this.setServiceName(this.modeSwitchSvc[OperationMode.ENERGY_SAVER], `${accessory.displayName} Energy Saver Mode`)
     }
 
     if (this.showModeSwitches && this.showHeatMode) {
       this.modeSwitchSvc[OperationMode.HEAT] = this.accessory.getService(`${this.MODE_SWITCH_SVC_PREFIX}_HEAT`)
         ?? this.accessory.addService(this.platform.Service.Switch, `${accessory.displayName} Heat Mode`, `${this.MODE_SWITCH_SVC_PREFIX}_HEAT`)
+      this.setServiceName(this.modeSwitchSvc[OperationMode.HEAT], `${accessory.displayName} Heat Mode`)
     }
 
     if (this.showModeSwitches && this.shouldExposeDryMode()) {
       this.modeSwitchSvc[OperationMode.DRY] = this.accessory.getService(`${this.MODE_SWITCH_SVC_PREFIX}_DRY`)
         ?? this.accessory.addService(this.platform.Service.Switch, `${accessory.displayName} Dry Mode`, `${this.MODE_SWITCH_SVC_PREFIX}_DRY`)
+      this.setServiceName(this.modeSwitchSvc[OperationMode.DRY], `${accessory.displayName} Dry Mode`)
     }
 
     // Remove any switches the current options no longer create

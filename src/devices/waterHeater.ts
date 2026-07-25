@@ -98,7 +98,7 @@ export class SmartHQWaterHeater extends deviceBase {
   private initializeHAP(): void {
     // Water Heater as Thermostat
     const heaterService = this.accessory!.getService('Water Heater') ?? this.accessory!.addService(this.platform.Service.Thermostat, 'Water Heater', 'WaterHeater')
-    heaterService.setCharacteristic(this.platform.Characteristic.Name, 'Water Heater')
+    this.setServiceName(heaterService, 'Water Heater')
 
     heaterService
       .getCharacteristic(this.platform.Characteristic.CurrentHeatingCoolingState)

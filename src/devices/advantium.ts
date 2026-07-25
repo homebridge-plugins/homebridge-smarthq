@@ -20,7 +20,7 @@ export class SmartHQAdvantium extends deviceBase {
 
     // Advantium Light
     const light = this.accessory!.getService('Advantium Light') ?? this.accessory!.addService(this.platform.Service.Lightbulb, 'Advantium Light', 'AdvantiumLight')
-    light.setCharacteristic(this.platform.Characteristic.Name, 'Advantium Light')
+    this.setServiceName(light, 'Advantium Light')
     light
       .getCharacteristic(this.platform.Characteristic.On)
       .onGet(async () => {
@@ -43,7 +43,7 @@ export class SmartHQAdvantium extends deviceBase {
 
     // Advantium Temperature Sensor
     const tempSensor = this.accessory!.getService('Advantium Temperature') ?? this.accessory!.addService(this.platform.Service.TemperatureSensor, 'Advantium Temperature', 'AdvantiumTemp')
-    tempSensor.setCharacteristic(this.platform.Characteristic.Name, 'Advantium Temperature')
+    this.setServiceName(tempSensor, 'Advantium Temperature')
     tempSensor
       .getCharacteristic(this.platform.Characteristic.CurrentTemperature)
       .onGet(async () => {
@@ -58,7 +58,7 @@ export class SmartHQAdvantium extends deviceBase {
 
     // Advantium Running State (Switch)
     const runningSwitch = this.accessory!.getService('Advantium Running') ?? this.accessory!.addService(this.platform.Service.Switch, 'Advantium Running', 'AdvantiumRunning')
-    runningSwitch.setCharacteristic(this.platform.Characteristic.Name, 'Advantium Running')
+    this.setServiceName(runningSwitch, 'Advantium Running')
     runningSwitch
       .getCharacteristic(this.platform.Characteristic.On)
       .onGet(async () => {

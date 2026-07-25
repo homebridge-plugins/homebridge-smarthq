@@ -286,7 +286,7 @@ export class SmartHQCombinationWasherDryer extends deviceBase {
     const existingRunningSwitch = this.accessory!.getService('Washer/Dryer Running')
     if (this.device.showRunningSwitch) {
       const runningSwitch = existingRunningSwitch ?? this.accessory!.addService(this.platform.Service.Switch, 'Washer/Dryer Running', 'WasherDryerRunning')
-      runningSwitch.setCharacteristic(this.platform.Characteristic.Name, 'Washer/Dryer Running')
+      this.setServiceName(runningSwitch, 'Washer/Dryer Running')
       runningSwitch
         .getCharacteristic(this.platform.Characteristic.On)
         .onGet(async () => {
@@ -305,7 +305,7 @@ export class SmartHQCombinationWasherDryer extends deviceBase {
 
     // Washer/Dryer Running State (Valve)
     const machineValve = this.accessory!.getService('Washer/Dryer') ?? this.accessory!.addService(this.platform.Service.Valve, 'Washer/Dryer', 'WasherDryer')
-    machineValve.setCharacteristic(this.platform.Characteristic.Name, 'Washer/Dryer')
+    this.setServiceName(machineValve, 'Washer/Dryer')
     machineValve.setCharacteristic(this.platform.Characteristic.ValveType, this.platform.Characteristic.ValveType.GENERIC_VALVE)
 
     // Set maximum duration to a large value (e.g., 12 hours = 43200 seconds)
@@ -351,7 +351,7 @@ export class SmartHQCombinationWasherDryer extends deviceBase {
 
     // Door Lock
     const doorLock = this.accessory!.getService('Washer/Dryer Door Lock') ?? this.accessory!.addService(this.platform.Service.LockMechanism, 'Washer/Dryer Door Lock', 'WasherDryerDoorLock')
-    doorLock.setCharacteristic(this.platform.Characteristic.Name, 'Washer/Dryer Door Lock')
+    this.setServiceName(doorLock, 'Washer/Dryer Door Lock')
     doorLock
       .getCharacteristic(this.platform.Characteristic.LockCurrentState)
       .onGet(async () => {
@@ -373,7 +373,7 @@ export class SmartHQCombinationWasherDryer extends deviceBase {
 
     // Door Sensor
     const doorSensor = this.accessory!.getService('Washer/Dryer Door') ?? this.accessory!.addService(this.platform.Service.ContactSensor, 'Washer/Dryer Door', 'WasherDryerDoor')
-    doorSensor.setCharacteristic(this.platform.Characteristic.Name, 'Washer/Dryer Door')
+    this.setServiceName(doorSensor, 'Washer/Dryer Door')
     doorSensor
       .getCharacteristic(this.platform.Characteristic.ContactSensorState)
       .onGet(async () => {
@@ -387,7 +387,7 @@ export class SmartHQCombinationWasherDryer extends deviceBase {
     // Cycle status (motion sensor mirrors whether a wash/dry cycle is running,
     // and logs the resolved wash-or-dry cycle name)
     const cycleSensor = this.accessory!.getService('Cycle Status') ?? this.accessory!.addService(this.platform.Service.MotionSensor, 'Cycle Status', 'WasherDryerCycle')
-    cycleSensor.setCharacteristic(this.platform.Characteristic.Name, 'Cycle Status')
+    this.setServiceName(cycleSensor, 'Cycle Status')
     cycleSensor
       .getCharacteristic(this.platform.Characteristic.MotionDetected)
       .onGet(async () => {

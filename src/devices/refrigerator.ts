@@ -274,7 +274,7 @@ export class SmartHQRefrigerator extends deviceBase {
       // Byte 0: Fridge Right Door
       if (availableDoors.byte0) {
         const fridgeRightDoor = this.accessory!.getService('Fridge Right Door') ?? this.accessory!.addService(this.platform.Service.ContactSensor, 'Fridge Right Door', 'FridgeRightDoor')
-        fridgeRightDoor.setCharacteristic(this.platform.Characteristic.Name, 'Fridge Right Door')
+        this.setServiceName(fridgeRightDoor, 'Fridge Right Door')
         fridgeRightDoor
           .getCharacteristic(this.platform.Characteristic.ContactSensorState)
           .onGet(async () => {
@@ -286,7 +286,7 @@ export class SmartHQRefrigerator extends deviceBase {
       // Byte 1: Fridge Left Door
       if (availableDoors.byte1) {
         const fridgeLeftDoor = this.accessory!.getService('Fridge Left Door') ?? this.accessory!.addService(this.platform.Service.ContactSensor, 'Fridge Left Door', 'FridgeLeftDoor')
-        fridgeLeftDoor.setCharacteristic(this.platform.Characteristic.Name, 'Fridge Left Door')
+        this.setServiceName(fridgeLeftDoor, 'Fridge Left Door')
         fridgeLeftDoor
           .getCharacteristic(this.platform.Characteristic.ContactSensorState)
           .onGet(async () => {
@@ -298,7 +298,7 @@ export class SmartHQRefrigerator extends deviceBase {
       // Byte 2: Freezer Door
       if (availableDoors.byte2) {
         const freezerDoor = this.accessory!.getService('Freezer Door') ?? this.accessory!.addService(this.platform.Service.ContactSensor, 'Freezer Door', 'FreezerDoor')
-        freezerDoor.setCharacteristic(this.platform.Characteristic.Name, 'Freezer Door')
+        this.setServiceName(freezerDoor, 'Freezer Door')
         freezerDoor
           .getCharacteristic(this.platform.Characteristic.ContactSensorState)
           .onGet(async () => {
@@ -328,7 +328,7 @@ export class SmartHQRefrigerator extends deviceBase {
 
     // Fridge Ice Bucket (nibble 0)
     const fridgeIceBucket = this.accessory!.getService('Fridge Ice Bucket') ?? this.accessory!.addService(this.platform.Service.ContactSensor, 'Fridge Ice Bucket', 'FridgeIceBucket')
-    fridgeIceBucket.setCharacteristic(this.platform.Characteristic.Name, 'Fridge Ice Bucket')
+    this.setServiceName(fridgeIceBucket, 'Fridge Ice Bucket')
     fridgeIceBucket
       .getCharacteristic(this.platform.Characteristic.ContactSensorState)
       .onGet(async () => {
@@ -338,7 +338,7 @@ export class SmartHQRefrigerator extends deviceBase {
 
     // Freezer Ice Bucket (nibble 1)
     const freezerIceBucket = this.accessory!.getService('Freezer Ice Bucket') ?? this.accessory!.addService(this.platform.Service.ContactSensor, 'Freezer Ice Bucket', 'FreezerIceBucket')
-    freezerIceBucket.setCharacteristic(this.platform.Characteristic.Name, 'Freezer Ice Bucket')
+    this.setServiceName(freezerIceBucket, 'Freezer Ice Bucket')
     freezerIceBucket
       .getCharacteristic(this.platform.Characteristic.ContactSensorState)
       .onGet(async () => {
@@ -348,7 +348,7 @@ export class SmartHQRefrigerator extends deviceBase {
 
     // Fridge Thermostat
     const fridgeThermostat = this.accessory!.getService('Fridge') ?? this.accessory!.addService(this.platform.Service.Thermostat, 'Fridge', 'FridgeThermostat')
-    fridgeThermostat.setCharacteristic(this.platform.Characteristic.Name, 'Fridge')
+    this.setServiceName(fridgeThermostat, 'Fridge')
     fridgeThermostat.setCharacteristic(this.platform.Characteristic.TemperatureDisplayUnits, this.platform.Characteristic.TemperatureDisplayUnits.FAHRENHEIT)
     fridgeThermostat.setCharacteristic(this.platform.Characteristic.CurrentHeatingCoolingState, this.platform.Characteristic.CurrentHeatingCoolingState.COOL)
     fridgeThermostat.setCharacteristic(this.platform.Characteristic.TargetHeatingCoolingState, this.platform.Characteristic.TargetHeatingCoolingState.COOL)
@@ -376,7 +376,7 @@ export class SmartHQRefrigerator extends deviceBase {
 
     // Freezer Thermostat
     const freezerThermostat = this.accessory!.getService('Freezer') ?? this.accessory!.addService(this.platform.Service.Thermostat, 'Freezer', 'FreezerThermostat')
-    freezerThermostat.setCharacteristic(this.platform.Characteristic.Name, 'Freezer')
+    this.setServiceName(freezerThermostat, 'Freezer')
     freezerThermostat.setCharacteristic(this.platform.Characteristic.TemperatureDisplayUnits, this.platform.Characteristic.TemperatureDisplayUnits.FAHRENHEIT)
     freezerThermostat.setCharacteristic(this.platform.Characteristic.CurrentHeatingCoolingState, this.platform.Characteristic.CurrentHeatingCoolingState.COOL)
     freezerThermostat.setCharacteristic(this.platform.Characteristic.TargetHeatingCoolingState, this.platform.Characteristic.TargetHeatingCoolingState.COOL)
@@ -404,7 +404,7 @@ export class SmartHQRefrigerator extends deviceBase {
 
     // Air Filter Maintenance
     const filterService = this.accessory!.getService('Air Filter') ?? this.accessory!.addService(this.platform.Service.FilterMaintenance, 'Air Filter', 'AirFilter')
-    filterService.setCharacteristic(this.platform.Characteristic.Name, 'Air Filter')
+    this.setServiceName(filterService, 'Air Filter')
     filterService
       .getCharacteristic(this.platform.Characteristic.FilterChangeIndication)
       .onGet(async () => {
@@ -419,7 +419,7 @@ export class SmartHQRefrigerator extends deviceBase {
 
     // Ice Maker Control
     const iceMakerService = this.accessory!.getService('Ice Maker') ?? this.accessory!.addService(this.platform.Service.Switch, 'Ice Maker', 'IceMaker')
-    iceMakerService.setCharacteristic(this.platform.Characteristic.Name, 'Ice Maker')
+    this.setServiceName(iceMakerService, 'Ice Maker')
     iceMakerService
       .getCharacteristic(this.platform.Characteristic.On)
       .onGet(async () => {
@@ -432,7 +432,7 @@ export class SmartHQRefrigerator extends deviceBase {
 
     // Turbo Cool Switch
     const turboCoolService = this.accessory!.getService('Turbo Cool') ?? this.accessory!.addService(this.platform.Service.Switch, 'Turbo Cool', 'TurboCool')
-    turboCoolService.setCharacteristic(this.platform.Characteristic.Name, 'Turbo Cool')
+    this.setServiceName(turboCoolService, 'Turbo Cool')
     turboCoolService
       .getCharacteristic(this.platform.Characteristic.On)
       .onGet(async () => {
@@ -445,7 +445,7 @@ export class SmartHQRefrigerator extends deviceBase {
 
     // Turbo Freeze Switch
     const turboFreezeService = this.accessory!.getService('Turbo Freeze') ?? this.accessory!.addService(this.platform.Service.Switch, 'Turbo Freeze', 'TurboFreeze')
-    turboFreezeService.setCharacteristic(this.platform.Characteristic.Name, 'Turbo Freeze')
+    this.setServiceName(turboFreezeService, 'Turbo Freeze')
     turboFreezeService
       .getCharacteristic(this.platform.Characteristic.On)
       .onGet(async () => {

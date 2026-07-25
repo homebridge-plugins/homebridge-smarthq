@@ -159,7 +159,7 @@ export class SmartHQDishWasher extends deviceBase {
     // engaged, with in-use meaning an actively running cycle.
     const dishwasherValve = this.accessory!.getService('Dishwasher') ?? this.accessory!.addService(this.platform.Service.Valve, 'Dishwasher', 'Dishwasher')
     this.dishwasherValve = dishwasherValve
-    dishwasherValve.setCharacteristic(this.platform.Characteristic.Name, 'Dishwasher')
+    this.setServiceName(dishwasherValve, 'Dishwasher')
     dishwasherValve.setCharacteristic(this.platform.Characteristic.ValveType, this.platform.Characteristic.ValveType.GENERIC_VALVE)
     dishwasherValve
       .getCharacteristic(this.platform.Characteristic.Active)
@@ -196,7 +196,7 @@ export class SmartHQDishWasher extends deviceBase {
     // Dishwasher Door Sensor
     const doorSensor = this.accessory!.getService('Dishwasher Door') ?? this.accessory!.addService(this.platform.Service.ContactSensor, 'Dishwasher Door', 'DishwasherDoor')
     this.doorSensor = doorSensor
-    doorSensor.setCharacteristic(this.platform.Characteristic.Name, 'Dishwasher Door')
+    this.setServiceName(doorSensor, 'Dishwasher Door')
     doorSensor
       .getCharacteristic(this.platform.Characteristic.ContactSensorState)
       .onGet(async () => {
