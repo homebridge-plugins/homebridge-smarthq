@@ -14,6 +14,7 @@ All notable changes to this project will be documented in this file. This projec
 - fix(ui): fix the custom UI banner image, which still pointed at the deleted svg
 - fix: give every homekit tile its proper name instead of generic labels like Switch 1
 - feat: support accounts with 2fa and reuse the saved login token across restarts
+- feat(ui): add, remove and hide devices from the config via the devices tab
 
 ## v0.5.2 (2026-07-20)
 
