@@ -17,6 +17,7 @@ All notable changes to this project will be documented in this file. This projec
 - feat(ui): add, remove and hide devices from the config via the devices tab
 - style(ui): standardise the custom ui layout and sync the support tab with the readme
 - feat(ui): add a remove all devices action to the my devices tab
+- fix(schema): declare required fields the standard way so the homebridge ui stops reporting a config validation failure
 
 ## v0.5.2 (2026-07-20)
 

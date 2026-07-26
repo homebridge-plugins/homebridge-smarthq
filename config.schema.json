@@ -12,8 +12,7 @@
       "name": {
         "type": "string",
         "title": "Name",
-        "default": "SmartHQ",
-        "required": true
+        "default": "SmartHQ"
       },
       "credentials": {
         "type": "object",
@@ -27,7 +26,6 @@
           "password": {
             "type": "string",
             "title": "Password",
-            "format": "password",
             "placeholder": "***************",
             "x-schema-form": {
               "type": "password"
@@ -133,7 +131,6 @@
               "title": "Device Logging Level Override",
               "description": "Overrides the plugin logging level for this device only. None turns off all messages from this plugin. Standard shows normal activity, warnings and errors. Debug adds detailed messages, and is what to use when reporting a problem. Default behaves the same as Standard.",
               "type": "string",
-              "required": true,
               "default": "",
               "oneOf": [
                 {
@@ -291,7 +288,6 @@
             "title": "Plugin Logging Level",
             "description": "None turns off all messages from this plugin. Standard shows normal activity, warnings and errors. Debug adds detailed messages, and is what to use when reporting a problem. Default behaves the same as Standard.",
             "type": "string",
-            "required": true,
             "default": "",
             "oneOf": [
               {
@@ -351,7 +347,10 @@
           "logging"
         ]
       }
-    }
+    },
+    "required": [
+      "name"
+    ]
   },
   "layout": [
     {
