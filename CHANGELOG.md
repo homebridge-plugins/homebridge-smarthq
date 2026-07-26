@@ -6,10 +6,17 @@ All notable changes to this project will be documented in this file. This projec
 
 ### Changed
 
+- chore(github): allow the codeql scan to be started manually
+- chore(github): stop concurrent release runs racing for the same version
+- chore: add the supports-matter keyword
+- feat: add Combination Washer Dryer support (#96)
+- chore(github): use the shared homebridge action to deprecate past pre-releases
 - feat: control the oven from homekit - start a bake, set the temperature and turn it off (#8)
 - fix: read the dishwasher's real state codes instead of fabricated ones, with live updates and time remaining (#22)
+- docs: changelog for the oven control and dishwasher rework
+- docs: standardise the readme sections and point setup links at the wiki
 - fix(schema): restore the settings screen banner, which pointed at a deleted svg
-- feat: add combination washer/dryer support for GE all-in-one units (#96)
+- docs: changelog for the combination washer/dryer support (#96)
 - feat: add the lower oven on double ovens - light, temperature, probe and cook time (#46)
 - fix(ui): fix the custom UI banner image, which still pointed at the deleted svg
 - fix: give every homekit tile its proper name instead of generic labels like Switch 1
@@ -19,6 +26,7 @@ All notable changes to this project will be documented in this file. This projec
 - feat(ui): add a remove all devices action to the my devices tab
 - fix(schema): declare required fields the standard way so the homebridge ui stops reporting a config validation failure
 - chore: declare the supports-hap transport keyword for the homebridge ui
+- docs(changelog): list every unreleased commit in the pending section
 
 ## v0.5.2 (2026-07-20)
 
