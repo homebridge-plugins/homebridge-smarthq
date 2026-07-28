@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. This project uses [Semantic Versioning](https://semver.org/).
 
+## v0.6.1 (Pending Release)
+
+### Changed
+
+- chore: keep test files out of the published package
+
 ## v0.6.0 (2026-07-26)
 
 ### Changed
