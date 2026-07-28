@@ -7,6 +7,8 @@ All notable changes to this project will be documented in this file. This projec
 ### Changed
 
 - chore: keep test files out of the published package
+- chore: declare support for node 26
+- chore(github): run the build and tests in ci, on node 22, 24 and 26
 
 ## v0.6.0 (2026-07-26)
 
