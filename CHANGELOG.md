@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file. This projec
 - chore(github): run the build and tests in ci, on node 22, 24 and 26
 - chore: use the same lint setup across every plugin
 - chore: add a changelog:sync script to populate the pending section from the commits
+- chore: count a repeated commit subject once when syncing the changelog
 
 ## v0.6.0 (2026-07-26)
 
