@@ -12,6 +12,24 @@ import { Buffer } from 'node:buffer'
 import { ERD_TYPES } from '../settings.js'
 import { deviceBase } from './device.js'
 
+/**
+ * Whether an oven really has a second (lower) cavity.
+ *
+ * ⚠️ The presence of a lower-cavity ERD is NOT proof of a lower cavity. A
+ * single oven can answer one with a placeholder rather than not answering at
+ * all: the unit in #109 returns `CC` for LOWER_OVEN_CURRENT_STATE while having
+ * no second cavity. Reading that as "double oven" gave it four lower-oven tiles
+ * that could never work, and 0xCC also parses as 204, so the lower oven looked
+ * like it was cooking permanently.
+ *
+ * The temperature is the reliable signal — a real cavity reports one. The GE
+ * Cafe double oven in #46 answers LOWER_OVEN_RAW_TEMPERATURE; the single oven
+ * in #109 does not answer it at all.
+ */
+export function hasLowerOvenCavity(lowerRawTemperature: string | undefined): boolean {
+  return lowerRawTemperature !== undefined
+}
+
 export class SmartHQOven extends deviceBase {
   // Matter support override flag
   private useMatterOverride: boolean = false
@@ -419,10 +437,29 @@ export class SmartHQOven extends deviceBase {
    * light (0x5211), temperature (0x520D), probe (0x5203) and elapsed cook
    * time (0x5208). That oven reports no door state at all, so there is
    * deliberately no door sensor here.
+   *
+   * ⚠️ The presence of a lower-cavity ERD is NOT proof of a lower cavity.
+   * A single oven can answer one with a placeholder instead of not answering
+   * at all: the unit in #109 returns 0xCC for LOWER_OVEN_CURRENT_STATE while
+   * having no second cavity, which is enough for has_erd_code() to say yes.
+   * That also made isLowerOvenRunning() read 0xCC as 204, so the lower oven
+   * appeared to be cooking permanently and the log filled with the read-only
+   * Cook Time notice.
+   *
+   * The temperature is the reliable signal — a real cavity reports one. The
+   * #46 double oven answers LOWER_OVEN_RAW_TEMPERATURE; the #109 single oven
+   * does not answer it at all. So gate on that alone, and do not trust the
+   * current state on its own.
    */
   private async initializeLowerCavity(): Promise<void> {
-    const isDoubleOven = await this.has_erd_code(ERD_TYPES.LOWER_OVEN_RAW_TEMPERATURE)
-      || await this.has_erd_code(ERD_TYPES.LOWER_OVEN_CURRENT_STATE)
+    const lowerRawTemperature = await this.try_get_erd_value(ERD_TYPES.LOWER_OVEN_RAW_TEMPERATURE)
+    const isDoubleOven = hasLowerOvenCavity(lowerRawTemperature)
+
+    // The appliance's own description of its cavities would be a better gate
+    // than probing individual ERDs, but its encoding is not yet known. Log it
+    // in debug mode so real units can tell us what it looks like.
+    const ovenConfiguration = await this.try_get_erd_value(ERD_TYPES.OVEN_CONFIGURATION)
+    this.debugLog(`Oven configuration ERD ${ERD_TYPES.OVEN_CONFIGURATION}: ${ovenConfiguration ?? 'not reported'}`)
 
     if (!isDoubleOven) {
       // Drop any lower-cavity tiles left behind by a cached accessory

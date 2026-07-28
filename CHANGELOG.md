@@ -13,6 +13,7 @@ All notable changes to this project will be documented in this file. This projec
 - chore: count a repeated commit subject once when syncing the changelog
 - chore(github): check the changelog against the commits in ci
 - chore(deps): dependency updates
+- fix: stop adding lower oven tiles to single ovens, which answer one of the lower cavity's readings with a placeholder that looked like a second oven (#109)
 
 ## v0.6.0 (2026-07-26)
 
