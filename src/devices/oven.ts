@@ -30,7 +30,73 @@ export function hasLowerOvenCavity(lowerRawTemperature: string | undefined): boo
   return lowerRawTemperature !== undefined
 }
 
+/**
+ * The cooking modes the plugin can start, beyond a plain bake.
+ *
+ * ⚠️ These byte values are NOT guessable. They were read off a real JS760SP6SS
+ * in #111, by switching mode in the SmartHQ app and watching UPPER_OVEN_COOK_MODE
+ * (0x5100), whose first byte is the mode and whose next two are the target
+ * temperature in Fahrenheit:
+ *
+ * ```
+ * Bake              01015E...   (0x015E = 350F)
+ * Conv. Bake Multi  1B015E...
+ * Conv. Roast       24015E...
+ * Air Fry           9E0190...   (0x0190 = 400F)
+ * Off               00000000...
+ * ```
+ *
+ * An earlier Matter `supportedModes` list here carried invented values
+ * (Convection Bake 2, Broil High 3, Broil Low 4, Convection Multi 5). None of
+ * those are real: a controller selecting one would have written an unknown mode
+ * to the appliance. Only add a mode below once it has been observed on a real
+ * oven the same way.
+ */
+export interface OvenCookMode {
+  /** Stable id, used in the service subtype so switches survive renames */
+  readonly key: string
+  /** Name shown in HomeKit and Matter */
+  readonly label: string
+  /** First byte of UPPER_OVEN_COOK_MODE */
+  readonly mode: number
+  /** Per-mode config option; every one defaults to false so nothing changes for existing users */
+  readonly configKey: 'showBakeSwitch' | 'showConvBakeMultiSwitch' | 'showConvRoastSwitch' | 'showAirFrySwitch'
+}
+
+export const OVEN_COOK_MODES: readonly OvenCookMode[] = [
+  { key: 'BAKE', label: 'Bake', mode: 0x01, configKey: 'showBakeSwitch' },
+  { key: 'CONV_BAKE_MULTI', label: 'Convection Bake Multi', mode: 0x1B, configKey: 'showConvBakeMultiSwitch' },
+  { key: 'CONV_ROAST', label: 'Convection Roast', mode: 0x24, configKey: 'showConvRoastSwitch' },
+  { key: 'AIR_FRY', label: 'Air Fry', mode: 0x9E, configKey: 'showAirFrySwitch' },
+]
+
+/**
+ * The modes a given oven's config asks for. Empty by default — a user who has
+ * not opted in sees exactly the accessory they had before.
+ */
+export function enabledCookModes(config: Partial<Record<OvenCookMode['configKey'], boolean>>): OvenCookMode[] {
+  return OVEN_COOK_MODES.filter(mode => config[mode.configKey] === true)
+}
+
+/**
+ * The Matter OvenMode `supportedModes` list.
+ *
+ * Off is always present, and the Matter mode numbers are the appliance's own
+ * bytes rather than a separate numbering, so the two protocols cannot drift.
+ */
+export function matterSupportedModes(
+  config: Partial<Record<OvenCookMode['configKey'], boolean>>,
+): { label: string, mode: number }[] {
+  return [
+    { label: 'Off', mode: 0 },
+    ...enabledCookModes(config).map(({ label, mode }) => ({ label, mode })),
+  ]
+}
+
 export class SmartHQOven extends deviceBase {
+  /** Service subtype prefix for the per-mode cooking switches (#111) */
+  private static readonly COOK_MODE_SVC_PREFIX = 'OvenCookMode'
+
   // Matter support override flag
   private useMatterOverride: boolean = false
 
@@ -150,16 +216,12 @@ export class SmartHQOven extends deviceBase {
           thermostatRunningMode: 0,
           controlSequenceOfOperation: 2, // Heating only
         },
-        // Oven Mode cluster for cooking modes (maps to UPPER_OVEN_COOK_MODE)
+        // Oven Mode cluster for cooking modes (maps to UPPER_OVEN_COOK_MODE).
+        // Built from the same table the HomeKit switches use, so the two
+        // protocols cannot drift, and using the appliance's own mode bytes as
+        // the Matter mode numbers rather than a second numbering of our own.
         ovenMode: {
-          supportedModes: [
-            { label: 'Off', mode: 0 },
-            { label: 'Bake', mode: 1 },
-            { label: 'Convection Bake', mode: 2 },
-            { label: 'Broil High', mode: 3 },
-            { label: 'Broil Low', mode: 4 },
-            { label: 'Convection Multi', mode: 5 },
-          ],
+          supportedModes: matterSupportedModes(this.device),
           currentMode: 0,
         },
         // Timer cluster for cook time remaining (maps to UPPER_OVEN_COOK_TIME_REMAINING)
@@ -328,6 +390,12 @@ export class SmartHQOven extends deviceBase {
     ovenThermostat
       .getCharacteristic(this.platform.Characteristic.TemperatureDisplayUnits)
       .onGet(async () => this.platform.Characteristic.TemperatureDisplayUnits.FAHRENHEIT)
+
+    // Cooking mode switches (#111). Apple's thermostat can only offer Off and
+    // Heat, so anything past a plain bake needs its own switch. Each mode has
+    // its own config option, all defaulting to false, so an existing oven gains
+    // nothing until the user asks for it.
+    this.syncCookModeSwitches()
 
     // Probe Temperature Sensor: only when a probe is actually plugged in —
     // checking mere ERD support left a permanent 0° sensor on probe-capable
@@ -679,6 +747,72 @@ export class SmartHQOven extends deviceBase {
       + tempF.toString(16).padStart(4, '0')
       + '0'.repeat(20)
     await this.writeErd(ERD_TYPES.UPPER_OVEN_COOK_MODE, payload)
+  }
+
+  /**
+   * Create a switch for every cooking mode the config asks for, and remove any
+   * left over from a mode the user has since turned off.
+   *
+   * The switches are mutually exclusive by nature rather than by bookkeeping:
+   * each reports on when the oven's current mode byte matches its own, so
+   * starting Air Fry makes the Bake switch report off at its next read without
+   * the plugin having to track which one it last turned on.
+   */
+  private syncCookModeSwitches(): void {
+    const wanted = enabledCookModes(this.device)
+
+    for (const cookMode of wanted) {
+      const subtype = `${SmartHQOven.COOK_MODE_SVC_PREFIX}_${cookMode.key}`
+      const name = `${this.accessory!.displayName} ${cookMode.label}`
+      const service = this.accessory!.getService(subtype)
+        ?? this.accessory!.addService(this.platform.Service.Switch, name, subtype)
+      this.setServiceName(service, name)
+
+      service
+        .getCharacteristic(this.platform.Characteristic.On)
+        .onGet(async () => {
+          try {
+            const current = await this.readCookMode()
+            return current?.mode === cookMode.mode
+          } catch (error: any) {
+            this.warnLog?.(`Oven ${cookMode.label} state error: ${error?.message ?? error}`)
+            return false
+          }
+        })
+        .onSet(async (value: CharacteristicValue) => {
+          try {
+            if (value) {
+              this.infoLog(`Starting ${cookMode.label} at ${this.lastTargetTempF}F from HomeKit`)
+              await this.writeCookMode(cookMode.mode, this.lastTargetTempF)
+            } else {
+              // Only stop the oven if this mode is the one actually running -
+              // otherwise a switch reverting to off after another mode started
+              // would turn the oven off underneath the user.
+              const current = await this.readCookMode()
+              if (current?.mode === cookMode.mode) {
+                this.infoLog(`Turning the oven off from HomeKit (${cookMode.label})`)
+                await this.writeCookMode(0, 0)
+              }
+            }
+          } catch (error: any) {
+            this.warnLog?.(`Oven ${cookMode.label} set error: ${error?.message ?? error}`)
+          }
+        })
+    }
+
+    // Drop switches for modes no longer enabled, so turning an option back off
+    // removes its tile instead of leaving a dead one behind.
+    const wantedSubtypes = new Set(wanted.map(m => `${SmartHQOven.COOK_MODE_SVC_PREFIX}_${m.key}`))
+    for (const cookMode of OVEN_COOK_MODES) {
+      const subtype = `${SmartHQOven.COOK_MODE_SVC_PREFIX}_${cookMode.key}`
+      if (wantedSubtypes.has(subtype)) {
+        continue
+      }
+      const stale = this.accessory!.getService(subtype)
+      if (stale) {
+        this.accessory!.removeService(stale)
+      }
+    }
   }
 
   /**

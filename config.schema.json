@@ -228,10 +228,34 @@
               "title": "Show Mode Switches (Air Conditioners)",
               "type": "boolean",
               "default": true,
-              "description": "If disabled, the individual mode switches (cool, heat, fan only, dry, energy saver) are hidden for a minimal tile. Note: heat and cool stay available in the HomeKit mode selector, but Apple's selector cannot hold the other modes — those would then only be reachable from the SmartHQ app. Only applies to air conditioners.",
+              "description": "If disabled, the individual mode switches (cool, heat, fan only, dry, energy saver) are hidden for a minimal tile. Note: heat and cool stay available in the HomeKit mode selector, but Apple's selector cannot hold the other modes \u2014 those would then only be reachable from the SmartHQ app. Only applies to air conditioners.",
               "condition": {
                 "functionBody": "return (model.devices && model.devices[arrayIndices].applianceId && !model.devices[arrayIndices].hide_device);"
               }
+            },
+            "showBakeSwitch": {
+              "title": "Show Bake Switch",
+              "type": "boolean",
+              "default": false,
+              "description": "Ovens only: expose a switch that starts a Bake at the target temperature. The oven thermostat already does this through its Heat mode, so this is only needed if you want a dedicated tile."
+            },
+            "showConvBakeMultiSwitch": {
+              "title": "Show Convection Bake Multi Switch",
+              "type": "boolean",
+              "default": false,
+              "description": "Ovens only: expose a switch that starts Convection Bake Multi at the target temperature."
+            },
+            "showConvRoastSwitch": {
+              "title": "Show Convection Roast Switch",
+              "type": "boolean",
+              "default": false,
+              "description": "Ovens only: expose a switch that starts Convection Roast at the target temperature."
+            },
+            "showAirFrySwitch": {
+              "title": "Show Air Fry Switch",
+              "type": "boolean",
+              "default": false,
+              "description": "Ovens only: expose a switch that starts Air Fry at the target temperature. Only ovens with an Air Fry mode will respond."
             },
             "showRunningSwitch": {
               "title": "Show Running Switch",
@@ -386,6 +410,10 @@
             "devices[].showDryModeSwitch",
             "devices[].showHeatMode",
             "devices[].showModeSwitches",
+            "devices[].showBakeSwitch",
+            "devices[].showConvBakeMultiSwitch",
+            "devices[].showConvRoastSwitch",
+            "devices[].showAirFrySwitch",
             "devices[].showRunningSwitch",
             "devices[].showFilterBattery",
             "devices[].firmware",

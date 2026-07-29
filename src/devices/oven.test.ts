@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { hasLowerOvenCavity } from './oven.js'
+import { enabledCookModes, hasLowerOvenCavity, matterSupportedModes, OVEN_COOK_MODES } from './oven.js'
 
 /**
  * Regression cover for #109: a single oven was given four lower-oven tiles.
@@ -32,5 +32,65 @@ describe('hasLowerOvenCavity', () => {
     // current state is no longer consulted at all, so no value of it can
     // bring the lower tiles back on a single oven.
     expect(hasLowerOvenCavity(undefined)).toBe(false)
+  })
+})
+
+/**
+ * Cooking modes (#111).
+ *
+ * The mode bytes were read off a real JS760SP6SS by switching mode in the
+ * SmartHQ app and watching UPPER_OVEN_COOK_MODE. They are pinned here because
+ * they are not derivable — an earlier Matter list carried invented values
+ * (Convection Bake 2, Broil High 3, Broil Low 4) that no oven would honour.
+ */
+describe('oven cooking modes', () => {
+  it('pins the mode bytes observed on a real oven', () => {
+    const byKey = Object.fromEntries(OVEN_COOK_MODES.map(m => [m.key, m.mode]))
+    expect(byKey).toEqual({
+      BAKE: 0x01,
+      CONV_BAKE_MULTI: 0x1B,
+      CONV_ROAST: 0x24,
+      AIR_FRY: 0x9E,
+    })
+  })
+
+  it('exposes nothing at all by default, so an existing oven is unchanged', () => {
+    expect(enabledCookModes({})).toEqual([])
+    expect(matterSupportedModes({})).toEqual([{ label: 'Off', mode: 0 }])
+  })
+
+  it('ignores an option that is present but false', () => {
+    expect(enabledCookModes({ showAirFrySwitch: false })).toEqual([])
+  })
+
+  it('exposes only the modes switched on', () => {
+    const enabled = enabledCookModes({ showAirFrySwitch: true, showConvRoastSwitch: true })
+    expect(enabled.map(m => m.label)).toEqual(['Convection Roast', 'Air Fry'])
+  })
+
+  it('gives matter the appliance byte as the mode number, not a second numbering', () => {
+    // If these ever diverge, a Matter controller would start a different mode
+    // from the HomeKit switch of the same name.
+    expect(matterSupportedModes({ showAirFrySwitch: true })).toEqual([
+      { label: 'Off', mode: 0 },
+      { label: 'Air Fry', mode: 0x9E },
+    ])
+  })
+
+  it('keeps Off first, as Matter requires a defined off mode', () => {
+    const all = matterSupportedModes({
+      showBakeSwitch: true,
+      showConvBakeMultiSwitch: true,
+      showConvRoastSwitch: true,
+      showAirFrySwitch: true,
+    })
+    expect(all[0]).toEqual({ label: 'Off', mode: 0 })
+    expect(all).toHaveLength(5)
+  })
+
+  it('has a unique key, label and byte for every mode', () => {
+    expect(new Set(OVEN_COOK_MODES.map(m => m.key)).size).toBe(OVEN_COOK_MODES.length)
+    expect(new Set(OVEN_COOK_MODES.map(m => m.label)).size).toBe(OVEN_COOK_MODES.length)
+    expect(new Set(OVEN_COOK_MODES.map(m => m.mode)).size).toBe(OVEN_COOK_MODES.length)
   })
 })
