@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. This project uses [Semantic Versioning](https://semver.org/).
 
+## v0.6.2 (Pending Release)
+
+### Changed
+
+- fix(config): hide the matter options, which no smarthq appliance can currently use
+
 ## v0.6.1 (2026-07-28)
 
 ### Changed

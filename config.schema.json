@@ -79,19 +79,13 @@
               "title": "Enable Matter",
               "type": "boolean",
               "default": false,
-              "description": "If enabled, the device will use Matter for HomeKit integration (if supported).",
-              "condition": {
-                "functionBody": "return (model.devices && model.devices[arrayIndices].applianceId && !model.options.devices[arrayIndices].hide_device);"
-              }
+              "description": "Not currently available. Homebridge has no Matter device type for ovens, dishwashers, washers or dryers, so every SmartHQ appliance falls back to HomeKit (HAP) regardless of this setting. Kept so existing configuration files stay valid, and hidden from this form until Homebridge gains those device types."
             },
             "matterOnly": {
               "title": "Matter Only (No HAP Fallback)",
               "type": "boolean",
               "default": false,
-              "description": "If enabled, the device will NOT fall back to HAP when Matter is unavailable. The accessory will not be published if Matter support is missing.",
-              "condition": {
-                "functionBody": "return (model.devices && model.devices[arrayIndices].applianceId && !model.devices[arrayIndices].hide_device && model.devices[arrayIndices].useMatter);"
-              }
+              "description": "Not currently available, and unsafe to enable: because no SmartHQ appliance has a Matter device type in Homebridge, turning this on stops the accessory being published at all. Kept so existing configuration files stay valid, and hidden from this form."
             },
             "keurig": {
               "title": "Keurig K-Cup Hot Water Services",
@@ -384,8 +378,6 @@
           "items": [
             "devices[].configDeviceName",
             "devices[].applianceId",
-            "devices[].useMatter",
-            "devices[].matterOnly",
             "devices[].keurig",
             "devices[].keurigOnly",
             "devices[].hide_device",
