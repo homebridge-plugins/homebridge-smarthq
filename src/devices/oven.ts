@@ -101,11 +101,15 @@ export class SmartHQOven extends deviceBase {
 
     // Check if OvenDevice device type is available
     if (!matterAPI.deviceTypes.OvenDevice) {
+      // ⚠️ Deliberately NOT honouring matterOnly here. Homebridge has no
+      // OvenDevice device type at all, so this is not a "Matter is
+      // temporarily unavailable" case that might resolve on a restart - it can
+      // never be satisfied. Refusing to publish would mean the appliance simply
+      // never appears, with only a log line to explain why. Fall back to HAP and
+      // say so loudly instead (#111).
       if (this.device.matterOnly) {
-        this.errorLog('Matter OvenDevice device type not available - accessory will NOT be published (matterOnly mode enabled)')
-        this.errorLog('Reason: Required Matter device type "OvenDevice" is not available in this Homebridge version')
-        this.errorLog(`Available Matter device types: ${Object.keys(matterAPI.deviceTypes).join(', ')}`)
-        return
+        this.warnLog('Ignoring matterOnly: Homebridge has no OvenDevice device type, so Matter can never be used for this appliance. Publishing over HAP instead.')
+        this.warnLog('The Matter options have been hidden in the plugin settings for this reason; you can safely remove matterOnly from your config.')
       }
       this.warnLog('Matter OvenDevice device type not available in this Homebridge version - falling back to HAP')
       this.warnLog(`Available Matter device types: ${Object.keys(matterAPI.deviceTypes).join(', ')}`)

@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file. This projec
 ### Changed
 
 - fix(config): hide the matter options, which no smarthq appliance can currently use
+- fix(matter): publish appliances over hap instead of hiding them when matterOnly is set, since no smarthq device type exists (#111)
 
 ## v0.6.1 (2026-07-28)
 
