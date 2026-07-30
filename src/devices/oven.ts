@@ -79,6 +79,20 @@ export function enabledCookModes(config: Partial<Record<OvenCookMode['configKey'
 }
 
 /**
+ * What each enabled switch should read for a given oven mode byte (#111).
+ *
+ * Mode 0, and a mode that could not be read, mean the oven is off — so every
+ * switch goes off. That is the case that used to leave a switch stuck on after
+ * the oven had been turned off elsewhere.
+ */
+export function cookModeSwitchStates(
+  config: Partial<Record<OvenCookMode['configKey'], boolean>>,
+  mode: number | undefined,
+): { key: string, on: boolean }[] {
+  return enabledCookModes(config).map(({ key, mode: modeByte }) => ({ key, on: mode === modeByte }))
+}
+
+/**
  * The Matter OvenMode `supportedModes` list.
  *
  * Off is always present, and the Matter mode numbers are the appliance's own
@@ -747,6 +761,28 @@ export class SmartHQOven extends deviceBase {
       + tempF.toString(16).padStart(4, '0')
       + '0'.repeat(20)
     await this.writeErd(ERD_TYPES.UPPER_OVEN_COOK_MODE, payload)
+    // Reflect it straight away rather than waiting for the oven to tell us what
+    // we just told it. Every mode change funnels through here - the thermostat's
+    // Heat button as well as the switches - so one call keeps them all in step.
+    this.pushCookModeSwitchStates(mode)
+  }
+
+  /**
+   * Push every cook mode switch to match the oven's actual mode (#111).
+   *
+   * ⚠️ `onGet` alone is not enough. HomeKit only calls it when something asks,
+   * so starting the oven from the thermostat, or turning it off at the oven
+   * itself, left the switches showing a stale value until Home happened to read
+   * them again — which looked exactly like "inconsistent" updates.
+   *
+   * An undefined mode, or mode 0, turns every switch off, which is what the
+   * oven being off should look like.
+   */
+  private pushCookModeSwitchStates(mode: number | undefined): void {
+    for (const { key, on } of cookModeSwitchStates(this.device, mode)) {
+      const subtype = `${SmartHQOven.COOK_MODE_SVC_PREFIX}_${key}`
+      this.accessory?.getService(subtype)?.updateCharacteristic(this.platform.Characteristic.On, on)
+    }
   }
 
   /**
@@ -813,6 +849,12 @@ export class SmartHQOven extends deviceBase {
         this.accessory!.removeService(stale)
       }
     }
+
+    // Set them from the oven's real mode at startup, so a switch restored from
+    // the cache does not sit showing whatever it last happened to be (#111).
+    void this.readCookMode()
+      .then(cookMode => this.pushCookModeSwitchStates(cookMode?.mode))
+      .catch(() => this.pushCookModeSwitchStates(undefined))
   }
 
   /**
@@ -937,6 +979,9 @@ export class SmartHQOven extends deviceBase {
               ? this.platform.Characteristic.TargetHeatingCoolingState.HEAT
               : this.platform.Characteristic.TargetHeatingCoolingState.OFF,
           )
+          // Follow a change made anywhere else - the oven's own panel, the
+          // SmartHQ app, or a schedule finishing (#111).
+          this.pushCookModeSwitchStates(cookMode?.mode)
           break
         }
         case ERD_TYPES.UPPER_OVEN_CURRENT_STATE: {

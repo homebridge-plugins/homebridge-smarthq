@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { enabledCookModes, hasLowerOvenCavity, matterSupportedModes, OVEN_COOK_MODES } from './oven.js'
+import { cookModeSwitchStates, enabledCookModes, hasLowerOvenCavity, matterSupportedModes, OVEN_COOK_MODES } from './oven.js'
 
 /**
  * Regression cover for #109: a single oven was given four lower-oven tiles.
@@ -92,5 +92,38 @@ describe('oven cooking modes', () => {
     expect(new Set(OVEN_COOK_MODES.map(m => m.key)).size).toBe(OVEN_COOK_MODES.length)
     expect(new Set(OVEN_COOK_MODES.map(m => m.label)).size).toBe(OVEN_COOK_MODES.length)
     expect(new Set(OVEN_COOK_MODES.map(m => m.mode)).size).toBe(OVEN_COOK_MODES.length)
+  })
+})
+
+/**
+ * Switch states (#111). These used to be answered only when HomeKit asked, so
+ * starting or stopping the oven anywhere else left them showing a stale value.
+ */
+describe('cookModeSwitchStates', () => {
+  const allOn = {
+    showBakeSwitch: true,
+    showConvBakeMultiSwitch: true,
+    showConvRoastSwitch: true,
+    showAirFrySwitch: true,
+  }
+
+  it('turns every switch off when the oven is off', () => {
+    expect(cookModeSwitchStates(allOn, 0).every(s => !s.on)).toBe(true)
+  })
+
+  // readCookMode returns undefined if the oven cannot be read. Guessing "still
+  // cooking" there would leave a switch on with the oven cold.
+  it('turns every switch off when the mode could not be read', () => {
+    expect(cookModeSwitchStates(allOn, undefined).every(s => !s.on)).toBe(true)
+  })
+
+  it('turns on exactly the switch for the running mode', () => {
+    const states = cookModeSwitchStates(allOn, 0x9E)
+    expect(states.filter(s => s.on).map(s => s.key)).toEqual(['AIR_FRY'])
+  })
+
+  it('reports nothing for a mode the oven is in but the user has not enabled', () => {
+    // Bake started from the thermostat, with only the Air Fry switch enabled.
+    expect(cookModeSwitchStates({ showAirFrySwitch: true }, 0x01)).toEqual([{ key: 'AIR_FRY', on: false }])
   })
 })
