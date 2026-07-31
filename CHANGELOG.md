@@ -9,6 +9,8 @@ All notable changes to this project will be documented in this file. This projec
 - fix(config): hide the matter options, which no smarthq appliance can currently use
 - fix(matter): publish appliances over hap instead of hiding them when matterOnly is set, since no smarthq device type exists (#111)
 - chore(deps): dependency updates
+- feat(oven): add optional switches for convection bake multi, convection roast and air fry, and correct the matter oven modes (#111)
+- fix(oven): keep the cooking mode switches in step when the oven is started or stopped from somewhere else (#111)
 
 ## v0.6.1 (2026-07-28)
 
