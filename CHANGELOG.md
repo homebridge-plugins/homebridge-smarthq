@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file. This projec
 
 - chore: restore the original author and remove personal funding links
 - docs: add node 26 to the supported node versions
+- chore: allow dependency install scripts by package name rather than pinned version, so a version bump cannot silently block a native build
 
 ## v0.6.2 (2026-07-31)
 
