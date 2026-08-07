@@ -48,7 +48,6 @@ export abstract class deviceBase {
   // Config
   protected deviceLogging!: string
   protected deviceRefreshRate!: number
-  protected deviceUpdateRate!: number
   protected devicePushRate!: number
   protected deviceFirmwareVersion!: string
 
@@ -146,10 +145,10 @@ export abstract class deviceBase {
     this.deviceRefreshRate = device.refreshRate ?? this.platform.platformRefreshRate ?? 360
     const refreshRate = device.refreshRate ? 'Device Config' : this.platform.platformRefreshRate ? 'Platform Config' : 'Default'
     await this.debugLog(`Using ${refreshRate} refreshRate: ${this.deviceRefreshRate}`)
-    // updateRate
-    this.deviceUpdateRate = device.updateRate ?? this.platform.platformUpdateRate ?? 5
-    const updateRate = device.updateRate ? 'Device Config' : this.platform.platformUpdateRate ? 'Platform Config' : 'Default'
-    await this.debugLog(`Using ${updateRate} updateRate: ${this.deviceUpdateRate}`)
+    // updateRate used to be parsed and echoed back here, which made it look
+    // accepted - it was offered in the settings, described as how often HomeKit
+    // accessories are updated, and read by nothing. Every polling loop uses
+    // refreshRate, which is the setting that actually controls this.
     // pushRate
     this.devicePushRate = device.pushRate ?? this.platform.platformPushRate ?? 1
     const pushRate = device.pushRate ? 'Device Config' : this.platform.platformPushRate ? 'Platform Config' : 'Default'

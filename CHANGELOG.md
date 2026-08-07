@@ -16,6 +16,7 @@ All notable changes to this project will be documented in this file. This projec
 - fix: push the fridge's readings to homekit, so its tiles and automations work
 - fix: show the real time left on a dishwasher cycle longer than an hour
 - fix: show the real cook time left on a bake longer than an hour
+- fix: remove an update rate setting that was offered in the ui but never used
 
 ## v0.6.2 (2026-07-31)
 
