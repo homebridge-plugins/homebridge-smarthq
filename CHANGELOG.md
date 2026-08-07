@@ -13,6 +13,7 @@ All notable changes to this project will be documented in this file. This projec
 - fix: restore debug logging when the plugin runs in a child bridge
 - fix: retry a failed token refresh instead of taking the bridge down
 - fix: keep the keurig accessory when the capability check does not answer
+- fix: push the fridge's readings to homekit, so its tiles and automations work
 
 ## v0.6.2 (2026-07-31)
 

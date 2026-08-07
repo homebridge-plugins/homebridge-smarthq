@@ -843,10 +843,85 @@ export class SmartHQRefrigerator extends deviceBase {
         }
       }
 
+      // Push the same readings into HomeKit. Every update above sat inside the
+      // Matter branch, so for a HAP user - the default - this poll made eight
+      // requests per cycle and threw the answers away. Nothing was ever pushed, so
+      // HomeKit sent no change notifications either: an automation on "when the
+      // Freezer Door opens" could never fire, and the tiles only moved when the
+      // Home app happened to ask.
+      await this.updateHapCharacteristics({
+        fridgeTemp,
+        freezerTemp,
+        fridgeSetpoint,
+        freezerSetpoint,
+        doorStatus,
+        iceMakerStatus,
+        turboCoolStatus,
+        turboFreezeStatus,
+        filterStatus,
+      })
+
       this.SensorUpdateInProgress = false
     } catch (error: any) {
       this.SensorUpdateInProgress = false
       await this.errorLog(`Failed to refresh device status: ${error?.message ?? error}`)
+    }
+  }
+
+  /**
+   * Push a poll's readings into the HomeKit services, so tiles move on their own
+   * and automations get the change notifications they need
+   */
+  private async updateHapCharacteristics(readings: {
+    fridgeTemp?: number
+    freezerTemp?: number
+    fridgeSetpoint?: number
+    freezerSetpoint?: number
+    doorStatus?: string
+    iceMakerStatus?: string
+    turboCoolStatus?: string
+    turboFreezeStatus?: string
+    filterStatus?: string
+  }): Promise<void> {
+    const { Characteristic } = this.platform
+    const set = (serviceName: string, characteristic: any, value: any) => {
+      if (value === undefined) {
+        return
+      }
+      this.accessory!.getService(serviceName)?.updateCharacteristic(characteristic, value)
+    }
+
+    set('Fridge', Characteristic.CurrentTemperature, readings.fridgeTemp)
+    set('Fridge', Characteristic.TargetTemperature, readings.fridgeSetpoint)
+    set('Freezer', Characteristic.CurrentTemperature, readings.freezerTemp)
+    set('Freezer', Characteristic.TargetTemperature, readings.freezerSetpoint)
+
+    // The door status is a hex string, one byte per door
+    if (readings.doorStatus) {
+      const raw = readings.doorStatus.replace(/^0x/i, '')
+      const doorAt = (byteIndex: number) => {
+        const byte = raw.slice(byteIndex * 2, byteIndex * 2 + 2)
+        if (byte === '') {
+          return undefined
+        }
+        return Number.parseInt(byte, 16) !== 0
+          ? Characteristic.ContactSensorState.CONTACT_NOT_DETECTED
+          : Characteristic.ContactSensorState.CONTACT_DETECTED
+      }
+      set('Fridge Right Door', Characteristic.ContactSensorState, doorAt(0))
+      set('Fridge Left Door', Characteristic.ContactSensorState, doorAt(1))
+      set('Freezer Door', Characteristic.ContactSensorState, doorAt(2))
+    }
+
+    const onOff = (value?: string) => value === undefined ? undefined : Number.parseInt(value) !== 0
+    set('Ice Maker', Characteristic.On, onOff(readings.iceMakerStatus))
+    set('Turbo Cool', Characteristic.On, onOff(readings.turboCoolStatus))
+    set('Turbo Freeze', Characteristic.On, onOff(readings.turboFreezeStatus))
+
+    if (readings.filterStatus !== undefined) {
+      set('Air Filter', Characteristic.FilterChangeIndication, Number.parseInt(readings.filterStatus) === 1
+        ? Characteristic.FilterChangeIndication.CHANGE_FILTER
+        : Characteristic.FilterChangeIndication.FILTER_OK)
     }
   }
 }
