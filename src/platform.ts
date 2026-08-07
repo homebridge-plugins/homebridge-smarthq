@@ -273,7 +273,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
 
                 // Schedule next refresh
                 if (this.tokenSet.expires_in) {
-                  setTimeout(this.startRefreshTokenLogic.bind(this), 1000 * (this.tokenSet.expires_in - 2000))
+                  setTimeout(() => this.scheduleTokenRefresh(), 1000 * (this.tokenSet.expires_in - 2000))
                 }
                 return // Successfully recovered
               }
@@ -304,10 +304,25 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
     }
 
     if (this.tokenSet.expires_in) {
-      setTimeout(this.startRefreshTokenLogic.bind(this), 1000 * (this.tokenSet.expires_in - 2000))
+      setTimeout(() => this.scheduleTokenRefresh(), 1000 * (this.tokenSet.expires_in - 2000))
     } else {
       throw new Error('Token expiration time is undefined')
     }
+  }
+
+  /**
+   * Run a scheduled token refresh. The timer used to call startRefreshTokenLogic
+   * directly, which throws when the refresh fails and re-auth is not possible -
+   * with nothing awaiting it, that became an unhandled rejection and node ended
+   * the process, so a brief GE outage at exactly the wrong moment took the bridge
+   * down instead of it simply trying again.
+   */
+  private scheduleTokenRefresh(): void {
+    this.startRefreshTokenLogic().catch(async (e: any) => {
+      await this.errorLog(`Scheduled token refresh failed: ${e?.message ?? e}`)
+      // Try again in five minutes rather than giving up until the next restart
+      setTimeout(() => this.scheduleTokenRefresh(), 5 * 60 * 1000)
+    })
   }
 
   /**
