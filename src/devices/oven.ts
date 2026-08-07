@@ -463,6 +463,10 @@ export class SmartHQOven extends deviceBase {
 
     cookTimeValve
       .getCharacteristic(this.platform.Characteristic.RemainingDuration)
+      // The default maximum is 3600s. A 90 minute roast is 5400 and a three hour
+      // braise is 10800, both of which HomeKit rejected as illegal values and
+      // clamped to 60 minutes.
+      .setProps({ maxValue: 86400 })
       .onGet(async () => {
         const r = await this.readErd(ERD_TYPES.UPPER_OVEN_COOK_TIME_REMAINING)
         if (!r) {
@@ -640,6 +644,10 @@ export class SmartHQOven extends deviceBase {
 
     lowerCookTimeValve
       .getCharacteristic(this.platform.Characteristic.RemainingDuration)
+      // The default maximum is 3600s. A 90 minute roast is 5400 and a three hour
+      // braise is 10800, both of which HomeKit rejected as illegal values and
+      // clamped to 60 minutes.
+      .setProps({ maxValue: 86400 })
       .onGet(async () => {
         const r = await this.readErd(ERD_TYPES.LOWER_OVEN_COOK_TIME_REMAINING)
         if (!r) {
