@@ -14,6 +14,7 @@ All notable changes to this project will be documented in this file. This projec
 - fix: retry a failed token refresh instead of taking the bridge down
 - fix: keep the keurig accessory when the capability check does not answer
 - fix: push the fridge's readings to homekit, so its tiles and automations work
+- fix: show the real time left on a dishwasher cycle longer than an hour
 
 ## v0.6.2 (2026-07-31)
 

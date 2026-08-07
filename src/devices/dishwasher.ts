@@ -195,6 +195,11 @@ export class SmartHQDishWasher extends deviceBase {
 
     dishwasherValve
       .getCharacteristic(this.platform.Characteristic.RemainingDuration)
+      // The default maximum is 3600s. A normal two hour cycle is 7200, which
+      // HomeKit rejected as an illegal value and clamped to 60 minutes, so the
+      // tile showed the wrong time for the whole first hour. The laundry devices
+      // already raise it the same way.
+      .setProps({ maxValue: 86400 })
       .onGet(async () => this.getRemainingSeconds())
 
     // Dishwasher Door Sensor
