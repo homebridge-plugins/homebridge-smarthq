@@ -834,6 +834,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
     const existingAccessory = this.accessories.find(accessory => accessory.UUID === keurigUuid)
 
     let hasKeurig: boolean
+    let probeFailed = false
     if (deviceData.keurig === false) {
       hasKeurig = false
     } else if (deviceData.keurig === true) {
@@ -848,6 +849,12 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
         }
       } catch (e: any) {
         await this.debugLog(`Keurig probe failed for ${deviceData.applianceId}: ${e?.message ?? e}`)
+        // A request that failed says nothing about the hardware. Treating it as
+        // "no Keurig" used to unregister an already-published accessory over a
+        // network blip or the fridge being offline at startup, destroying its room,
+        // scenes and automations - and the next restart re-added it as a brand new
+        // device the owner had to place and automate again.
+        probeFailed = true
         hasKeurig = false
       }
     }
@@ -865,6 +872,9 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
         this.infoLog(`[HAP] Restoring existing accessory from cache: ${existingAccessory.displayName}`)
         existingAccessory.control = new SmartHQKeurig(this, existingAccessory, deviceData)
         await this.debugLog(`${displayName} uuid: ${deviceData.applianceId}-keurig`)
+      } else if (probeFailed) {
+        // Only a probe that actually answered is evidence about the hardware
+        await this.debugLog(`Leaving ${displayName} alone: the capability check did not answer this time`)
       } else {
         // Either no Keurig (config or auto-detect says no) or the
         // device is hidden — drop the accessory.
