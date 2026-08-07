@@ -603,7 +603,11 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
 
   private async createSmartHQDishWasher(userId: any, device: any, details: any, features: any) {
     // Merge device data
+    // `configDeviceName` is written by the device picker in the custom UI and was
+    // read by nothing, so renaming a device there had no effect at all. Resolve it
+    // once here, falling back to the appliance's own nickname.
     const deviceData = { brand: 'GE', ...details, ...features, ...device }
+    const displayName = (deviceData as any).configDeviceName || deviceData.nickname
 
     // Determine protocol (Matter or HAP)
     deviceData.useMatter = this.shouldUseMatter(deviceData)
@@ -619,10 +623,10 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
         // Check if protocol changed to Matter - if so, remove from HAP bridge
         if (this.shouldUnregisterForMatter(existingAccessory, deviceData)) {
           // Device removed from HAP, will be registered as Matter accessory in device class
-          const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+          const accessory = new this.api.platformAccessory<SmartHqContext>(displayName, uuid)
           accessory.context.device = deviceData
           accessory.context = { device: deviceData, userId }
-          accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          accessory.displayName = await this.validateAndCleanDisplayName(displayName, 'configDeviceName', displayName)
           accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
           accessory.control = new SmartHQDishWasher(this, accessory, deviceData)
           this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
@@ -630,7 +634,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
           // Still using HAP, restore normally
           existingAccessory.context.device = deviceData
           existingAccessory.context = { device: deviceData, userId }
-          existingAccessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          existingAccessory.displayName = await this.validateAndCleanDisplayName(displayName, 'configDeviceName', displayName)
           existingAccessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
           this.api.updatePlatformAccessories([existingAccessory])
           this.infoLog(`[${protocol}] Restoring existing accessory from cache: ${existingAccessory.displayName}`)
@@ -642,10 +646,10 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       }
     } else if (!deviceData.hide_device && !existingAccessory) {
       this.infoLog(`[${protocol}] Adding new accessory: ${deviceData.nickname}`)
-      const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+      const accessory = new this.api.platformAccessory<SmartHqContext>(displayName, uuid)
       accessory.context.device = deviceData
       accessory.context = { device: deviceData, userId }
-      accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+      accessory.displayName = await this.validateAndCleanDisplayName(displayName, 'configDeviceName', displayName)
       accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
       accessory.control = new SmartHQDishWasher(this, accessory, deviceData)
       this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
@@ -658,7 +662,11 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
 
   private async createSmartHQOven(userId: any, device: any, details: any, features: any) {
     // Merge device data
+    // `configDeviceName` is written by the device picker in the custom UI and was
+    // read by nothing, so renaming a device there had no effect at all. Resolve it
+    // once here, falling back to the appliance's own nickname.
     const deviceData = { brand: 'GE', ...details, ...features, ...device }
+    const displayName = (deviceData as any).configDeviceName || deviceData.nickname
 
     // Determine protocol (Matter or HAP)
     deviceData.useMatter = this.shouldUseMatter(deviceData)
@@ -673,17 +681,17 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       if (!deviceData.hide_device) {
         // Check if protocol changed to Matter - if so, remove from HAP bridge
         if (this.shouldUnregisterForMatter(existingAccessory, deviceData)) {
-          const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+          const accessory = new this.api.platformAccessory<SmartHqContext>(displayName, uuid)
           accessory.context.device = deviceData
           accessory.context = { device: deviceData, userId }
-          accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          accessory.displayName = await this.validateAndCleanDisplayName(displayName, 'configDeviceName', displayName)
           accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
           accessory.control = new SmartHQOven(this, accessory, deviceData)
           this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
         } else {
           existingAccessory.context.device = deviceData
           existingAccessory.context = { device: deviceData, userId }
-          existingAccessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          existingAccessory.displayName = await this.validateAndCleanDisplayName(displayName, 'configDeviceName', displayName)
           existingAccessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
           this.api.updatePlatformAccessories([existingAccessory])
           this.infoLog(`[${protocol}] Restoring existing accessory from cache: ${existingAccessory.displayName}`)
@@ -695,10 +703,10 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       }
     } else if (!deviceData.hide_device && !existingAccessory) {
       this.infoLog(`[${protocol}] Adding new accessory: ${deviceData.nickname}`)
-      const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+      const accessory = new this.api.platformAccessory<SmartHqContext>(displayName, uuid)
       accessory.context.device = deviceData
       accessory.context = { device: deviceData, userId }
-      accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+      accessory.displayName = await this.validateAndCleanDisplayName(displayName, 'configDeviceName', displayName)
       accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
       accessory.control = new SmartHQOven(this, accessory, deviceData)
       this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
@@ -711,7 +719,11 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
 
   private async createSmartHQIceMaker(userId: any, device: any, details: any, features: any) {
     // Merge device data
+    // `configDeviceName` is written by the device picker in the custom UI and was
+    // read by nothing, so renaming a device there had no effect at all. Resolve it
+    // once here, falling back to the appliance's own nickname.
     const deviceData = { brand: 'GE', ...details, ...features, ...device }
+    const displayName = (deviceData as any).configDeviceName || deviceData.nickname
 
     // Determine protocol (Matter or HAP)
     deviceData.useMatter = this.shouldUseMatter(deviceData)
@@ -729,10 +741,10 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       if (!deviceData.hide_device) {
         // Check if protocol changed to Matter - if so, remove from HAP bridge
         if (this.shouldUnregisterForMatter(existingAccessory, deviceData)) {
-          const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+          const accessory = new this.api.platformAccessory<SmartHqContext>(displayName, uuid)
           accessory.context.device = deviceData
           accessory.context = { device: deviceData, userId }
-          accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          accessory.displayName = await this.validateAndCleanDisplayName(displayName, 'configDeviceName', displayName)
           accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
           accessory.control = new SmartHQIceMaker(this, accessory, deviceData)
           this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
@@ -740,7 +752,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
           // if you need to update the accessory.context then you should run `api.updatePlatformAccessories`. eg.:
           existingAccessory.context.device = deviceData
           existingAccessory.context = { device: deviceData, userId }
-          existingAccessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          existingAccessory.displayName = await this.validateAndCleanDisplayName(displayName, 'configDeviceName', displayName)
           existingAccessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
           this.api.updatePlatformAccessories([existingAccessory])
           // Restore accessory
@@ -755,13 +767,13 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       }
     } else if (!deviceData.hide_device && !existingAccessory) {
       this.infoLog(`[${protocol}] Adding new accessory: ${deviceData.nickname}`)
-      const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+      const accessory = new this.api.platformAccessory<SmartHqContext>(displayName, uuid)
 
       // store a copy of the device object in the `accessory.context`
       // the `context` property can be used to store any data about the accessory you may need
       accessory.context.device = deviceData
       accessory.context = { device: deviceData, userId }
-      accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+      accessory.displayName = await this.validateAndCleanDisplayName(displayName, 'configDeviceName', displayName)
       accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
       // the accessory does not yet exist, so we need to create it
       // create the accessory handler for the newly create accessory
@@ -783,7 +795,11 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
    */
   private async createSmartHQRefrigerator(userId: any, device: any, details: any, features: any) {
     // Merge device data
+    // `configDeviceName` is written by the device picker in the custom UI and was
+    // read by nothing, so renaming a device there had no effect at all. Resolve it
+    // once here, falling back to the appliance's own nickname.
     const deviceData = { brand: 'GE', ...details, ...features, ...device }
+    const displayName = (deviceData as any).configDeviceName || deviceData.nickname
 
     // `keurigOnly: true` means skip the main Refrigerator accessory but still
     // expose the Keurig sub-accessory (handled separately in createSmartHQKeurig).
@@ -803,17 +819,17 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       if (!skipMain) {
         // Check if protocol changed to Matter - if so, remove from HAP bridge
         if (this.shouldUnregisterForMatter(existingAccessory, deviceData)) {
-          const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+          const accessory = new this.api.platformAccessory<SmartHqContext>(displayName, uuid)
           accessory.context.device = deviceData
           accessory.context = { device: deviceData, userId }
-          accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          accessory.displayName = await this.validateAndCleanDisplayName(displayName, 'configDeviceName', displayName)
           accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
           accessory.control = new SmartHQRefrigerator(this, accessory, deviceData)
           this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
         } else {
           existingAccessory.context.device = deviceData
           existingAccessory.context = { device: deviceData, userId }
-          existingAccessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          existingAccessory.displayName = await this.validateAndCleanDisplayName(displayName, 'configDeviceName', displayName)
           existingAccessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
           this.api.updatePlatformAccessories([existingAccessory])
           this.infoLog(`[${protocol}] Restoring existing accessory from cache: ${existingAccessory.displayName}`)
@@ -825,10 +841,10 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       }
     } else if (!skipMain && !existingAccessory) {
       this.infoLog(`[${protocol}] Adding new accessory: ${deviceData.nickname}`)
-      const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+      const accessory = new this.api.platformAccessory<SmartHqContext>(displayName, uuid)
       accessory.context.device = deviceData
       accessory.context = { device: deviceData, userId }
-      accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+      accessory.displayName = await this.validateAndCleanDisplayName(displayName, 'configDeviceName', displayName)
       accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
       accessory.control = new SmartHQRefrigerator(this, accessory, deviceData)
       this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
@@ -847,6 +863,9 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
    * read HOT_WATER_STATUS (0x1010) and check for a non-NA status byte.
    */
   private async createSmartHQKeurig(userId: any, device: any, details: any, features: any) {
+    // `configDeviceName` is written by the device picker in the custom UI and was
+    // read by nothing, so renaming a device there had no effect at all. Resolve it
+    // once here, falling back to the appliance's own nickname.
     const deviceData = { brand: 'GE', ...details, ...features, ...device }
     const keurigUuid = this.api.hap.uuid.generate(`${deviceData.applianceId}-keurig`)
     const existingAccessory = this.accessories.find(accessory => accessory.UUID === keurigUuid)
@@ -877,7 +896,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       }
     }
 
-    const displayName = `${deviceData.nickname} Keurig`
+    const displayName = `${(deviceData as any).configDeviceName || deviceData.nickname} Keurig`
     const shouldRegister = hasKeurig && !deviceData.hide_device
 
     if (existingAccessory) {
@@ -913,7 +932,11 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
 
   private async createSmartHQAirConditioner(userId: any, device: any, details: any, features: any) {
     // Merge device data
+    // `configDeviceName` is written by the device picker in the custom UI and was
+    // read by nothing, so renaming a device there had no effect at all. Resolve it
+    // once here, falling back to the appliance's own nickname.
     const deviceData = { brand: 'GE', ...details, ...features, ...device }
+    const displayName = (deviceData as any).configDeviceName || deviceData.nickname
 
     // Determine protocol (Matter or HAP)
     deviceData.useMatter = this.shouldUseMatter(deviceData)
@@ -928,17 +951,17 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       if (!deviceData.hide_device) {
         // Check if protocol changed to Matter - if so, remove from HAP bridge
         if (this.shouldUnregisterForMatter(existingAccessory, deviceData)) {
-          const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+          const accessory = new this.api.platformAccessory<SmartHqContext>(displayName, uuid)
           accessory.context.device = deviceData
           accessory.context = { device: deviceData, userId }
-          accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          accessory.displayName = await this.validateAndCleanDisplayName(displayName, 'configDeviceName', displayName)
           accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
           accessory.control = new SmartHQAirConditioner(this, accessory, deviceData)
           this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
         } else {
           existingAccessory.context.device = deviceData
           existingAccessory.context = { device: deviceData, userId }
-          existingAccessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          existingAccessory.displayName = await this.validateAndCleanDisplayName(displayName, 'configDeviceName', displayName)
           existingAccessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
           this.api.updatePlatformAccessories([existingAccessory])
           this.infoLog(`[${protocol}] Restoring existing accessory from cache: ${existingAccessory.displayName}`)
@@ -950,10 +973,10 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       }
     } else if (!deviceData.hide_device && !existingAccessory) {
       this.infoLog(`[${protocol}] Adding new accessory: ${deviceData.nickname}`)
-      const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+      const accessory = new this.api.platformAccessory<SmartHqContext>(displayName, uuid)
       accessory.context.device = deviceData
       accessory.context = { device: deviceData, userId }
-      accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+      accessory.displayName = await this.validateAndCleanDisplayName(displayName, 'configDeviceName', displayName)
       accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
       accessory.control = new SmartHQAirConditioner(this, accessory, deviceData)
       this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
@@ -966,7 +989,11 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
 
   private async createSmartHQHood(userId: any, device: any, details: any, features: any) {
     // Merge device data
+    // `configDeviceName` is written by the device picker in the custom UI and was
+    // read by nothing, so renaming a device there had no effect at all. Resolve it
+    // once here, falling back to the appliance's own nickname.
     const deviceData = { brand: 'GE', ...details, ...features, ...device }
+    const displayName = (deviceData as any).configDeviceName || deviceData.nickname
 
     // Determine protocol (Matter or HAP)
     deviceData.useMatter = this.shouldUseMatter(deviceData)
@@ -980,17 +1007,17 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       if (!deviceData.hide_device) {
         // Check if protocol changed to Matter - if so, remove from HAP bridge
         if (this.shouldUnregisterForMatter(existingAccessory, deviceData)) {
-          const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+          const accessory = new this.api.platformAccessory<SmartHqContext>(displayName, uuid)
           accessory.context.device = deviceData
           accessory.context = { device: deviceData, userId }
-          accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          accessory.displayName = await this.validateAndCleanDisplayName(displayName, 'configDeviceName', displayName)
           accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
           accessory.control = new SmartHQHood(this, accessory, deviceData)
           this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
         } else {
           existingAccessory.context.device = deviceData
           existingAccessory.context = { device: deviceData, userId }
-          existingAccessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          existingAccessory.displayName = await this.validateAndCleanDisplayName(displayName, 'configDeviceName', displayName)
           existingAccessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
           this.api.updatePlatformAccessories([existingAccessory])
           this.infoLog(`[${protocol}] Restoring existing accessory from cache: ${existingAccessory.displayName}`)
@@ -1002,10 +1029,10 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       }
     } else if (!deviceData.hide_device && !existingAccessory) {
       this.infoLog(`[${protocol}] Adding new accessory: ${deviceData.nickname}`)
-      const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+      const accessory = new this.api.platformAccessory<SmartHqContext>(displayName, uuid)
       accessory.context.device = deviceData
       accessory.context = { device: deviceData, userId }
-      accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+      accessory.displayName = await this.validateAndCleanDisplayName(displayName, 'configDeviceName', displayName)
       accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
       accessory.control = new SmartHQHood(this, accessory, deviceData)
       this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
@@ -1018,7 +1045,11 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
 
   private async createSmartHQClothesWasher(userId: any, device: any, details: any, features: any) {
     // Merge device data
+    // `configDeviceName` is written by the device picker in the custom UI and was
+    // read by nothing, so renaming a device there had no effect at all. Resolve it
+    // once here, falling back to the appliance's own nickname.
     const deviceData = { brand: 'GE', ...details, ...features, ...device }
+    const displayName = (deviceData as any).configDeviceName || deviceData.nickname
 
     // Determine protocol (Matter or HAP)
     deviceData.useMatter = this.shouldUseMatter(deviceData)
@@ -1032,17 +1063,17 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       if (!deviceData.hide_device) {
         // Check if protocol changed to Matter - if so, remove from HAP bridge
         if (this.shouldUnregisterForMatter(existingAccessory, deviceData)) {
-          const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+          const accessory = new this.api.platformAccessory<SmartHqContext>(displayName, uuid)
           accessory.context.device = deviceData
           accessory.context = { device: deviceData, userId }
-          accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          accessory.displayName = await this.validateAndCleanDisplayName(displayName, 'configDeviceName', displayName)
           accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
           accessory.control = new SmartHQClothesWasher(this, accessory, deviceData)
           this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
         } else {
           existingAccessory.context.device = deviceData
           existingAccessory.context = { device: deviceData, userId }
-          existingAccessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          existingAccessory.displayName = await this.validateAndCleanDisplayName(displayName, 'configDeviceName', displayName)
           existingAccessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
           this.api.updatePlatformAccessories([existingAccessory])
           this.infoLog(`[${protocol}] Restoring existing accessory from cache: ${existingAccessory.displayName}`)
@@ -1054,10 +1085,10 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       }
     } else if (!deviceData.hide_device && !existingAccessory) {
       this.infoLog(`[${protocol}] Adding new accessory: ${deviceData.nickname}`)
-      const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+      const accessory = new this.api.platformAccessory<SmartHqContext>(displayName, uuid)
       accessory.context.device = deviceData
       accessory.context = { device: deviceData, userId }
-      accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+      accessory.displayName = await this.validateAndCleanDisplayName(displayName, 'configDeviceName', displayName)
       accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
       accessory.control = new SmartHQClothesWasher(this, accessory, deviceData)
       this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
@@ -1070,7 +1101,11 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
 
   private async createSmartHQClothesDryer(userId: any, device: any, details: any, features: any) {
     // Merge device data
+    // `configDeviceName` is written by the device picker in the custom UI and was
+    // read by nothing, so renaming a device there had no effect at all. Resolve it
+    // once here, falling back to the appliance's own nickname.
     const deviceData = { brand: 'GE', ...details, ...features, ...device }
+    const displayName = (deviceData as any).configDeviceName || deviceData.nickname
 
     // Determine protocol (Matter or HAP)
     deviceData.useMatter = this.shouldUseMatter(deviceData)
@@ -1084,17 +1119,17 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       if (!deviceData.hide_device) {
         // Check if protocol changed to Matter - if so, remove from HAP bridge
         if (this.shouldUnregisterForMatter(existingAccessory, deviceData)) {
-          const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+          const accessory = new this.api.platformAccessory<SmartHqContext>(displayName, uuid)
           accessory.context.device = deviceData
           accessory.context = { device: deviceData, userId }
-          accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          accessory.displayName = await this.validateAndCleanDisplayName(displayName, 'configDeviceName', displayName)
           accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
           accessory.control = new SmartHQClothesDryer(this, accessory, deviceData)
           this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
         } else {
           existingAccessory.context.device = deviceData
           existingAccessory.context = { device: deviceData, userId }
-          existingAccessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          existingAccessory.displayName = await this.validateAndCleanDisplayName(displayName, 'configDeviceName', displayName)
           existingAccessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
           this.api.updatePlatformAccessories([existingAccessory])
           this.infoLog(`[${protocol}] Restoring existing accessory from cache: ${existingAccessory.displayName}`)
@@ -1106,10 +1141,10 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       }
     } else if (!deviceData.hide_device && !existingAccessory) {
       this.infoLog(`[${protocol}] Adding new accessory: ${deviceData.nickname}`)
-      const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+      const accessory = new this.api.platformAccessory<SmartHqContext>(displayName, uuid)
       accessory.context.device = deviceData
       accessory.context = { device: deviceData, userId }
-      accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+      accessory.displayName = await this.validateAndCleanDisplayName(displayName, 'configDeviceName', displayName)
       accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
       accessory.control = new SmartHQClothesDryer(this, accessory, deviceData)
       this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
@@ -1122,7 +1157,11 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
 
   private async createSmartHQCombinationWasherDryer(userId: any, device: any, details: any, features: any) {
     // Merge device data
+    // `configDeviceName` is written by the device picker in the custom UI and was
+    // read by nothing, so renaming a device there had no effect at all. Resolve it
+    // once here, falling back to the appliance's own nickname.
     const deviceData = { brand: 'GE', ...details, ...features, ...device }
+    const displayName = (deviceData as any).configDeviceName || deviceData.nickname
 
     // Determine protocol (Matter or HAP)
     deviceData.useMatter = this.shouldUseMatter(deviceData)
@@ -1136,17 +1175,17 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       if (!deviceData.hide_device) {
         // Check if protocol changed to Matter - if so, remove from HAP bridge
         if (this.shouldUnregisterForMatter(existingAccessory, deviceData)) {
-          const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+          const accessory = new this.api.platformAccessory<SmartHqContext>(displayName, uuid)
           accessory.context.device = deviceData
           accessory.context = { device: deviceData, userId }
-          accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          accessory.displayName = await this.validateAndCleanDisplayName(displayName, 'configDeviceName', displayName)
           accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
           accessory.control = new SmartHQCombinationWasherDryer(this, accessory, deviceData)
           this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
         } else {
           existingAccessory.context.device = deviceData
           existingAccessory.context = { device: deviceData, userId }
-          existingAccessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          existingAccessory.displayName = await this.validateAndCleanDisplayName(displayName, 'configDeviceName', displayName)
           existingAccessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
           this.api.updatePlatformAccessories([existingAccessory])
           this.infoLog(`[${protocol}] Restoring existing accessory from cache: ${existingAccessory.displayName}`)
@@ -1158,10 +1197,10 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       }
     } else if (!deviceData.hide_device && !existingAccessory) {
       this.infoLog(`[${protocol}] Adding new accessory: ${deviceData.nickname}`)
-      const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+      const accessory = new this.api.platformAccessory<SmartHqContext>(displayName, uuid)
       accessory.context.device = deviceData
       accessory.context = { device: deviceData, userId }
-      accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+      accessory.displayName = await this.validateAndCleanDisplayName(displayName, 'configDeviceName', displayName)
       accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
       accessory.control = new SmartHQCombinationWasherDryer(this, accessory, deviceData)
       this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
@@ -1174,7 +1213,11 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
 
   private async createSmartHQWaterFilter(userId: any, device: any, details: any, features: any) {
     // Merge device data
+    // `configDeviceName` is written by the device picker in the custom UI and was
+    // read by nothing, so renaming a device there had no effect at all. Resolve it
+    // once here, falling back to the appliance's own nickname.
     const deviceData = { brand: 'GE', ...details, ...features, ...device }
+    const displayName = (deviceData as any).configDeviceName || deviceData.nickname
 
     // Determine protocol (Matter or HAP)
     deviceData.useMatter = this.shouldUseMatter(deviceData)
@@ -1188,17 +1231,17 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       if (!deviceData.hide_device) {
         // Check if protocol changed to Matter - if so, remove from HAP bridge
         if (this.shouldUnregisterForMatter(existingAccessory, deviceData)) {
-          const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+          const accessory = new this.api.platformAccessory<SmartHqContext>(displayName, uuid)
           accessory.context.device = deviceData
           accessory.context = { device: deviceData, userId }
-          accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          accessory.displayName = await this.validateAndCleanDisplayName(displayName, 'configDeviceName', displayName)
           accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
           accessory.control = new SmartHQWaterFilter(this, accessory, deviceData)
           this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
         } else {
           existingAccessory.context.device = deviceData
           existingAccessory.context = { device: deviceData, userId }
-          existingAccessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          existingAccessory.displayName = await this.validateAndCleanDisplayName(displayName, 'configDeviceName', displayName)
           existingAccessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
           this.api.updatePlatformAccessories([existingAccessory])
           this.infoLog(`[${protocol}] Restoring existing accessory from cache: ${existingAccessory.displayName}`)
@@ -1210,10 +1253,10 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       }
     } else if (!deviceData.hide_device && !existingAccessory) {
       this.infoLog(`[${protocol}] Adding new accessory: ${deviceData.nickname}`)
-      const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+      const accessory = new this.api.platformAccessory<SmartHqContext>(displayName, uuid)
       accessory.context.device = deviceData
       accessory.context = { device: deviceData, userId }
-      accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+      accessory.displayName = await this.validateAndCleanDisplayName(displayName, 'configDeviceName', displayName)
       accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
       accessory.control = new SmartHQWaterFilter(this, accessory, deviceData)
       this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
@@ -1226,7 +1269,11 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
 
   private async createSmartHQWaterSoftener(userId: any, device: any, details: any, features: any) {
     // Merge device data
+    // `configDeviceName` is written by the device picker in the custom UI and was
+    // read by nothing, so renaming a device there had no effect at all. Resolve it
+    // once here, falling back to the appliance's own nickname.
     const deviceData = { brand: 'GE', ...details, ...features, ...device }
+    const displayName = (deviceData as any).configDeviceName || deviceData.nickname
 
     // Determine protocol (Matter or HAP)
     deviceData.useMatter = this.shouldUseMatter(deviceData)
@@ -1240,17 +1287,17 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       if (!deviceData.hide_device) {
         // Check if protocol changed to Matter - if so, remove from HAP bridge
         if (this.shouldUnregisterForMatter(existingAccessory, deviceData)) {
-          const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+          const accessory = new this.api.platformAccessory<SmartHqContext>(displayName, uuid)
           accessory.context.device = deviceData
           accessory.context = { device: deviceData, userId }
-          accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          accessory.displayName = await this.validateAndCleanDisplayName(displayName, 'configDeviceName', displayName)
           accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
           accessory.control = new SmartHQWaterSoftener(this, accessory, deviceData)
           this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
         } else {
           existingAccessory.context.device = deviceData
           existingAccessory.context = { device: deviceData, userId }
-          existingAccessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          existingAccessory.displayName = await this.validateAndCleanDisplayName(displayName, 'configDeviceName', displayName)
           existingAccessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
           this.api.updatePlatformAccessories([existingAccessory])
           this.infoLog(`[${protocol}] Restoring existing accessory from cache: ${existingAccessory.displayName}`)
@@ -1262,10 +1309,10 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       }
     } else if (!deviceData.hide_device && !existingAccessory) {
       this.infoLog(`[${protocol}] Adding new accessory: ${deviceData.nickname}`)
-      const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+      const accessory = new this.api.platformAccessory<SmartHqContext>(displayName, uuid)
       accessory.context.device = deviceData
       accessory.context = { device: deviceData, userId }
-      accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+      accessory.displayName = await this.validateAndCleanDisplayName(displayName, 'configDeviceName', displayName)
       accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
       accessory.control = new SmartHQWaterSoftener(this, accessory, deviceData)
       this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
@@ -1278,7 +1325,11 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
 
   private async createSmartHQWaterHeater(userId: any, device: any, details: any, features: any) {
     // Merge device data
+    // `configDeviceName` is written by the device picker in the custom UI and was
+    // read by nothing, so renaming a device there had no effect at all. Resolve it
+    // once here, falling back to the appliance's own nickname.
     const deviceData = { brand: 'GE', ...details, ...features, ...device }
+    const displayName = (deviceData as any).configDeviceName || deviceData.nickname
 
     // Determine protocol (Matter or HAP)
     deviceData.useMatter = this.shouldUseMatter(deviceData)
@@ -1292,17 +1343,17 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       if (!deviceData.hide_device) {
         // Check if protocol changed to Matter - if so, remove from HAP bridge
         if (this.shouldUnregisterForMatter(existingAccessory, deviceData)) {
-          const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+          const accessory = new this.api.platformAccessory<SmartHqContext>(displayName, uuid)
           accessory.context.device = deviceData
           accessory.context = { device: deviceData, userId }
-          accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          accessory.displayName = await this.validateAndCleanDisplayName(displayName, 'configDeviceName', displayName)
           accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
           accessory.control = new SmartHQWaterHeater(this, accessory, deviceData)
           this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
         } else {
           existingAccessory.context.device = deviceData
           existingAccessory.context = { device: deviceData, userId }
-          existingAccessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          existingAccessory.displayName = await this.validateAndCleanDisplayName(displayName, 'configDeviceName', displayName)
           existingAccessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
           this.api.updatePlatformAccessories([existingAccessory])
           this.infoLog(`[${protocol}] Restoring existing accessory from cache: ${existingAccessory.displayName}`)
@@ -1314,10 +1365,10 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       }
     } else if (!deviceData.hide_device && !existingAccessory) {
       this.infoLog(`[${protocol}] Adding new accessory: ${deviceData.nickname}`)
-      const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+      const accessory = new this.api.platformAccessory<SmartHqContext>(displayName, uuid)
       accessory.context.device = deviceData
       accessory.context = { device: deviceData, userId }
-      accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+      accessory.displayName = await this.validateAndCleanDisplayName(displayName, 'configDeviceName', displayName)
       accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
       accessory.control = new SmartHQWaterHeater(this, accessory, deviceData)
       this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
@@ -1330,7 +1381,11 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
 
   private async createSmartHQAdvantium(userId: any, device: any, details: any, features: any) {
     // Merge device data
+    // `configDeviceName` is written by the device picker in the custom UI and was
+    // read by nothing, so renaming a device there had no effect at all. Resolve it
+    // once here, falling back to the appliance's own nickname.
     const deviceData = { brand: 'GE', ...details, ...features, ...device }
+    const displayName = (deviceData as any).configDeviceName || deviceData.nickname
 
     // Determine protocol (Matter or HAP)
     deviceData.useMatter = this.shouldUseMatter(deviceData)
@@ -1344,17 +1399,17 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       if (!deviceData.hide_device) {
         // Check if protocol changed to Matter - if so, remove from HAP bridge
         if (this.shouldUnregisterForMatter(existingAccessory, deviceData)) {
-          const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+          const accessory = new this.api.platformAccessory<SmartHqContext>(displayName, uuid)
           accessory.context.device = deviceData
           accessory.context = { device: deviceData, userId }
-          accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          accessory.displayName = await this.validateAndCleanDisplayName(displayName, 'configDeviceName', displayName)
           accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
           accessory.control = new SmartHQAdvantium(this, accessory, deviceData)
           this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
         } else {
           existingAccessory.context.device = deviceData
           existingAccessory.context = { device: deviceData, userId }
-          existingAccessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          existingAccessory.displayName = await this.validateAndCleanDisplayName(displayName, 'configDeviceName', displayName)
           existingAccessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
           this.api.updatePlatformAccessories([existingAccessory])
           this.infoLog(`[${protocol}] Restoring existing accessory from cache: ${existingAccessory.displayName}`)
@@ -1366,10 +1421,10 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       }
     } else if (!deviceData.hide_device && !existingAccessory) {
       this.infoLog(`[${protocol}] Adding new accessory: ${deviceData.nickname}`)
-      const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+      const accessory = new this.api.platformAccessory<SmartHqContext>(displayName, uuid)
       accessory.context.device = deviceData
       accessory.context = { device: deviceData, userId }
-      accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+      accessory.displayName = await this.validateAndCleanDisplayName(displayName, 'configDeviceName', displayName)
       accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
       accessory.control = new SmartHQAdvantium(this, accessory, deviceData)
       this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
@@ -1382,7 +1437,11 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
 
   private async createSmartHQMicrowave(userId: any, device: any, details: any, features: any) {
     // Merge device data
+    // `configDeviceName` is written by the device picker in the custom UI and was
+    // read by nothing, so renaming a device there had no effect at all. Resolve it
+    // once here, falling back to the appliance's own nickname.
     const deviceData = { brand: 'GE', ...details, ...features, ...device }
+    const displayName = (deviceData as any).configDeviceName || deviceData.nickname
 
     // Determine protocol (Matter or HAP)
     deviceData.useMatter = this.shouldUseMatter(deviceData)
@@ -1396,17 +1455,17 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       if (!deviceData.hide_device) {
         // Check if protocol changed to Matter - if so, remove from HAP bridge
         if (this.shouldUnregisterForMatter(existingAccessory, deviceData)) {
-          const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+          const accessory = new this.api.platformAccessory<SmartHqContext>(displayName, uuid)
           accessory.context.device = deviceData
           accessory.context = { device: deviceData, userId }
-          accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          accessory.displayName = await this.validateAndCleanDisplayName(displayName, 'configDeviceName', displayName)
           accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
           accessory.control = new SmartHQMicrowave(this, accessory, deviceData)
           this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
         } else {
           existingAccessory.context.device = deviceData
           existingAccessory.context = { device: deviceData, userId }
-          existingAccessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          existingAccessory.displayName = await this.validateAndCleanDisplayName(displayName, 'configDeviceName', displayName)
           existingAccessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
           this.api.updatePlatformAccessories([existingAccessory])
           this.infoLog(`[${protocol}] Restoring existing accessory from cache: ${existingAccessory.displayName}`)
@@ -1418,10 +1477,10 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       }
     } else if (!deviceData.hide_device && !existingAccessory) {
       this.infoLog(`[${protocol}] Adding new accessory: ${deviceData.nickname}`)
-      const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+      const accessory = new this.api.platformAccessory<SmartHqContext>(displayName, uuid)
       accessory.context.device = deviceData
       accessory.context = { device: deviceData, userId }
-      accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+      accessory.displayName = await this.validateAndCleanDisplayName(displayName, 'configDeviceName', displayName)
       accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
       accessory.control = new SmartHQMicrowave(this, accessory, deviceData)
       this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
@@ -1434,7 +1493,11 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
 
   private async createSmartHQCoffeeMaker(userId: any, device: any, details: any, features: any) {
     // Merge device data
+    // `configDeviceName` is written by the device picker in the custom UI and was
+    // read by nothing, so renaming a device there had no effect at all. Resolve it
+    // once here, falling back to the appliance's own nickname.
     const deviceData = { brand: 'GE', ...details, ...features, ...device }
+    const displayName = (deviceData as any).configDeviceName || deviceData.nickname
 
     // Determine protocol (Matter or HAP)
     deviceData.useMatter = this.shouldUseMatter(deviceData)
@@ -1448,17 +1511,17 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       if (!deviceData.hide_device) {
         // Check if protocol changed to Matter - if so, remove from HAP bridge
         if (this.shouldUnregisterForMatter(existingAccessory, deviceData)) {
-          const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+          const accessory = new this.api.platformAccessory<SmartHqContext>(displayName, uuid)
           accessory.context.device = deviceData
           accessory.context = { device: deviceData, userId }
-          accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          accessory.displayName = await this.validateAndCleanDisplayName(displayName, 'configDeviceName', displayName)
           accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
           accessory.control = new SmartHQCoffeeMaker(this, accessory, deviceData)
           this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
         } else {
           existingAccessory.context.device = deviceData
           existingAccessory.context = { device: deviceData, userId }
-          existingAccessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          existingAccessory.displayName = await this.validateAndCleanDisplayName(displayName, 'configDeviceName', displayName)
           existingAccessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
           this.api.updatePlatformAccessories([existingAccessory])
           this.infoLog(`[${protocol}] Restoring existing accessory from cache: ${existingAccessory.displayName}`)
@@ -1470,10 +1533,10 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       }
     } else if (!deviceData.hide_device && !existingAccessory) {
       this.infoLog(`[${protocol}] Adding new accessory: ${deviceData.nickname}`)
-      const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+      const accessory = new this.api.platformAccessory<SmartHqContext>(displayName, uuid)
       accessory.context.device = deviceData
       accessory.context = { device: deviceData, userId }
-      accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+      accessory.displayName = await this.validateAndCleanDisplayName(displayName, 'configDeviceName', displayName)
       accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
       accessory.control = new SmartHQCoffeeMaker(this, accessory, deviceData)
       this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
@@ -1486,7 +1549,11 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
 
   private async createSmartHQBeverageCenter(userId: any, device: any, details: any, features: any) {
     // Merge device data
+    // `configDeviceName` is written by the device picker in the custom UI and was
+    // read by nothing, so renaming a device there had no effect at all. Resolve it
+    // once here, falling back to the appliance's own nickname.
     const deviceData = { brand: 'GE', ...details, ...features, ...device }
+    const displayName = (deviceData as any).configDeviceName || deviceData.nickname
 
     // Determine protocol (Matter or HAP)
     deviceData.useMatter = this.shouldUseMatter(deviceData)
@@ -1500,17 +1567,17 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       if (!deviceData.hide_device) {
         // Check if protocol changed to Matter - if so, remove from HAP bridge
         if (this.shouldUnregisterForMatter(existingAccessory, deviceData)) {
-          const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+          const accessory = new this.api.platformAccessory<SmartHqContext>(displayName, uuid)
           accessory.context.device = deviceData
           accessory.context = { device: deviceData, userId }
-          accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          accessory.displayName = await this.validateAndCleanDisplayName(displayName, 'configDeviceName', displayName)
           accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
           accessory.control = new SmartHQBeverageCenter(this, accessory, deviceData)
           this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
         } else {
           existingAccessory.context.device = deviceData
           existingAccessory.context = { device: deviceData, userId }
-          existingAccessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+          existingAccessory.displayName = await this.validateAndCleanDisplayName(displayName, 'configDeviceName', displayName)
           existingAccessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
           this.api.updatePlatformAccessories([existingAccessory])
           this.infoLog(`[${protocol}] Restoring existing accessory from cache: ${existingAccessory.displayName}`)
@@ -1522,10 +1589,10 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       }
     } else if (!deviceData.hide_device && !existingAccessory) {
       this.infoLog(`[${protocol}] Adding new accessory: ${deviceData.nickname}`)
-      const accessory = new this.api.platformAccessory<SmartHqContext>(deviceData.nickname, uuid)
+      const accessory = new this.api.platformAccessory<SmartHqContext>(displayName, uuid)
       accessory.context.device = deviceData
       accessory.context = { device: deviceData, userId }
-      accessory.displayName = await this.validateAndCleanDisplayName(deviceData.nickname, 'nickname', deviceData.nickname)
+      accessory.displayName = await this.validateAndCleanDisplayName(displayName, 'configDeviceName', displayName)
       accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
       accessory.control = new SmartHQBeverageCenter(this, accessory, deviceData)
       this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)

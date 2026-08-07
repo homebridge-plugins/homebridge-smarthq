@@ -18,6 +18,7 @@ All notable changes to this project will be documented in this file. This projec
 - fix: show the real cook time left on a bake longer than an hour
 - fix: remove an update rate setting that was offered in the ui but never used
 - fix: stop the websocket timers on shutdown, including a reconnect that nothing ever cleared
+- fix: use the name set in the device picker, which nothing was reading
 
 ## v0.6.2 (2026-07-31)
 
