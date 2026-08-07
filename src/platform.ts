@@ -143,6 +143,25 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
         await this.errorLog(`Failed to Discover Devices ${JSON.stringify(e.message ?? e)}`)
       }
     })
+
+    // Stop everything this platform started. Without this the websocket keep-alive
+    // and the pending reconnect kept firing while Homebridge tore down, and the
+    // reconnect timer in particular was never cleared anywhere at all - so it woke
+    // up after shutdown and opened a fresh connection.
+    this.api.on('shutdown', () => this.shutdown())
+  }
+
+  /** Cancel the websocket timers and close the connection, on the way out. */
+  private shutdown(): void {
+    if (this.wsKeepAliveTimer) {
+      clearInterval(this.wsKeepAliveTimer)
+      this.wsKeepAliveTimer = undefined
+    }
+    if (this.wsReconnectTimer) {
+      clearTimeout(this.wsReconnectTimer)
+      this.wsReconnectTimer = undefined
+    }
+    this.accessories.forEach(accessory => (accessory as any).control?.shutdown?.())
   }
 
   /**
