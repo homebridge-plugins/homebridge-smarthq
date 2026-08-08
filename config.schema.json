@@ -352,6 +352,12 @@
                 ]
               }
             ]
+          },
+          "allowInvalidCharacters": {
+            "title": "Allow Invalid Characters",
+            "type": "boolean",
+            "default": false,
+            "description": "Keep accessory names exactly as the provider reports them. Without this, characters HomeKit does not accept are stripped out and the change is reported in the log."
           }
         },
         "required": [
@@ -446,7 +452,8 @@
         {
           "key": "options.region",
           "notitle": true
-        }
+        },
+        "options.allowInvalidCharacters"
       ]
     }
   ]
