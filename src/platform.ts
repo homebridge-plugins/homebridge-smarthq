@@ -57,7 +57,6 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
   platformConfig!: SmartHQPlatformConfig
   platformLogging!: options['logging']
   platformRefreshRate!: options['refreshRate']
-  platformPushRate!: options['pushRate']
   version!: string
 
   // Matter support tracking
@@ -1632,10 +1631,6 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
     this.platformRefreshRate = this.config.options?.refreshRate ? this.config.options.refreshRate : undefined
     const refreshRate = this.config.options?.refreshRate ? 'Using Platform Config refreshRate' : 'Platform Config refreshRate Not Set'
     await this.debugLog(`${refreshRate}: ${this.platformRefreshRate}`)
-    // PushRate
-    this.platformPushRate = this.config.options?.pushRate ? this.config.options.pushRate : undefined
-    const pushRate = this.config.options?.pushRate ? 'Using Platform Config pushRate' : 'Platform Config pushRate Not Set'
-    await this.debugLog(`${pushRate}: ${this.platformPushRate}`)
   }
 
   async getPlatformConfigSettings() {
@@ -1645,8 +1640,6 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       }
       platformConfig.logging = this.config.options.logging ? this.config.options.logging : undefined
       platformConfig.refreshRate = this.config.options.refreshRate ? this.config.options.refreshRate : undefined
-      platformConfig.updateRate = this.config.options.updateRate ? this.config.options.updateRate : undefined
-      platformConfig.pushRate = this.config.options.pushRate ? this.config.options.pushRate : undefined
       if (Object.entries(platformConfig).length !== 0) {
         await this.debugLog(`Platform Config: ${JSON.stringify(platformConfig)}`)
       }

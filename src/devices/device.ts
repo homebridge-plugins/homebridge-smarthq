@@ -48,7 +48,6 @@ export abstract class deviceBase {
   // Config
   protected deviceLogging!: string
   protected deviceRefreshRate!: number
-  protected devicePushRate!: number
   protected deviceFirmwareVersion!: string
 
   // ERD capability tracking - remember which ERDs are not supported
@@ -148,11 +147,10 @@ export abstract class deviceBase {
     // updateRate used to be parsed and echoed back here, which made it look
     // accepted - it was offered in the settings, described as how often HomeKit
     // accessories are updated, and read by nothing. Every polling loop uses
-    // refreshRate, which is the setting that actually controls this.
-    // pushRate
-    this.devicePushRate = device.pushRate ?? this.platform.platformPushRate ?? 1
-    const pushRate = device.pushRate ? 'Device Config' : this.platform.platformPushRate ? 'Platform Config' : 'Default'
-    await this.debugLog(`Using ${pushRate} pushRate: ${this.devicePushRate}`)
+    // refreshRate, which is the setting that actually controls this. pushRate was
+    // the same story - parsed, stored and confirmed in the log, but read by
+    // nothing, because commands are sent straight to the appliance with no
+    // debounce - so it has gone the same way.
   }
 
   async getDeviceConfigSettings(device: devicesConfig): Promise<void> {
@@ -160,8 +158,6 @@ export abstract class deviceBase {
     const properties = [
       'logging',
       'refreshRate',
-      'updateRate',
-      'pushRate',
       'hide_device',
       'useMatter',
     ]

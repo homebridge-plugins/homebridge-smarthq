@@ -47,8 +47,6 @@ export interface devicesConfig {
   applianceId?: string
   firmware: string
   refreshRate?: number
-  updateRate?: number
-  pushRate?: number
   logging?: string
   hide_device?: boolean
   useMatter?: boolean // Enable/disable Matter for this specific device
@@ -99,8 +97,6 @@ export interface options {
   allowInvalidCharacters?: boolean
   region?: string // Explicit SmartHQ account region (e.g. 'us' or 'eu') for the login flow
   refreshRate?: number
-  updateRate?: number
-  pushRate?: number
   logging?: string
   homekitControllerNotificationsSecret?: string
 }
