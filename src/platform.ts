@@ -32,7 +32,7 @@ import { SmartHQWaterFilter } from './devices/waterFilter.js'
 import { SmartHQWaterHeater } from './devices/waterHeater.js'
 import { SmartHQWaterSoftener } from './devices/waterSoftener.js'
 import getAccessToken, { refreshAccessToken } from './getAccessToken.js'
-import { API_URL, ERD_TYPES, KEEPALIVE_TIMEOUT, lookupErdName, normaliseErd, PLATFORM_NAME, PLUGIN_NAME } from './settings.js'
+import { API_URL, ERD_TYPES, KEEPALIVE_TIMEOUT, lookupErdName, MAX_TIMER_MS, normaliseErd, PLATFORM_NAME, PLUGIN_NAME } from './settings.js'
 
 const { find, keyBy } = pkg
 
@@ -290,7 +290,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
 
                 // Schedule next refresh
                 if (this.tokenSet.expires_in) {
-                  setTimeout(() => this.scheduleTokenRefresh(), 1000 * (this.tokenSet.expires_in - 2000))
+                  setTimeout(() => this.scheduleTokenRefresh(), this.tokenRefreshDelayMs(this.tokenSet.expires_in))
                 }
                 return // Successfully recovered
               }
@@ -321,7 +321,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
     }
 
     if (this.tokenSet.expires_in) {
-      setTimeout(() => this.scheduleTokenRefresh(), 1000 * (this.tokenSet.expires_in - 2000))
+      setTimeout(() => this.scheduleTokenRefresh(), this.tokenRefreshDelayMs(this.tokenSet.expires_in))
     } else {
       throw new Error('Token expiration time is undefined')
     }
@@ -334,6 +334,22 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
    * the process, so a brief GE outage at exactly the wrong moment took the bridge
    * down instead of it simply trying again.
    */
+  /**
+   * How long to wait before renewing the token, from the lifetime GE reports.
+   *
+   * The two call sites used `1000 * (expires_in - 2000)` inline. `expires_in` is
+   * in seconds, so that aims to renew about 33 minutes before expiry - but on a
+   * token whose lifetime is under 2000 seconds it goes negative, and a negative
+   * delay fires immediately, so the plugin would renew in a tight loop against
+   * the GE token endpoint. It is also unclamped at the top end, where a Node
+   * timer silently drops to 1 ms and does the same thing.
+   */
+  private tokenRefreshDelayMs(expiresIn: number): number {
+    const early = (expiresIn - 2000) * 1000
+    // Never sooner than a minute, never past what a timer can hold
+    return Math.min(Math.max(early, 60 * 1000), MAX_TIMER_MS)
+  }
+
   private scheduleTokenRefresh(): void {
     this.startRefreshTokenLogic().catch(async (e: any) => {
       await this.errorLog(`Scheduled token refresh failed: ${e?.message ?? e}`)

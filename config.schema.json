@@ -115,6 +115,7 @@
               "title": "Device Refresh Rate",
               "type": "number",
               "minimum": 1800,
+              "maximum": 2073600,
               "placeholder": 1800,
               "description": "Indicates the number of seconds between polls of the SmartHQ service.",
               "condition": {
@@ -283,6 +284,7 @@
             "title": "Refresh Rate",
             "type": "number",
             "minimum": 30,
+            "maximum": 2073600,
             "placeholder": 120,
             "description": "Indicates the number of seconds between polls of the Meater service."
           },

@@ -9,7 +9,7 @@ import type { devicesConfig, SmartHqContext, SmartHQPlatformConfig } from '../se
 
 import axios from 'axios'
 
-import { ERD_TYPES } from '../settings.js'
+import { ERD_TYPES, MAX_TIMER_MS } from '../settings.js'
 
 // Type for Matter accessory (will be properly typed in Homebridge 2.0)
 export interface MatterAccessory {
@@ -140,8 +140,14 @@ export abstract class deviceBase {
   }
 
   async getDeviceRateSettings(device: devicesConfig): Promise<void> {
-    // refreshRate
-    this.deviceRefreshRate = device.refreshRate ?? this.platform.platformRefreshRate ?? 360
+    // refreshRate. Clamped in seconds here, so that every `deviceRefreshRate *
+    // 1000` in the device files stays inside what a Node timer can hold. Past
+    // the limit a timer does not throw - it silently drops to 1 ms, turning a
+    // slow poll into a flood of calls at the SmartHQ API.
+    this.deviceRefreshRate = Math.min(
+      device.refreshRate ?? this.platform.platformRefreshRate ?? 360,
+      MAX_TIMER_MS / 1000,
+    )
     const refreshRate = device.refreshRate ? 'Device Config' : this.platform.platformRefreshRate ? 'Platform Config' : 'Default'
     await this.debugLog(`Using ${refreshRate} refreshRate: ${this.deviceRefreshRate}`)
     // updateRate used to be parsed and echoed back here, which made it look
