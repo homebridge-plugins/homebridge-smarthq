@@ -29,6 +29,76 @@ const STALE_SERVICE_NAMES = [
   'Hot Water Dispensing',
 ]
 
+const FRIDGE_RANGE_F = { min: 34, max: 46 }
+const FREEZER_RANGE_F = { min: -6, max: 8 }
+const ERD_SIGNED_BYTE_RANGE_F = { min: -128, max: 127 }
+
+// The API reports Fahrenheit regardless of TEMPERATURE_UNIT (0x0007), which only sets the front-panel display.
+function fahrenheitToCelsius(f: number): number {
+  return (f - 32) * 5 / 9
+}
+
+function toCentiCelsius(celsius: number): number {
+  return Math.round(celsius * 100)
+}
+
+function celsiusToFahrenheit(c: number): number {
+  return c * 9 / 5 + 32
+}
+
+export function decodeCompartmentBytes(raw: string): { fridge: number, freezer: number } | undefined {
+  const hex = raw.replace(/^0x/i, '')
+  if (!/^[0-9a-f]{4}$/i.test(hex)) {
+    return undefined
+  }
+  const signed = (byte: string): number => {
+    const v = Number.parseInt(byte, 16)
+    return v > 127 ? v - 256 : v
+  }
+  return { fridge: signed(hex.slice(0, 2)), freezer: signed(hex.slice(2, 4)) }
+}
+
+export function encodeCompartmentBytes(fridge: number, freezer: number): string {
+  const byte = (v: number): string => {
+    const clamped = Math.max(-128, Math.min(127, Math.round(v)))
+    return ((clamped + 256) % 256).toString(16).padStart(2, '0').toUpperCase()
+  }
+  return `${byte(fridge)}${byte(freezer)}`
+}
+
+export function decodeCompartmentCelsius(
+  raw: string | undefined,
+  compartment: 'fridge' | 'freezer',
+): { celsius: number, via: 'bytes' | 'object' | 'number' } | undefined {
+  if (!raw || raw === 'undefined') {
+    return
+  }
+
+  // Must precede JSON.parse: a pair like "2500" is also valid JSON and would otherwise decode as the number 2500.
+  const bytes = decodeCompartmentBytes(raw)
+  if (bytes) {
+    return { celsius: fahrenheitToCelsius(bytes[compartment]), via: 'bytes' }
+  }
+
+  try {
+    const parsed = JSON.parse(raw)
+
+    if (parsed && typeof parsed === 'object' && parsed[compartment] !== undefined) {
+      const num = Number(parsed[compartment])
+      if (!Number.isNaN(num)) {
+        return { celsius: fahrenheitToCelsius(num), via: 'object' }
+      }
+    }
+
+    if (typeof parsed === 'number' || typeof parsed === 'string') {
+      const num = Number(parsed)
+      if (!Number.isNaN(num)) {
+        return { celsius: fahrenheitToCelsius(num), via: 'number' }
+      }
+    }
+  } catch {}
+}
+
 /**
  * SmartHQ Refrigerator - Unified HAP/Matter Implementation
  * Supports both HomeKit Accessory Protocol and Matter protocol
@@ -111,6 +181,18 @@ export class SmartHQRefrigerator extends deviceBase {
     const serialNumber = this.device.applianceId || 'unknown'
     this.matterUuid = matterAPI.uuid.generate(serialNumber)
 
+    const [fridgeTemp, freezerTemp, fridgeSetpoint] = await Promise.all([
+      this.parseTemperature('fridge'),
+      this.parseTemperature('freezer'),
+      this.parseSetpoint('fridge'),
+    ])
+
+    const measured = (celsius: number | undefined): number | null => celsius === undefined ? null : toCentiCelsius(celsius)
+    const setpoint = (celsius: number | undefined, fallbackF: number): number => toCentiCelsius(celsius ?? fahrenheitToCelsius(fallbackF))
+
+    const measurableMin = toCentiCelsius(fahrenheitToCelsius(ERD_SIGNED_BYTE_RANGE_F.min))
+    const measurableMax = toCentiCelsius(fahrenheitToCelsius(ERD_SIGNED_BYTE_RANGE_F.max))
+
     // Create Matter accessory configuration with refrigerator-specific clusters
     const matterAccessory = {
       UUID: this.matterUuid,
@@ -124,16 +206,16 @@ export class SmartHQRefrigerator extends deviceBase {
       clusters: {
         // Temperature control for main compartment
         thermostat: {
-          localTemperature: 400, // 4°C in 0.01°C units
-          occupiedCoolingSetpoint: 400,
+          localTemperature: measured(fridgeTemp),
+          occupiedCoolingSetpoint: setpoint(fridgeSetpoint, FRIDGE_RANGE_F.min),
           systemMode: 3, // COOL
           thermostatRunningMode: 3,
           controlSequenceOfOperation: 2, // cooling only
         },
         temperatureMeasurement: {
-          measuredValue: 400, // 4°C
-          minMeasuredValue: 0, // 0°C
-          maxMeasuredValue: 720, // 7.2°C
+          measuredValue: measured(fridgeTemp),
+          minMeasuredValue: measurableMin,
+          maxMeasuredValue: measurableMax,
         },
         // Refrigerator and Temperature Controlled Cabinet Mode Cluster (0x0052)
         refrigeratorAndTemperatureControlledCabinetMode: {
@@ -158,9 +240,9 @@ export class SmartHQRefrigerator extends deviceBase {
           deviceType: matterAPI.deviceTypes.TemperatureSensor,
           clusters: {
             temperatureMeasurement: {
-              measuredValue: 400, // 4°C
-              minMeasuredValue: 0,
-              maxMeasuredValue: 720,
+              measuredValue: measured(fridgeTemp),
+              minMeasuredValue: measurableMin,
+              maxMeasuredValue: measurableMax,
             },
             // Boolean state for ice maker
             booleanState: {
@@ -186,9 +268,9 @@ export class SmartHQRefrigerator extends deviceBase {
           deviceType: matterAPI.deviceTypes.TemperatureSensor,
           clusters: {
             temperatureMeasurement: {
-              measuredValue: -1800, // -18°C
-              minMeasuredValue: -2100,
-              maxMeasuredValue: -330,
+              measuredValue: measured(freezerTemp),
+              minMeasuredValue: measurableMin,
+              maxMeasuredValue: measurableMax,
             },
             // Boolean state for turbo freeze
             booleanState: {
@@ -359,16 +441,18 @@ export class SmartHQRefrigerator extends deviceBase {
     fridgeThermostat
       .getCharacteristic(this.platform.Characteristic.CurrentTemperature)
       .onGet(async () => {
-        const temp = await this.parseTemperature('fridge')
-        return temp ?? 4.0
+        return await this.parseTemperature('fridge') ?? fahrenheitToCelsius(FRIDGE_RANGE_F.min)
       })
 
     fridgeThermostat
       .getCharacteristic(this.platform.Characteristic.TargetTemperature)
-      .setProps({ minValue: 0, maxValue: 7.2, minStep: 0.5 })
+      .setProps({
+        minValue: fahrenheitToCelsius(FRIDGE_RANGE_F.min),
+        maxValue: fahrenheitToCelsius(FRIDGE_RANGE_F.max),
+        minStep: 0.5,
+      })
       .onGet(async () => {
-        const temp = await this.parseSetpoint('fridge')
-        return temp ?? 4.0
+        return await this.parseSetpoint('fridge') ?? fahrenheitToCelsius(FRIDGE_RANGE_F.min)
       })
       .onSet(async (value) => {
         await this.writeSetpoint('fridge', value as number)
@@ -387,16 +471,18 @@ export class SmartHQRefrigerator extends deviceBase {
     freezerThermostat
       .getCharacteristic(this.platform.Characteristic.CurrentTemperature)
       .onGet(async () => {
-        const temp = await this.parseTemperature('freezer')
-        return temp ?? -18.0
+        return await this.parseTemperature('freezer') ?? fahrenheitToCelsius(FREEZER_RANGE_F.min)
       })
 
     freezerThermostat
       .getCharacteristic(this.platform.Characteristic.TargetTemperature)
-      .setProps({ minValue: -21, maxValue: -3.3, minStep: 0.5 })
+      .setProps({
+        minValue: fahrenheitToCelsius(FREEZER_RANGE_F.min),
+        maxValue: fahrenheitToCelsius(FREEZER_RANGE_F.max),
+        minStep: 0.5,
+      })
       .onGet(async () => {
-        const temp = await this.parseSetpoint('freezer')
-        return temp ?? -18.0
+        return await this.parseSetpoint('freezer') ?? fahrenheitToCelsius(FREEZER_RANGE_F.min)
       })
       .onSet(async (value) => {
         await this.writeSetpoint('freezer', value as number)
@@ -470,6 +556,20 @@ export class SmartHQRefrigerator extends deviceBase {
     }
   }
 
+  private async decodeCompartmentTemperature(
+    raw: string | undefined,
+    compartment: 'fridge' | 'freezer',
+    label: string,
+  ): Promise<number | undefined> {
+    const decoded = decodeCompartmentCelsius(raw, compartment)
+    if (!decoded) {
+      this.debugLog(`${compartment} ${label}: could not decode ${raw}`)
+      return undefined
+    }
+    this.debugLog(`${compartment} ${label} (${decoded.via}): ${decoded.celsius.toFixed(1)}°C from ${raw}`)
+    return decoded.celsius
+  }
+
   /**
    * Shared helper: Parse temperature from ERD (works for both HAP and Matter)
    */
@@ -477,54 +577,17 @@ export class SmartHQRefrigerator extends deviceBase {
     const r = await this.readErd(ERD_TYPES.CURRENT_TEMPERATURE)
     this.debugLog(`Raw CURRENT_TEMPERATURE ERD response: ${r}`)
 
-    if (!r || r === 'undefined') {
-      return undefined
+    const measured = await this.decodeCompartmentTemperature(r, compartment, 'temperature')
+    if (measured !== undefined) {
+      return measured
     }
 
-    try {
-      const parsed = JSON.parse(r)
-
-      // Case 1: ERD returns an object with compartment keys, e.g. { "fridge": 4, "freezer": -18 }
-      if (parsed && typeof parsed === 'object' && parsed[compartment] !== undefined) {
-        const tempCelsius = Number(parsed[compartment])
-        this.debugLog(`${compartment} temperature (object): ${tempCelsius}°C`)
-        return tempCelsius
-      }
-
-      // Case 2: ERD returns a raw numeric value (often in centi-degrees), e.g. 2500 -> 25.00°C
-      if (typeof parsed === 'number' || typeof parsed === 'string') {
-        const num = Number(parsed)
-        if (!Number.isNaN(num)) {
-          // Heuristic: values >= 100 likely represent centi-degrees (e.g. 2500 => 25.00°C)
-          const tempCelsius = Math.abs(num) >= 100 ? num / 100 : num
-          this.debugLog(`${compartment} temperature (raw): ${tempCelsius}°C from ${num}`)
-          return tempCelsius
-        }
-      }
-    } catch (parseError) {
-      this.debugLog(`Temperature parse error: ${parseError}`)
+    // Some models do not implement CURRENT_TEMPERATURE, leaving nothing to fall back on but the setpoint.
+    const setpoint = await this.parseSetpoint(compartment)
+    if (setpoint !== undefined) {
+      this.debugLog(`${compartment} reports no measured temperature; showing the setpoint instead`)
     }
-
-    // Case 3: Some appliances return hex byte pairs (fridge+freezer) like "0A14" or "0000FF".
-    // Decode hex pairs into signed bytes (compatible with simbaja/gehome FridgeSetPointsConverter).
-    try {
-      const hex = r.replace(/^0x/, '')
-      if (/^[0-9a-f]+$/i.test(hex) && hex.length >= 4) {
-        const fridgeHex = hex.substring(0, 2)
-        const freezerHex = hex.substring(2, 4)
-        const fridgeVal = Number.parseInt(fridgeHex, 16)
-        const freezerVal = Number.parseInt(freezerHex, 16)
-        const fridgeSigned = fridgeVal > 128 ? fridgeVal - 256 : fridgeVal
-        const freezerSigned = freezerVal > 128 ? freezerVal - 256 : freezerVal
-        const value = compartment === 'fridge' ? fridgeSigned : freezerSigned
-        this.debugLog(`${compartment} temperature (hex bytes): ${value}° from ${hex}`)
-        return value
-      }
-    } catch (hexError) {
-      this.debugLog(`Temperature hex-parse error: ${hexError}`)
-    }
-
-    return undefined
+    return setpoint
   }
 
   /**
@@ -532,52 +595,7 @@ export class SmartHQRefrigerator extends deviceBase {
    */
   private async parseSetpoint(compartment: 'fridge' | 'freezer'): Promise<number | undefined> {
     const r = await this.readErd(ERD_TYPES.TEMPERATURE_SETTING)
-    if (!r || r === 'undefined') {
-      return undefined
-    }
-
-    try {
-      const parsed = JSON.parse(r)
-
-      // Case 1: object with compartment keys
-      if (parsed && typeof parsed === 'object' && parsed[compartment] !== undefined) {
-        const tempCelsius = Number(parsed[compartment])
-        this.debugLog(`${compartment} setpoint (object): ${tempCelsius}°C`)
-        return tempCelsius
-      }
-
-      // Case 2: raw numeric setpoint (often centi-degrees)
-      if (typeof parsed === 'number' || typeof parsed === 'string') {
-        const num = Number(parsed)
-        if (!Number.isNaN(num)) {
-          const tempCelsius = Math.abs(num) >= 100 ? num / 100 : num
-          this.debugLog(`${compartment} setpoint (raw): ${tempCelsius}°C from ${num}`)
-          return tempCelsius
-        }
-      }
-    } catch (parseError) {
-      this.debugLog(`Setpoint parse error: ${parseError}`)
-    }
-
-    // Case 3: hex byte-pair encoding like "0A14" or "2500" (hex). Decode similarly to gehome.
-    try {
-      const hex = r.replace(/^0x/, '')
-      if (/^[0-9a-f]+$/i.test(hex) && hex.length >= 4) {
-        const fridgeHex = hex.substring(0, 2)
-        const freezerHex = hex.substring(2, 4)
-        const fridgeVal = Number.parseInt(fridgeHex, 16)
-        const freezerVal = Number.parseInt(freezerHex, 16)
-        const fridgeSigned = fridgeVal > 128 ? fridgeVal - 256 : fridgeVal
-        const freezerSigned = freezerVal > 128 ? freezerVal - 256 : freezerVal
-        const value = compartment === 'fridge' ? fridgeSigned : freezerSigned
-        this.debugLog(`${compartment} setpoint (hex bytes): ${value}° from ${hex}`)
-        return value
-      }
-    } catch (hexError) {
-      this.debugLog(`Setpoint hex-parse error: ${hexError}`)
-    }
-
-    return undefined
+    return this.decodeCompartmentTemperature(r, compartment, 'setpoint')
   }
 
   /**
@@ -585,42 +603,18 @@ export class SmartHQRefrigerator extends deviceBase {
    */
   private async writeSetpoint(compartment: 'fridge' | 'freezer', temperature: number): Promise<void> {
     try {
-      // Decide whether the appliance expects an object like { "fridge": 4 }
-      // or a raw numeric value (commonly centi-degrees like 2500 => 25.00°C).
       const current = await this.readErd(ERD_TYPES.TEMPERATURE_SETTING)
-      let erdData: string
-
-      if (current) {
-        try {
-          const parsed = JSON.parse(current)
-          if (parsed && typeof parsed === 'object' && parsed[compartment] !== undefined) {
-            const value = Math.round(temperature).toString()
-            erdData = JSON.stringify({ [compartment]: value })
-            await this.successLog(`Writing setpoint as object for ${compartment}: ${erdData}`)
-          } else {
-            const centi = Math.round(temperature * 100)
-            erdData = String(centi)
-            await this.successLog(`Writing setpoint as raw centi-degrees for ${compartment}: ${erdData}`)
-          }
-        } catch (parseError) {
-          // If parsing fails, fall back to a heuristic: if the raw current value looks numeric, send centi-degrees
-          if (/^-?\d+$/.test(current)) {
-            const centi = Math.round(temperature * 100)
-            erdData = String(centi)
-            await this.successLog(`Writing setpoint (fallback numeric) for ${compartment}: ${erdData}`)
-          } else {
-            const value = Math.round(temperature).toString()
-            erdData = JSON.stringify({ [compartment]: value })
-            await this.successLog(`Writing setpoint (fallback object) for ${compartment}: ${erdData}`)
-          }
-        }
-      } else {
-        // No current value available; default to object format to preserve previous behavior
-        const value = Math.round(temperature).toString()
-        erdData = JSON.stringify({ [compartment]: value })
-        await this.successLog(`Writing setpoint (default object) for ${compartment}: ${erdData}`)
+      const bytes = current ? decodeCompartmentBytes(current) : undefined
+      if (!bytes) {
+        await this.errorLog(`Refusing to write ${compartment} setpoint: TEMPERATURE_SETTING read back as ${current ?? 'undefined'}, not a byte pair`)
+        return
       }
 
+      const fahrenheit = Math.round(celsiusToFahrenheit(temperature))
+      const next = { ...bytes, [compartment]: fahrenheit }
+      const erdData = encodeCompartmentBytes(next.fridge, next.freezer)
+
+      await this.successLog(`Setting ${compartment} to ${fahrenheit}°F (${temperature.toFixed(1)}°C) -> ${erdData}`)
       await this.writeErd(ERD_TYPES.TEMPERATURE_SETTING, erdData)
     } catch (error: any) {
       await this.errorLog(`Failed to write ${compartment} setpoint: ${error?.message ?? error}`)
