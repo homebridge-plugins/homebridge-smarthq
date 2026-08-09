@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import { cookModeSwitchStates, enabledCookModes, hasLowerOvenCavity, matterSupportedModes, OVEN_COOK_MODES } from './oven.js'
+import { ERD_TYPES } from '../settings.js'
+import { cookModeSwitchStates, enabledCookModes, hasLowerOvenCavity, matterSupportedModes, OVEN_COOK_MODES, SmartHQOven } from './oven.js'
 
 /**
  * Regression cover for #109: a single oven was given four lower-oven tiles.
@@ -159,5 +160,56 @@ describe('cookModeSwitchStates', () => {
   it('reports nothing for a mode the oven is in but the user has not enabled', () => {
     // Bake started from the thermostat, with only the Air Fry switch enabled.
     expect(cookModeSwitchStates({ showAirFrySwitch: true }, 0x01)).toEqual([{ key: 'AIR_FRY', on: false }])
+  })
+})
+
+/**
+ * #116: the display temperature was used as a stand-in when the raw thermistor
+ * reading was missing. ssaisusheel's live bake showed the two are different
+ * measurements rather than two sources for one — the display ran 20-30°F above
+ * raw throughout, matching the appliance's front panel while raw matched the
+ * Home app. On their lower cavity the display ERD is worse still: frozen at
+ * 0x0064 (100°F) even mid-bake.
+ */
+describe('cavity temperature, without the display fallback', () => {
+  function ovenReporting(values: Record<string, string | undefined>) {
+    const oven = Object.create(SmartHQOven.prototype)
+    oven.try_get_erd_value = async (erd: string) => values[erd]
+    return oven
+  }
+
+  it('reads the lower cavity from the raw thermistor', async () => {
+    const oven = ovenReporting({ [ERD_TYPES.LOWER_OVEN_RAW_TEMPERATURE]: '00B1' })
+
+    // 0xB1 = 177°F = 80.6°C
+    expect(await oven.getLowerCavityTempC()).toBeCloseTo(80.56, 1)
+  })
+
+  it('reports nothing for a lower cavity that only has the display placeholder', async () => {
+    const oven = ovenReporting({
+      [ERD_TYPES.LOWER_OVEN_RAW_TEMPERATURE]: undefined,
+      [ERD_TYPES.LOWER_OVEN_DISPLAY_TEMPERATURE]: '0064',
+    })
+
+    // Falling back would report a confident, permanent 100°F
+    expect(await oven.getLowerCavityTempC()).toBeUndefined()
+  })
+
+  it('reports nothing for an upper cavity with only the display reading', async () => {
+    const oven = ovenReporting({
+      [ERD_TYPES.UPPER_OVEN_RAW_TEMPERATURE]: undefined,
+      [ERD_TYPES.UPPER_OVEN_DISPLAY_TEMPERATURE]: '00CC',
+    })
+
+    expect(await oven.getCavityTempC()).toBeUndefined()
+  })
+
+  it('never substitutes the display value, which reads 20-30F high', async () => {
+    const oven = ovenReporting({
+      [ERD_TYPES.UPPER_OVEN_RAW_TEMPERATURE]: '00B1', // 177F, what the Home app shows
+      [ERD_TYPES.UPPER_OVEN_DISPLAY_TEMPERATURE]: '00CC', // 204F, the front panel
+    })
+
+    expect(await oven.getCavityTempC()).toBeCloseTo(80.56, 1)
   })
 })

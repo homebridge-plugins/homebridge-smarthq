@@ -177,6 +177,9 @@ export class SmartHQOven extends deviceBase {
   // an oven is not something to ship on an untested guess.
   private lowerOvenLight?: Service
   private lowerOvenTempSensor?: Service
+  private lastCavityTempC?: number
+  private cavityTempMissingLogged = false
+  private lowerTempRemovalLogged = false
   private lowerProbeTempSensor?: Service
   private lowerCookTimeValve?: Service
   private lowerProbeRemovalLogged: boolean = false
@@ -386,10 +389,19 @@ export class SmartHQOven extends deviceBase {
       .setProps({ minValue: -20, maxValue: 500, minStep: 0.1 })
       .onGet(async () => {
         try {
-          return await this.getCavityTempC()
+          // CurrentTemperature is mandatory on a Thermostat, so the tile cannot
+          // simply be withheld - hold the last real reading rather than
+          // reporting a 0°C the oven never saw
+          const celsius = await this.getCavityTempC()
+          if (celsius === undefined) {
+            this.reportMissingCavityTemperature()
+            return this.lastCavityTempC ?? 0
+          }
+          this.lastCavityTempC = celsius
+          return celsius
         } catch (error: any) {
           this.warnLog?.(`Oven Temperature error: ${error?.message ?? error}`)
-          return 0
+          return this.lastCavityTempC ?? 0
         }
       })
     ovenThermostat
@@ -633,22 +645,9 @@ export class SmartHQOven extends deviceBase {
     }
 
     // Lower Oven Temperature — a read-only sensor rather than a thermostat,
-    // since cook control is not confirmed for the lower cavity
-    const lowerOvenTempSensor = this.accessory!.getService('Lower Oven Temperature')
-      ?? this.accessory!.addService(this.platform.Service.TemperatureSensor, 'Lower Oven Temperature', 'LowerOvenTemp')
-    this.lowerOvenTempSensor = lowerOvenTempSensor
-    this.setServiceName(lowerOvenTempSensor, 'Lower Oven Temperature')
-    lowerOvenTempSensor
-      .getCharacteristic(this.platform.Characteristic.CurrentTemperature)
-      .setProps({ minValue: -20, maxValue: 500, minStep: 0.1 })
-      .onGet(async () => {
-        try {
-          return await this.getLowerCavityTempC()
-        } catch (error: any) {
-          this.warnLog?.(`Lower Oven Temperature error: ${error?.message ?? error}`)
-          return 0
-        }
-      })
+    // since cook control is not confirmed for the lower cavity. Only shown when
+    // the cavity reports a real temperature (#116)
+    await this.syncLowerTempSensor(lowerRawTemperature)
 
     // Lower Probe Temperature — only while a probe is actually fitted
     await this.syncLowerProbeSensor()
@@ -702,14 +701,18 @@ export class SmartHQOven extends deviceBase {
   }
 
   /**
-   * The lower cavity's actual temperature in °C, using the same raw-then-display
-   * preference as the upper cavity. Both arrive as hex-encoded °F.
+   * The lower cavity's actual temperature in °C, hex-encoded °F.
+   *
+   * ⚠️ No display-temperature fallback, for the reason in {@link getCavityTempC}
+   * and one more besides: on the #116 appliance LOWER_OVEN_DISPLAY_TEMPERATURE
+   * is frozen at 0x0064 (100°F) whatever the oven is doing - it read 100°F in
+   * the middle of a confirmed bake. A tile stuck on a plausible number is worse
+   * than no tile, because nobody thinks to doubt it.
    */
-  private async getLowerCavityTempC(): Promise<number> {
+  private async getLowerCavityTempC(): Promise<number | undefined> {
     const hex = await this.try_get_erd_value(ERD_TYPES.LOWER_OVEN_RAW_TEMPERATURE)
-      ?? await this.try_get_erd_value(ERD_TYPES.LOWER_OVEN_DISPLAY_TEMPERATURE)
     if (!hex) {
-      return 0
+      return undefined
     }
     return fToC(Number.parseInt(hex, 16))
   }
@@ -741,6 +744,59 @@ export class SmartHQOven extends deviceBase {
    * when not. Safe to call repeatedly, so plugging a probe in shows the tile
    * without a restart.
    */
+  /**
+   * Show the lower cavity's temperature only when it reports a real one.
+   *
+   * The #116 appliance answers 400 for LOWER_OVEN_RAW_TEMPERATURE, and its
+   * display temperature is a placeholder frozen at 100°F - so the tile used to
+   * sit there stating a confident, permanent lie. Mirrors the probe sensor:
+   * safe to call repeatedly, so the tile appears if the cavity starts reporting.
+   */
+  private async syncLowerTempSensor(lowerRawTemperature?: string): Promise<void> {
+    if (lowerRawTemperature !== undefined) {
+      const lowerOvenTempSensor = this.accessory!.getService('Lower Oven Temperature')
+        ?? this.accessory!.addService(this.platform.Service.TemperatureSensor, 'Lower Oven Temperature', 'LowerOvenTemp')
+      this.lowerOvenTempSensor = lowerOvenTempSensor
+      this.lowerTempRemovalLogged = false
+      this.setServiceName(lowerOvenTempSensor, 'Lower Oven Temperature')
+      lowerOvenTempSensor
+        .getCharacteristic(this.platform.Characteristic.CurrentTemperature)
+        .setProps({ minValue: -20, maxValue: 500, minStep: 0.1 })
+        .onGet(async () => {
+          try {
+            return await this.getLowerCavityTempC() ?? 0
+          } catch (error: any) {
+            this.warnLog?.(`Lower Oven Temperature error: ${error?.message ?? error}`)
+            return 0
+          }
+        })
+      return
+    }
+
+    const staleTemp = this.accessory!.getService('Lower Oven Temperature')
+    if (staleTemp) {
+      this.accessory!.removeService(staleTemp)
+    }
+    this.lowerOvenTempSensor = undefined
+    if (!this.lowerTempRemovalLogged) {
+      this.lowerTempRemovalLogged = true
+      this.infoLog('The lower oven does not report its temperature, so the Lower Oven Temperature tile is not shown - the display reading this used to fall back to is a fixed placeholder on some ovens, not a real measurement')
+    }
+  }
+
+  /**
+   * Say once that the cavity temperature is unavailable. It cannot be hidden -
+   * CurrentTemperature is mandatory on a Thermostat - so it is worth saying why
+   * the reading is not moving.
+   */
+  private reportMissingCavityTemperature(): void {
+    if (this.cavityTempMissingLogged) {
+      return
+    }
+    this.cavityTempMissingLogged = true
+    this.warnLog?.('The oven is not reporting its cavity temperature, so the temperature shown is the last known reading')
+  }
+
   private async syncLowerProbeSensor(): Promise<void> {
     if (await this.isLowerProbeFitted()) {
       const lowerProbeTempSensor = this.accessory!.getService('Lower Probe Temperature')
@@ -772,15 +828,21 @@ export class SmartHQOven extends deviceBase {
   }
 
   /**
-   * The actual cavity temperature in °C. The raw thermistor reading updates
-   * far more often over the websocket than the display temperature, so it is
-   * preferred; both arrive as hex-encoded °F.
+   * The actual cavity temperature in °C, hex-encoded °F.
+   *
+   * ⚠️ Deliberately does NOT fall back to UPPER_OVEN_DISPLAY_TEMPERATURE. The
+   * two are different measurements, not two sources for one: during a live bake
+   * in #116 the display ran 20-30°F above raw throughout, matching the
+   * appliance's front panel while raw matched the Home app. Substituting one
+   * for the other reported a wrong temperature that looked entirely plausible.
+   *
+   * Returns undefined when the appliance does not answer, so a caller can tell
+   * "no reading" from a real one.
    */
-  private async getCavityTempC(): Promise<number> {
+  private async getCavityTempC(): Promise<number | undefined> {
     const hex = await this.try_get_erd_value(ERD_TYPES.UPPER_OVEN_RAW_TEMPERATURE)
-      ?? await this.try_get_erd_value(ERD_TYPES.UPPER_OVEN_DISPLAY_TEMPERATURE)
     if (!hex) {
-      return 0
+      return undefined
     }
     return fToC(Number.parseInt(hex, 16))
   }
@@ -1014,7 +1076,13 @@ export class SmartHQOven extends deviceBase {
         }
         case ERD_TYPES.UPPER_OVEN_RAW_TEMPERATURE:
         case ERD_TYPES.UPPER_OVEN_DISPLAY_TEMPERATURE: {
-          this.ovenThermostat?.updateCharacteristic(this.platform.Characteristic.CurrentTemperature, await this.getCavityTempC())
+          {
+            const celsius = await this.getCavityTempC()
+            if (celsius !== undefined) {
+              this.lastCavityTempC = celsius
+              this.ovenThermostat?.updateCharacteristic(this.platform.Characteristic.CurrentTemperature, celsius)
+            }
+          }
           break
         }
         case ERD_TYPES.UPPER_OVEN_COOK_MODE: {
@@ -1066,7 +1134,12 @@ export class SmartHQOven extends deviceBase {
         }
         case ERD_TYPES.LOWER_OVEN_RAW_TEMPERATURE:
         case ERD_TYPES.LOWER_OVEN_DISPLAY_TEMPERATURE: {
-          this.lowerOvenTempSensor?.updateCharacteristic(this.platform.Characteristic.CurrentTemperature, await this.getLowerCavityTempC())
+          {
+            const lowerCelsius = await this.getLowerCavityTempC()
+            if (lowerCelsius !== undefined) {
+              this.lowerOvenTempSensor?.updateCharacteristic(this.platform.Characteristic.CurrentTemperature, lowerCelsius)
+            }
+          }
           break
         }
         case ERD_TYPES.LOWER_OVEN_CURRENT_STATE: {
