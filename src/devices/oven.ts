@@ -13,6 +13,23 @@ import { ERD_TYPES } from '../settings.js'
 import { deviceBase } from './device.js'
 
 /**
+ * Bit 3 of OVEN_CONFIGURATION's low byte, which appears to mean "a second
+ * cavity is fitted".
+ *
+ * ⚠️ Read off two real appliances, not from any documentation:
+ *
+ * ```
+ * 0880  #109  single oven
+ * 0888  #116  double oven
+ * ```
+ *
+ * One bit apart, and the rest of the value is identical. That is suggestive
+ * rather than proven — it could be a model field that happens to differ — which
+ * is why it only ever ADDS a cavity, never takes one away.
+ */
+const OVEN_CONFIGURATION_LOWER_CAVITY_BIT = 0x08
+
+/**
  * Whether an oven really has a second (lower) cavity.
  *
  * ⚠️ The presence of a lower-cavity ERD is NOT proof of a lower cavity. A
@@ -22,12 +39,37 @@ import { deviceBase } from './device.js'
  * that could never work, and 0xCC also parses as 204, so the lower oven looked
  * like it was cooking permanently.
  *
- * The temperature is the reliable signal — a real cavity reports one. The GE
- * Cafe double oven in #46 answers LOWER_OVEN_RAW_TEMPERATURE; the single oven
- * in #109 does not answer it at all.
+ * A reported temperature is the strongest signal — a real cavity usually
+ * answers. The GE Cafe double oven in #46 answers LOWER_OVEN_RAW_TEMPERATURE;
+ * the single oven in #109 does not answer it at all.
+ *
+ * ⚠️ But answering is not REQUIRED of a real cavity. The double oven in #116
+ * returns 400 (unsupported) for LOWER_OVEN_RAW_TEMPERATURE while SmartHQ's own
+ * app controls both cavities, so temperature alone hid a genuine second oven.
+ * The appliance's own cavity description settles that case.
+ *
+ * The two signals are deliberately OR'd rather than AND'd: each one on its own
+ * is enough, so the config byte can only ever reveal a cavity that the
+ * temperature probe missed. #109 stays a single oven either way, since its
+ * config value does not carry the bit.
+ *
+ * @param lowerRawTemperature LOWER_OVEN_RAW_TEMPERATURE (0x520d), undefined when unsupported
+ * @param ovenConfiguration OVEN_CONFIGURATION (0x5007), undefined when unsupported
  */
-export function hasLowerOvenCavity(lowerRawTemperature: string | undefined): boolean {
-  return lowerRawTemperature !== undefined
+export function hasLowerOvenCavity(
+  lowerRawTemperature: string | undefined,
+  ovenConfiguration?: string | undefined,
+): boolean {
+  if (lowerRawTemperature !== undefined) {
+    return true
+  }
+
+  const hex = ovenConfiguration?.replace(/^0x/i, '')
+  if (!hex || !/^[0-9a-f]+$/i.test(hex)) {
+    return false
+  }
+
+  return (Number.parseInt(hex.slice(-2), 16) & OVEN_CONFIGURATION_LOWER_CAVITY_BIT) !== 0
 }
 
 /**
@@ -543,13 +585,13 @@ export class SmartHQOven extends deviceBase {
    */
   private async initializeLowerCavity(): Promise<void> {
     const lowerRawTemperature = await this.try_get_erd_value(ERD_TYPES.LOWER_OVEN_RAW_TEMPERATURE)
-    const isDoubleOven = hasLowerOvenCavity(lowerRawTemperature)
 
-    // The appliance's own description of its cavities would be a better gate
-    // than probing individual ERDs, but its encoding is not yet known. Log it
-    // in debug mode so real units can tell us what it looks like.
+    // The appliance's own description of its cavities, which catches a real
+    // second cavity that does not answer for its temperature (#116)
     const ovenConfiguration = await this.try_get_erd_value(ERD_TYPES.OVEN_CONFIGURATION)
     this.debugLog(`Oven configuration ERD ${ERD_TYPES.OVEN_CONFIGURATION}: ${ovenConfiguration ?? 'not reported'}`)
+
+    const isDoubleOven = hasLowerOvenCavity(lowerRawTemperature, ovenConfiguration)
 
     if (!isDoubleOven) {
       // Drop any lower-cavity tiles left behind by a cached accessory

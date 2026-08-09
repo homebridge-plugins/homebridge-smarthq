@@ -33,6 +33,40 @@ describe('hasLowerOvenCavity', () => {
     // bring the lower tiles back on a single oven.
     expect(hasLowerOvenCavity(undefined)).toBe(false)
   })
+
+  /**
+   * #116: a genuine double oven whose lower cavity returns 400 for
+   * LOWER_OVEN_RAW_TEMPERATURE, so the temperature gate alone hid it. Both
+   * configuration values below were read off real appliances and are the only
+   * two we have, so they are pinned exactly rather than paraphrased.
+   */
+  describe('falling back to the oven configuration', () => {
+    it('finds the second cavity of a double oven that reports no lower temperature (#116)', () => {
+      expect(hasLowerOvenCavity(undefined, '0888')).toBe(true)
+    })
+
+    it('leaves the single oven single (#109), so the earlier fix cannot regress', () => {
+      expect(hasLowerOvenCavity(undefined, '0880')).toBe(false)
+    })
+
+    it('accepts a 0x prefix', () => {
+      expect(hasLowerOvenCavity(undefined, '0x0888')).toBe(true)
+    })
+
+    it.each([
+      ['not reported at all', undefined],
+      ['an empty string', ''],
+      ['non-hex garbage', 'zzzz'],
+    ])('says no when the configuration is %s', (_label, configuration) => {
+      expect(hasLowerOvenCavity(undefined, configuration)).toBe(false)
+    })
+
+    it('never takes a cavity away from an oven that does report a temperature', () => {
+      // The two signals are OR'd, so a configuration without the bit cannot
+      // remove the tiles from the #46 Cafe double oven
+      expect(hasLowerOvenCavity('015E', '0880')).toBe(true)
+    })
+  })
 })
 
 /**

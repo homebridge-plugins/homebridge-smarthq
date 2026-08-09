@@ -23,6 +23,7 @@ All notable changes to this project will be documented in this file. This projec
 - fix(schema): offer the allow invalid characters setting in the ui, so it can be turned on
 - fix: stop a short lived token making the plugin renew it in a tight loop
 - fix: decode the fridge setpoint as byte pairs, since "2500" is also valid json (#115) (@AdeelK93)
+- fix: find a double oven whose lower cavity reports no temperature, using its configuration (#116)
 
 ## v0.6.2 (2026-07-31)
 
