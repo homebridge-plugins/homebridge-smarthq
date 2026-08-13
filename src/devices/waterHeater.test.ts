@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { celsiusToWaterHeaterTenths, waterHeaterTenthsToCelsius } from './waterHeater.js'
+import { celsiusToWaterHeaterTenths, WATER_HEATER_MODES, waterHeaterTenthsToCelsius } from './waterHeater.js'
 
 /**
  * #117: the water heater was a placeholder. Every reading returned a literal
@@ -61,5 +61,24 @@ describe('reading a water heater temperature', () => {
       const celsius = waterHeaterTenthsToCelsius(raw)
       expect(celsiusToWaterHeaterTenths(celsius!)).toBe(raw)
     }
+  })
+})
+
+/**
+ * The heater has no off. Its panel offers Normal and Vacation and nothing
+ * else, which its owner confirmed with a screenshot and then captured: 0x4020
+ * read `01` on Normal and `04` on Vacation (#117).
+ *
+ * Getting these the wrong way round would put someone's hot water on a
+ * fortnight's holiday, so they are pinned rather than left to a comment.
+ */
+describe('water heater modes', () => {
+  it('uses the values the appliance actually reported', () => {
+    expect(WATER_HEATER_MODES.NORMAL).toBe('01')
+    expect(WATER_HEATER_MODES.VACATION).toBe('04')
+  })
+
+  it('keeps the two distinct', () => {
+    expect(WATER_HEATER_MODES.NORMAL).not.toBe(WATER_HEATER_MODES.VACATION)
   })
 })

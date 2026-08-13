@@ -205,6 +205,12 @@ export const ERD_TYPES = {
    */
   WATER_HEATER_TARGET_TEMPERATURE: '0x4024' as const,
   WATER_HEATER_CURRENT_TEMPERATURE: '0x4026' as const,
+  /**
+   * Water heater operating mode. A GE50S10BLM01 offers only two on its panel
+   * and in the SmartHQ app, and reported them plainly in #117: `01` while set
+   * to Normal, `04` while set to Vacation.
+   */
+  WATER_HEATER_MODE: '0x4020' as const,
 
   WIFI_MODULE_UPDATING: '0x0099' as const,
   WIFI_MODULE_SW_VERSION: '0x0100' as const,

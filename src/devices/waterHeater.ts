@@ -49,6 +49,15 @@ export function celsiusToWaterHeaterTenths(celsius: number): string {
   return (fahrenheit * 10).toString(16).toUpperCase().padStart(4, '0')
 }
 
+/**
+ * The two modes a water heater offers. Its panel has no "off" - Vacation is as
+ * close as it gets, and is what HomeKit's off maps onto (#117).
+ */
+export const WATER_HEATER_MODES = {
+  NORMAL: '01',
+  VACATION: '04',
+} as const
+
 export class SmartHQWaterHeater extends deviceBase {
   // Matter support override flag
   private useMatterOverride: boolean = false
@@ -151,8 +160,10 @@ export class SmartHQWaterHeater extends deviceBase {
       .getCharacteristic(this.platform.Characteristic.CurrentHeatingCoolingState)
       .onGet(async () => {
         try {
-          // TODO: Implement heating state ERD
-          return this.platform.Characteristic.CurrentHeatingCoolingState.HEAT
+          const onVacation = await this.readErd(ERD_TYPES.WATER_HEATER_MODE) === WATER_HEATER_MODES.VACATION
+          return onVacation
+            ? this.platform.Characteristic.CurrentHeatingCoolingState.OFF
+            : this.platform.Characteristic.CurrentHeatingCoolingState.HEAT
         } catch (error: any) {
           this.warnLog?.(`Water Heater State error: ${error?.message ?? error}`)
           return this.platform.Characteristic.CurrentHeatingCoolingState.OFF
@@ -166,8 +177,10 @@ export class SmartHQWaterHeater extends deviceBase {
       })
       .onGet(async () => {
         try {
-          // TODO: Implement target state ERD
-          return this.platform.Characteristic.TargetHeatingCoolingState.HEAT
+          const onVacation = await this.readErd(ERD_TYPES.WATER_HEATER_MODE) === WATER_HEATER_MODES.VACATION
+          return onVacation
+            ? this.platform.Characteristic.TargetHeatingCoolingState.OFF
+            : this.platform.Characteristic.TargetHeatingCoolingState.HEAT
         } catch (error: any) {
           this.warnLog?.(`Water Heater Target State error: ${error?.message ?? error}`)
           return this.platform.Characteristic.TargetHeatingCoolingState.OFF
@@ -175,8 +188,14 @@ export class SmartHQWaterHeater extends deviceBase {
       })
       .onSet(async (value) => {
         try {
-          // TODO: Implement target state control ERD
-          this.debugLog(`Water Heater set to: ${value}`)
+          // A water heater has no off. Vacation is the nearest thing its panel
+          // offers, so that is what HomeKit's off asks for - worth knowing,
+          // since a vacation is a fortnight by default on the appliance itself
+          const mode = value === this.platform.Characteristic.TargetHeatingCoolingState.OFF
+            ? WATER_HEATER_MODES.VACATION
+            : WATER_HEATER_MODES.NORMAL
+          await this.writeErd(ERD_TYPES.WATER_HEATER_MODE, mode)
+          this.debugLog(`Water Heater set to: ${mode === WATER_HEATER_MODES.VACATION ? 'vacation' : 'normal'}`)
         } catch (error: any) {
           this.warnLog?.(`Water Heater Target State set error: ${error?.message ?? error}`)
         }
@@ -281,6 +300,15 @@ export class SmartHQWaterHeater extends deviceBase {
           this.lastCurrentTempC = celsius
           this.heaterService?.updateCharacteristic(this.platform.Characteristic.CurrentTemperature, celsius)
         }
+      }
+
+      if (erd === ERD_TYPES.WATER_HEATER_MODE) {
+        const onVacation = await this.readErd(ERD_TYPES.WATER_HEATER_MODE) === WATER_HEATER_MODES.VACATION
+        const state = onVacation
+          ? this.platform.Characteristic.TargetHeatingCoolingState.OFF
+          : this.platform.Characteristic.TargetHeatingCoolingState.HEAT
+        this.heaterService?.updateCharacteristic(this.platform.Characteristic.TargetHeatingCoolingState, state)
+        this.heaterService?.updateCharacteristic(this.platform.Characteristic.CurrentHeatingCoolingState, state)
       }
 
       if (erd === ERD_TYPES.WATER_HEATER_TARGET_TEMPERATURE) {
