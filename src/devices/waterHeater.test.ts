@@ -42,8 +42,24 @@ describe('reading a water heater temperature', () => {
     expect(celsiusToWaterHeaterTenths(celsius!)).toBe('04B0')
   })
 
-  it('writes a setpoint as four hex digits', () => {
-    // 49°C is 120.2°F, so 1202 tenths
-    expect(celsiusToWaterHeaterTenths(49)).toBe('04B2')
+  /**
+   * HomeKit works in celsius and steps its setpoint by one, so the value it
+   * sends rarely lands on a whole fahrenheit degree. Writing the exact
+   * conversion made the heater's own panel read a degree below the one asked
+   * for - 51°C is 123.8°F, and the panel shows whole degrees (#117).
+   */
+  it('writes a whole fahrenheit degree, which is what the panel shows', () => {
+    // 51°C is 123.8°F - the appliance should be asked for 124, not 123.8
+    expect(celsiusToWaterHeaterTenths(51)).toBe('04D8')
+    expect(Number.parseInt('04D8', 16) / 10).toBe(124)
+  })
+
+  it('is stable when a setpoint is read back and written again', () => {
+    // A value the appliance sent must survive a round trip unchanged, or the
+    // two would walk apart a degree at a time
+    for (const raw of ['04B0', '04D8', '0546']) {
+      const celsius = waterHeaterTenthsToCelsius(raw)
+      expect(celsiusToWaterHeaterTenths(celsius!)).toBe(raw)
+    }
   })
 })

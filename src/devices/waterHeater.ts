@@ -35,10 +35,18 @@ export function waterHeaterTenthsToCelsius(raw: string | undefined): number | un
   return Math.round((((fahrenheit - 32) * 5) / 9) * 10) / 10
 }
 
-/** The inverse, as the four hex digits the appliance expects. */
+/**
+ * The inverse, as the four hex digits the appliance expects.
+ *
+ * Rounded to a WHOLE degree fahrenheit first. HomeKit works in celsius and its
+ * setpoint steps by one, so 51°C converts to 123.8°F - and the panel, which
+ * only shows whole degrees, then read a degree lower than the one asked for
+ * (#117). Rounding to the unit the appliance actually displays makes the two
+ * agree, and makes the value stable when it is read back and written again.
+ */
 export function celsiusToWaterHeaterTenths(celsius: number): string {
-  const tenths = Math.round(((celsius * 9) / 5 + 32) * 10)
-  return tenths.toString(16).toUpperCase().padStart(4, '0')
+  const fahrenheit = Math.round((celsius * 9) / 5 + 32)
+  return (fahrenheit * 10).toString(16).toUpperCase().padStart(4, '0')
 }
 
 export class SmartHQWaterHeater extends deviceBase {
