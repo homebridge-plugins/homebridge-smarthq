@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file. This projec
 ### Changed
 
 - fix: keep debug warnings, errors and successes out of the log unless debug is on
+- chore(deps): dependency updates
 
 ## v0.6.3 (2026-08-09)
 
