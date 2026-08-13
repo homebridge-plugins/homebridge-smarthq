@@ -2,7 +2,7 @@
  *
  * waterHeater.ts: @homebridge-plugins/homebridge-smarthq.
  */
-import type { PlatformAccessory } from 'homebridge'
+import type { PlatformAccessory, Service } from 'homebridge'
 
 import type { SmartHQPlatform } from '../platform.js'
 import type { devicesConfig, SmartHqContext } from '../settings.js'
@@ -57,6 +57,7 @@ export class SmartHQWaterHeater extends deviceBase {
   // reporting a temperature the tank never saw
   private lastCurrentTempC: number | undefined
   private lastTargetTempC: number | undefined
+  private heaterService: Service | undefined
 
   constructor(
     readonly platform: SmartHQPlatform,
@@ -143,6 +144,7 @@ export class SmartHQWaterHeater extends deviceBase {
   private initializeHAP(): void {
     // Water Heater as Thermostat
     const heaterService = this.accessory!.getService('Water Heater') ?? this.accessory!.addService(this.platform.Service.Thermostat, 'Water Heater', 'WaterHeater')
+    this.heaterService = heaterService
     this.setServiceName(heaterService, 'Water Heater')
 
     heaterService
@@ -257,5 +259,39 @@ export class SmartHQWaterHeater extends deviceBase {
       await this.warnLog(`Water Heater could not read ${erd} value [${raw}]`)
     }
     return celsius
+  }
+
+  /**
+   * Push a temperature change straight to HomeKit.
+   *
+   * Without this the tile only refreshed when HomeKit happened to ask, so a
+   * setpoint changed at the heater's own panel or in the SmartHQ app did not
+   * show up in the Home app at all (#117). The platform has already cached the
+   * new value by the time this runs, so the read helpers see it.
+   */
+  onErdUpdate(erd: string): void {
+    void this.applyLiveUpdate(erd)
+  }
+
+  private async applyLiveUpdate(erd: string): Promise<void> {
+    try {
+      if (erd === ERD_TYPES.WATER_HEATER_CURRENT_TEMPERATURE) {
+        const celsius = await this.readTemperatureC(ERD_TYPES.WATER_HEATER_CURRENT_TEMPERATURE)
+        if (celsius !== undefined) {
+          this.lastCurrentTempC = celsius
+          this.heaterService?.updateCharacteristic(this.platform.Characteristic.CurrentTemperature, celsius)
+        }
+      }
+
+      if (erd === ERD_TYPES.WATER_HEATER_TARGET_TEMPERATURE) {
+        const celsius = await this.readTemperatureC(ERD_TYPES.WATER_HEATER_TARGET_TEMPERATURE)
+        if (celsius !== undefined) {
+          this.lastTargetTempC = celsius
+          this.heaterService?.updateCharacteristic(this.platform.Characteristic.TargetTemperature, celsius)
+        }
+      }
+    } catch (error: any) {
+      this.warnLog?.(`Water Heater live update error: ${error?.message ?? error}`)
+    }
   }
 }

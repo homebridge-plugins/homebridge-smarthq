@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file. This projec
 
 - feat: read the real water temperature and setpoint from a water heater, instead of a placeholder (#117)
 - fix: ask a water heater for a whole degree, so its panel agrees with the temperature that was set (#117)
+- fix: show a water heater setpoint changed at the appliance or in the smarthq app (#117)
 
 ## v0.6.4 (2026-08-13)
 
