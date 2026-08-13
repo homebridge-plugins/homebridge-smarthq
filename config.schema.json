@@ -268,7 +268,7 @@
               "title": "Show Filter Life As Battery",
               "type": "boolean",
               "default": false,
-              "description": "Water filters only: expose the filter life percentage as a battery, so it is visible at a glance in HomeKit with a low warning at 10%."
+              "description": "Water filters only: expose the filter life percentage as a battery. The Home app shows this on the accessory's settings screen rather than as a tile of its own, and warns you when it drops to 10%."
             }
           },
           "required": [
