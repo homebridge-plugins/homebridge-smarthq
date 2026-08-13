@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file. This projec
 - fix: ask a water heater for a whole degree, so its panel agrees with the temperature that was set (#117)
 - fix: show a water heater setpoint changed at the appliance or in the smarthq app (#117)
 - feat: turn a water heater off from homekit by putting it on vacation, which is the nearest thing it offers (#117)
+- fix: lead a water filter's tile with its valve, and give its filter life somewhere in the home app to show (#118)
 
 ## v0.6.4 (2026-08-13)
 

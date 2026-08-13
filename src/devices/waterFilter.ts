@@ -114,6 +114,19 @@ export class SmartHQWaterFilter extends deviceBase {
           ? this.platform.Characteristic.LeakDetected.LEAK_DETECTED
           : this.platform.Characteristic.LeakDetected.LEAK_NOT_DETECTED
       })
+
+    // Four services on one accessory, so it has to say which one the tile
+    // leads with. The valve is the only one an owner can act on, and left
+    // unsaid the Home app picks for itself (#118)
+    this.valveService.setPrimaryService(true)
+
+    // Filter life is not a tile of its own in the Home app - it is shown as
+    // part of the accessory it belongs to, and only when the filter service
+    // has a parent. Linking it to the valve gives it one (#118)
+    this.valveService.addLinkedService(this.filterService)
+    if (this.batteryService) {
+      this.valveService.addLinkedService(this.batteryService)
+    }
   }
 
   /**
