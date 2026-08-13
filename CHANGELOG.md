@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. This project uses [Semantic Versioning](https://semver.org/).
 
+## v0.6.5 (Pending Release)
+
+### Changed
+
+- feat: read the real water temperature and setpoint from a water heater, instead of a placeholder (#117)
+
 ## v0.6.4 (2026-08-13)
 
 ### Changed

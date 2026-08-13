@@ -7,11 +7,48 @@ import type { PlatformAccessory } from 'homebridge'
 import type { SmartHQPlatform } from '../platform.js'
 import type { devicesConfig, SmartHqContext } from '../settings.js'
 
+import { ERD_TYPES } from '../settings.js'
 import { deviceBase } from './device.js'
+
+/**
+ * The water heater reports temperatures in TENTHS of a degree, in the unit its
+ * own panel is set to. Every reading seen so far is fahrenheit on a US model
+ * (#117): setting the panel to 125 published `04E2` (1250) and setting it back
+ * to 120 published `04B0` (1200).
+ *
+ * `UNIT_TYPE` (0x0035) is the ERD that would say a heater was in celsius; it is
+ * deliberately not consulted yet, because nobody has produced a celsius
+ * appliance to check its values against and a guess here reads as a fact later.
+ *
+ * Returns undefined for anything unparseable, so a caller can hold its previous
+ * reading rather than publish a temperature nobody measured.
+ */
+export function waterHeaterTenthsToCelsius(raw: string | undefined): number | undefined {
+  if (!raw) {
+    return undefined
+  }
+  const tenths = Number.parseInt(raw, 16)
+  if (!Number.isFinite(tenths)) {
+    return undefined
+  }
+  const fahrenheit = tenths / 10
+  return Math.round((((fahrenheit - 32) * 5) / 9) * 10) / 10
+}
+
+/** The inverse, as the four hex digits the appliance expects. */
+export function celsiusToWaterHeaterTenths(celsius: number): string {
+  const tenths = Math.round(((celsius * 9) / 5 + 32) * 10)
+  return tenths.toString(16).toUpperCase().padStart(4, '0')
+}
 
 export class SmartHQWaterHeater extends deviceBase {
   // Matter support override flag
   private useMatterOverride: boolean = false
+
+  // Last real readings, so a failed fetch holds the previous number rather than
+  // reporting a temperature the tank never saw
+  private lastCurrentTempC: number | undefined
+  private lastTargetTempC: number | undefined
 
   constructor(
     readonly platform: SmartHQPlatform,
@@ -139,11 +176,15 @@ export class SmartHQWaterHeater extends deviceBase {
       .getCharacteristic(this.platform.Characteristic.CurrentTemperature)
       .onGet(async () => {
         try {
-          // TODO: Implement current temperature ERD
-          return 50
+          const celsius = await this.readTemperatureC(ERD_TYPES.WATER_HEATER_CURRENT_TEMPERATURE)
+          if (celsius === undefined) {
+            return this.lastCurrentTempC ?? 50
+          }
+          this.lastCurrentTempC = celsius
+          return celsius
         } catch (error: any) {
           this.warnLog?.(`Water Heater Current Temp error: ${error?.message ?? error}`)
-          return 50
+          return this.lastCurrentTempC ?? 50
         }
       })
 
@@ -156,16 +197,21 @@ export class SmartHQWaterHeater extends deviceBase {
       })
       .onGet(async () => {
         try {
-          // TODO: Implement target temperature ERD
-          return 50
+          const celsius = await this.readTemperatureC(ERD_TYPES.WATER_HEATER_TARGET_TEMPERATURE)
+          if (celsius === undefined) {
+            return this.lastTargetTempC ?? 50
+          }
+          this.lastTargetTempC = celsius
+          return celsius
         } catch (error: any) {
           this.warnLog?.(`Water Heater Target Temp error: ${error?.message ?? error}`)
-          return 50
+          return this.lastTargetTempC ?? 50
         }
       })
       .onSet(async (value) => {
         try {
-          // TODO: Implement target temperature control ERD
+          await this.writeErd(ERD_TYPES.WATER_HEATER_TARGET_TEMPERATURE, celsiusToWaterHeaterTenths(Number(value)))
+          this.lastTargetTempC = Number(value)
           this.debugLog(`Water Heater temperature set to: ${value}°C`)
         } catch (error: any) {
           this.warnLog?.(`Water Heater Target Temp set error: ${error?.message ?? error}`)
@@ -178,5 +224,30 @@ export class SmartHQWaterHeater extends deviceBase {
       .onSet(async (value) => {
         this.debugLog(`Water Heater display units set to: ${value}`)
       })
+  }
+
+  /**
+   * Read a water heater temperature ERD and return it in celsius.
+   *
+   * The appliance reports these in TENTHS of a degree, in the unit its own
+   * panel is set to. Every reading seen so far has been fahrenheit on a US
+   * model (#117), which is what this assumes - `UNIT_TYPE` (0x0035) is the ERD
+   * that would say otherwise, and is worth wiring in the moment a celsius
+   * appliance turns up rather than guessing at its values now.
+   *
+   * Returns undefined when the appliance did not answer, so the caller can hold
+   * its previous reading instead of publishing a temperature nobody measured.
+   */
+  private async readTemperatureC(erd: string): Promise<number | undefined> {
+    const raw = await this.readErd(erd)
+    if (!raw) {
+      return undefined
+    }
+
+    const celsius = waterHeaterTenthsToCelsius(raw)
+    if (celsius === undefined) {
+      await this.warnLog(`Water Heater could not read ${erd} value [${raw}]`)
+    }
+    return celsius
   }
 }

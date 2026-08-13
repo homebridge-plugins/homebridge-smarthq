@@ -197,6 +197,14 @@ export const ERD_TYPES = {
   TEMPERATURE_UNIT: '0x0007' as const,
   USER_INTERFACE_LOCKED: '0x0004' as const,
   UNIT_TYPE: '0x0035' as const,
+  /**
+   * Water heater temperatures, both in TENTHS of a degree in whatever unit the
+   * appliance displays. Read off a GE50S10BLM01 in #117: setting 125 on the
+   * panel published 0x4024 = 04E2 (1250) and setting it back to 120 published
+   * 04B0 (1200), while 0x4026 followed the tank down to 0481 (115.3) and back.
+   */
+  WATER_HEATER_TARGET_TEMPERATURE: '0x4024' as const,
+  WATER_HEATER_CURRENT_TEMPERATURE: '0x4026' as const,
 
   WIFI_MODULE_UPDATING: '0x0099' as const,
   WIFI_MODULE_SW_VERSION: '0x0100' as const,
