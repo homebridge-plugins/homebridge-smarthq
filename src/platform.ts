@@ -22,6 +22,7 @@ import { SmartHQClothesDryer } from './devices/clothesDryer.js'
 import { SmartHQClothesWasher } from './devices/clothesWasher.js'
 import { SmartHQCoffeeMaker } from './devices/coffeeMaker.js'
 import { SmartHQCombinationWasherDryer } from './devices/combinationWasherDryer.js'
+import { SmartHQDishDrawer } from './devices/dishDrawer.js'
 import { SmartHQDishWasher } from './devices/dishwasher.js'
 import { SmartHQHood } from './devices/hood.js'
 import { decideKeurigCapability, parseHotWaterStatus, SmartHQKeurig } from './devices/keurig.js'
@@ -545,15 +546,19 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
           ])
           this.debugLog(`Device: ${JSON.stringify(device)}`)
           switch (device.type) {
-            // A Fisher & Paykel DishDrawer announces itself as 'FP DishDrawer'
-            // rather than 'Dishwasher', so it fell through as unsupported. The
-            // string is not documented anywhere and does not follow GE's own
-            // appliance-type enum, which has no dish drawer at all - it came
-            // from an owner's log on a DDD196US (#120). Same handler: as far as
-            // the api is concerned a drawer is a dishwasher.
             case 'Dishwasher':
-            case 'FP DishDrawer':
               await this.createSmartHQDishWasher(userId, device, details, features)
+              break
+            // A Fisher & Paykel DishDrawer announces itself as 'FP DishDrawer'
+            // rather than 'Dishwasher'. The string is not documented anywhere
+            // and does not follow GE's own appliance-type enum, which has no
+            // dish drawer at all - it came from an owner's log on a DDD196US
+            // (#120). It gets its own handler rather than sharing the
+            // dishwasher one: it is two independent drawers, its state lives at
+            // different ERDs, and its door polarity is inverted relative to the
+            // GE handler's - see dishDrawer.ts.
+            case 'FP DishDrawer':
+              await this.createSmartHQDishDrawer(userId, device, details, features)
               break
             case 'Oven':
               await this.createSmartHQOven(userId, device, details, features)
@@ -682,6 +687,50 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       accessory.displayName = await this.validateAndCleanDisplayName(displayName, 'configDeviceName', displayName)
       accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
       accessory.control = new SmartHQDishWasher(this, accessory, deviceData)
+      this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
+      this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
+      this.accessories.push(accessory)
+    } else {
+      this.debugErrorLog(`Unable to Register new device: ${JSON.stringify(deviceData.nickname)}`)
+    }
+  }
+
+  /**
+   * Fisher & Paykel DishDrawer. HAP only - the handler exposes two drawers and
+   * there is no Matter mapping for that yet, so `useMatter` is forced off
+   * rather than letting the Matter branch unregister the accessory from the
+   * HAP bridge and leave nothing behind it.
+   */
+  private async createSmartHQDishDrawer(userId: any, device: any, details: any, features: any) {
+    const deviceData = { brand: 'Fisher and Paykel', ...details, ...features, ...device }
+    const displayName = (deviceData as any).configDeviceName || deviceData.nickname
+
+    deviceData.useMatter = false
+
+    const uuid = this.api.hap.uuid.generate(deviceData.applianceId)
+    const existingAccessory = this.accessories.find(accessory => accessory.UUID === uuid)
+
+    if (existingAccessory) {
+      if (!deviceData.hide_device) {
+        existingAccessory.context.device = deviceData
+        existingAccessory.context = { device: deviceData, userId }
+        existingAccessory.displayName = await this.validateAndCleanDisplayName(displayName, 'configDeviceName', displayName)
+        existingAccessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
+        this.api.updatePlatformAccessories([existingAccessory])
+        this.infoLog(`[HAP] Restoring existing accessory from cache: ${existingAccessory.displayName}`)
+        existingAccessory.control = new SmartHQDishDrawer(this, existingAccessory, deviceData)
+        await this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
+      } else {
+        this.unregisterPlatformAccessories(existingAccessory)
+      }
+    } else if (!deviceData.hide_device) {
+      this.infoLog(`[HAP] Adding new accessory: ${deviceData.nickname}`)
+      const accessory = new this.api.platformAccessory<SmartHqContext>(displayName, uuid)
+      accessory.context.device = deviceData
+      accessory.context = { device: deviceData, userId }
+      accessory.displayName = await this.validateAndCleanDisplayName(displayName, 'configDeviceName', displayName)
+      accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
+      accessory.control = new SmartHQDishDrawer(this, accessory, deviceData)
       this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
       this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
       this.accessories.push(accessory)

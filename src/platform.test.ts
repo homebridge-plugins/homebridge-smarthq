@@ -286,26 +286,35 @@ describe('smartHQPlatform appliance type dispatch', () => {
     })
     const platform = new SmartHQPlatform(mockLog, config, mockApi)
 
-    const spy = vi.spyOn(platform as any, 'createSmartHQDishWasher').mockResolvedValue(undefined)
+    const spies = {
+      dishwasher: vi.spyOn(platform as any, 'createSmartHQDishWasher').mockResolvedValue(undefined),
+      dishDrawer: vi.spyOn(platform as any, 'createSmartHQDishDrawer').mockResolvedValue(undefined),
+    }
     await platform.discoverDevices()
-    return spy
+    return spies
   }
 
   // A Fisher & Paykel DishDrawer announces 'FP DishDrawer', which is not in
   // GE's appliance-type enum and is not derivable from anything documented -
   // it came from an owner's log (#120). Pin the exact string: a typo here puts
   // the appliance straight back to unsupported with nothing to show why.
-  it('sets up an FP DishDrawer with the dishwasher handler', async () => {
-    const spy = await discoverOne({ applianceId: 'a-1', type: 'FP DishDrawer', nickname: 'Dish Drawer' })
+  //
+  // It gets its own handler rather than the dishwasher one: it is two
+  // independent drawers, its state lives at different ERDs, and its door
+  // polarity is inverted relative to the GE handler's.
+  it('sets up an FP DishDrawer with the dish drawer handler', async () => {
+    const spies = await discoverOne({ applianceId: 'a-1', type: 'FP DishDrawer', nickname: 'Dish Drawer' })
 
-    expect(spy).toHaveBeenCalledTimes(1)
+    expect(spies.dishDrawer).toHaveBeenCalledTimes(1)
+    expect(spies.dishwasher).not.toHaveBeenCalled()
     expect(mockLog.warn).not.toHaveBeenCalledWith(expect.stringContaining('Not Supported'))
   })
 
-  it('still sets up an ordinary dishwasher', async () => {
-    const spy = await discoverOne({ applianceId: 'a-2', type: 'Dishwasher', nickname: 'Dishwasher' })
+  it('still sets up an ordinary dishwasher with the dishwasher handler', async () => {
+    const spies = await discoverOne({ applianceId: 'a-2', type: 'Dishwasher', nickname: 'Dishwasher' })
 
-    expect(spy).toHaveBeenCalledTimes(1)
+    expect(spies.dishwasher).toHaveBeenCalledTimes(1)
+    expect(spies.dishDrawer).not.toHaveBeenCalled()
   })
 
   it('names the type and model when it does not recognise an appliance', async () => {
