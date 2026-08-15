@@ -15,6 +15,7 @@ All notable changes to this project will be documented in this file. This projec
 - fix: retry an erd read that never reached the api, instead of warning after one try (#119)
 - fix: give api requests a timeout, so a stalled connection cannot hold up a poll (#119)
 - feat: treat a fisher & paykel dishdrawer as a dishwasher, so it is set up rather than skipped (#120)
+- fix: name the type and model when an appliance is unsupported, so one log line is enough to add it (#120)
 
 ## v0.6.4 (2026-08-13)
 
