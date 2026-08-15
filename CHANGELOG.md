@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file. This projec
 - feat: turn a water heater off from homekit by putting it on vacation, which is the nearest thing it offers (#117)
 - fix: lead a water filter's tile with its valve, and give its filter life somewhere in the home app to show (#118)
 - docs(schema): say where the filter battery actually appears in the home app (#118)
+- fix: retry an erd read that never reached the api, instead of warning after one try (#119)
 
 ## v0.6.4 (2026-08-13)
 

@@ -11,6 +11,49 @@ import axios from 'axios'
 
 import { ERD_TYPES, MAX_TIMER_MS } from '../settings.js'
 
+/**
+ * Connection-level failures that say nothing about the appliance or the ERD -
+ * the request never reached the API. Worth another go rather than a warning.
+ */
+const TRANSIENT_NETWORK_CODES = new Set([
+  'ECONNABORTED', // axios' own timeout
+  'ECONNRESET',
+  'ECONNREFUSED',
+  'EAI_AGAIN', // transient DNS failure
+  'EHOSTUNREACH',
+  'ENETUNREACH',
+  'EPIPE',
+  'ETIMEDOUT',
+])
+
+const ERD_READ_ATTEMPTS = 3
+const ERD_RETRY_DELAY_MS = 500
+
+/**
+ * ⚠️ Node tries every address a host resolves to (happy eyeballs), so a single
+ * failed connect arrives as an AggregateError whose own `code` is undefined and
+ * whose children hold the real codes. A host with IPv6 records on a v4-only
+ * network is the common case: the v6 attempts fail ENETUNREACH instantly and
+ * the v4 ones time out, and all of it lands in one message. Checking only
+ * `error.code` misses all of it, so the children are checked too.
+ */
+export function isTransientNetworkError(error: any): boolean {
+  if (!error) {
+    return false
+  }
+  if (error.response) {
+    // The API answered - whatever it said, it is not a connection problem
+    return false
+  }
+  if (typeof error.code === 'string' && TRANSIENT_NETWORK_CODES.has(error.code)) {
+    return true
+  }
+  if (Array.isArray(error.errors)) {
+    return error.errors.some((e: any) => typeof e?.code === 'string' && TRANSIENT_NETWORK_CODES.has(e.code))
+  }
+  return false
+}
+
 // Type for Matter accessory (will be properly typed in Homebridge 2.0)
 export interface MatterAccessory {
   UUID: string
@@ -377,6 +420,29 @@ export abstract class deviceBase {
     void value
   }
 
+  /**
+   * GET an ERD, retrying only when the request never reached the API.
+   *
+   * A single blip used to cost the whole poll: the read returned undefined and
+   * logged a warning that reads like a fault, so a momentary connect failure to
+   * the API looked identical to a broken appliance (#119). Anything the API
+   * actually answered - including a 400 for an unsupported ERD - is passed
+   * straight back out, since retrying it would only repeat the same answer.
+   */
+  private async getErdWithRetry(erd: string): Promise<any> {
+    for (let attempt = 1; ; attempt++) {
+      try {
+        return await axios.get(`/appliance/${this.getApplianceId()}/erd/${erd}`)
+      } catch (error: any) {
+        if (attempt >= ERD_READ_ATTEMPTS || !isTransientNetworkError(error)) {
+          throw error
+        }
+        await this.debugLog(`ERD ${erd} read attempt ${attempt} could not reach the API (${error?.code ?? error?.message}), retrying`)
+        await new Promise(resolve => setTimeout(resolve, ERD_RETRY_DELAY_MS * attempt))
+      }
+    }
+  }
+
   async readErd(erd: string): Promise<string | undefined> {
     // Prefer the value the appliance pushed to us over the websocket: it is
     // more current than anything we could fetch, free to read, and proves the
@@ -394,8 +460,7 @@ export abstract class deviceBase {
 
     try {
       await this.debugLog(`Reading ERD ${erd}`)
-      const d = await axios
-        .get(`/appliance/${this.getApplianceId()}/erd/${erd}`)
+      const d = await this.getErdWithRetry(erd)
 
       // If API returns undefined/null, return undefined without logging
       if (d.data.value === undefined || d.data.value === null) {
@@ -422,8 +487,11 @@ export abstract class deviceBase {
         }
         return undefined
       }
-      // For other errors, log warning and return undefined
-      await this.warnLog(`readErd ${erd} error: ${error?.message ?? error}`)
+      // For other errors, log warning and return undefined. A connection error
+      // reaching here has already been retried, so say so - otherwise the line
+      // reads as a one-off blip that nobody tried to recover from.
+      const attempts = isTransientNetworkError(error) ? ` after ${ERD_READ_ATTEMPTS} attempts` : ''
+      await this.warnLog(`readErd ${erd} error${attempts}: ${error?.message ?? error}`)
       return undefined
     }
   }
