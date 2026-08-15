@@ -186,6 +186,14 @@ export const OAUTH2_REDIRECT_URI = 'brillion.4e617a766474657344444e562b5935566e5
 export const API_URL = 'https://api.brillion.geappliances.com/v1/'
 export const KEEPALIVE_TIMEOUT = 30 * 1000
 
+/**
+ * ⚠️ Axios defaults to no timeout at all, so a connection that opens and then
+ * stops responding waits forever rather than failing - one stalled read holds a
+ * poll open indefinitely. Generous enough that a slow-but-working API is never
+ * cut off, short enough that a dead socket is given up on and retried.
+ */
+export const API_TIMEOUT_MS = 20 * 1000
+
 export const ERD_TYPES = {
   APPLIANCE_TYPE: '0x0008' as const,
   CLOCK_FORMAT: '0x0006' as const,

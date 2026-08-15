@@ -32,11 +32,12 @@ import { SmartHQWaterFilter } from './devices/waterFilter.js'
 import { SmartHQWaterHeater } from './devices/waterHeater.js'
 import { SmartHQWaterSoftener } from './devices/waterSoftener.js'
 import getAccessToken, { refreshAccessToken } from './getAccessToken.js'
-import { API_URL, ERD_TYPES, KEEPALIVE_TIMEOUT, lookupErdName, MAX_TIMER_MS, normaliseErd, PLATFORM_NAME, PLUGIN_NAME } from './settings.js'
+import { API_TIMEOUT_MS, API_URL, ERD_TYPES, KEEPALIVE_TIMEOUT, lookupErdName, MAX_TIMER_MS, normaliseErd, PLATFORM_NAME, PLUGIN_NAME } from './settings.js'
 
 const { find, keyBy } = pkg
 
 axios.defaults.baseURL = API_URL
+axios.defaults.timeout = API_TIMEOUT_MS
 
 /**
  * HomebridgePlatform
