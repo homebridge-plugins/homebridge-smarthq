@@ -26,6 +26,18 @@ import {
  * | 16:14:15 started ECO, BOTTOM     | 20:14:13    | `0x3007` | `00040C` |
  * |                                  | 20:14:14    | `0xD004` | `0078`   |
  * | 16:15:40 opened BOTTOM, paused   | 20:15:34    | `0x3007` | `00080C` |
+ *
+ * A second log confirmed the top drawer's offset addresses, which had until
+ * then only been the pattern applied rather than anything observed:
+ *
+ * | what they did                    | device time | erd      | value    |
+ * |----------------------------------|-------------|----------|----------|
+ * | 17:26:00 opened the TOP drawer   | 21:26:01    | `0x3237` | `00`     |
+ * | 17:26:00 started ECO, TOP        | 21:26:04    | `0x3207` | `00040C` |
+ * |                                  | 21:26:04    | `0xD204` | `0078`   |
+ * |                                  | 21:27:04    | `0xD204` | `0077`   |
+ * | 17:28:00 opened TOP, cancelled   | 21:28:02    | `0x3207` | `00080C` |
+ * |                                  | 21:28:07    | `0x3207` | `00000C` |
  */
 
 describe('which drawer an erd belongs to', () => {
@@ -85,21 +97,31 @@ describe('reading a drawer door', () => {
 })
 
 describe('reading a drawer cycle status', () => {
-  it('reads the byte that changed when the cycle was paused', () => {
-    // 00 04 0C on starting ECO, 00 08 0C when paused - byte 1 is the run state
-    // and byte 2 looks like the selected cycle, unchanged across both
+  it('reads the byte that changed as the cycle started, paused and stopped', () => {
+    // 00 04 0C on starting ECO, 00 08 0C when paused, 00 00 0C once it settled
+    // after being cancelled - byte 1 is the run state and byte 2 looks like the
+    // selected cycle, unchanged across all three
     expect(dishDrawerCycleStatusByte('00040C')).toBe(0x04)
     expect(dishDrawerCycleStatusByte('00080C')).toBe(0x08)
+    expect(dishDrawerCycleStatusByte('00000C')).toBe(0x00)
   })
 
-  it('recognises running and paused, and nothing else', () => {
+  it('recognises idle, running and paused, and nothing else', () => {
     expect(isKnownDishDrawerCycleStatus(0x04)).toBe(true)
     expect(isKnownDishDrawerCycleStatus(0x08)).toBe(true)
-    // no idle value has ever been observed - an unknown byte must not be
-    // silently treated as one of the two, or the tile would claim a drawer is
-    // running when nobody knows that it is
-    expect(isKnownDishDrawerCycleStatus(0x00)).toBe(false)
+    // idle, seen five seconds after the top drawer's cycle was cancelled -
+    // it arrives as its own push, so treating it as unknown would have asked
+    // the owner to report a value we already understand
+    expect(isKnownDishDrawerCycleStatus(0x00)).toBe(true)
+    // anything else must not be silently treated as one of the three, or the
+    // tile would claim a drawer is running when nobody knows that it is
+    expect(isKnownDishDrawerCycleStatus(0x11)).toBe(false)
     expect(isKnownDishDrawerCycleStatus(undefined)).toBe(false)
+  })
+
+  it('leaves a drawer showing not-running when its cycle goes idle', () => {
+    // the cancel path is running → paused → idle, and only 0x04 is "running"
+    expect(dishDrawerCycleStatusByte('00000C')).not.toBe(0x04)
   })
 
   it.each([undefined, '', '00'])('says nothing rather than guessing for %s', (raw) => {
@@ -109,9 +131,10 @@ describe('reading a drawer cycle status', () => {
 
 describe('reading the remaining cycle time', () => {
   /**
-   * 0x78 is 120 and 0x77 is 119, pushed 59 seconds apart - so the value is
-   * minutes. The dishwasher handler had only assumed that, with a "to be
-   * confirmed against a real appliance log" note against it.
+   * 0x78 is 120 and 0x77 is 119, pushed 59 seconds apart in the bottom
+   * drawer's cycle and 60 apart in the top drawer's - so the value is minutes.
+   * The dishwasher handler had only assumed that, with a "to be confirmed
+   * against a real appliance log" note against it.
    */
   it('reads the value as minutes', () => {
     expect(dishDrawerRemainingSeconds('0078')).toBe(120 * 60)

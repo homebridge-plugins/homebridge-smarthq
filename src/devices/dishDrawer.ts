@@ -27,13 +27,10 @@ import { deviceBase } from './device.js'
  * | cycle state       | `0x300e`       | `0x320e`    |
  * | time remaining    | `0xd004`       | `0xd204`    |
  *
- * Proven from the log: both door ERDs, the tub 0 cycle ERDs, and that tub 0 is
- * the BOTTOM drawer (the cycle they started in the bottom drawer moved the
- * un-offset addresses). The tub 1 cycle/time addresses are the offset applied
- * to the proven pattern and are still to be confirmed by running a cycle in
- * the top drawer - an unsupported ERD simply reads as undefined here, so if
- * the guess is wrong the top drawer reports "not running" rather than
- * misbehaving.
+ * Every address above is proven. Tub 0 is the BOTTOM drawer: the cycle the
+ * owner ran there moved the un-offset addresses, and a later cycle in the TOP
+ * drawer moved exactly the `0x200`-offset ones (`0x3207`, `0x320e`, `0xd204`),
+ * confirming the offset rather than assuming it.
  */
 
 /** Per-tub ERD offset: tub 1 sits 0x200 above tub 0. */
@@ -60,12 +57,14 @@ const DISH_DRAWER_ERD_BASE = {
 const DOOR_OPEN = 0x00
 
 /**
- * Byte 1 of the cycle-status ERD. Only two values have ever been observed:
- * `00 04 0C` when a cycle was started and `00 08 0C` when it was paused, so
- * byte 1 carries the run state (byte 2 looks like the selected cycle - `0C`
- * was ECO). Anything else is treated as not running, which is the safe
- * default, and logged once so a future report can name it.
+ * Byte 1 of the cycle-status ERD carries the run state; byte 2 looks like the
+ * selected cycle (`0C` was ECO in every observation). Three values have been
+ * seen, all on ECO: `00 04 0C` on starting a cycle, `00 08 0C` on pausing it,
+ * and `00 00 0C` a few seconds after cancelling - the appliance passes through
+ * paused on its way to idle. Anything else is treated as not running, which is
+ * the safe default, and logged once so a future report can name it.
  */
+const CYCLE_STATUS_IDLE = 0x00
 const CYCLE_STATUS_RUNNING = 0x04
 const CYCLE_STATUS_PAUSED = 0x08
 
@@ -115,14 +114,14 @@ export function dishDrawerCycleStatusByte(raw: string | undefined): number | und
 
 /** Whether a cycle-status byte is one the appliance has been observed sending. */
 export function isKnownDishDrawerCycleStatus(byte: number | undefined): boolean {
-  return byte === CYCLE_STATUS_RUNNING || byte === CYCLE_STATUS_PAUSED
+  return byte === CYCLE_STATUS_IDLE || byte === CYCLE_STATUS_RUNNING || byte === CYCLE_STATUS_PAUSED
 }
 
 /**
  * Remaining cycle time in seconds, clamped to HomeKit's maximum. The raw value
- * is minutes: the owner's log shows `0x78` (120) falling to `0x77` (119)
- * exactly 59 seconds later, which settles a units question the dishwasher
- * handler had only assumed.
+ * is minutes: in both drawers' logs `0x78` (120) falls to `0x77` (119) about a
+ * minute later - 59 seconds in the bottom drawer's cycle, 60 in the top one's -
+ * which settles a units question the dishwasher handler had only assumed.
  */
 export function dishDrawerRemainingSeconds(raw: string | undefined): number {
   if (!raw) {
