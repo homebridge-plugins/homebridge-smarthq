@@ -388,31 +388,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
         this.debugLog(`data: ${JSON.stringify(obj)}`)
 
         if (obj.kind === 'publish#erd') {
-          // Keep the pushed value even if we have no accessory for it yet, so
-          // a device configured later still starts from live data
-          const liveValue = typeof obj.item.value === 'object' ? JSON.stringify(obj.item.value) : String(obj.item.value)
-          this.setLiveErd(obj.item.applianceId, obj.item.erd, liveValue)
-
-          const accessory = find(this.accessories, a => a.context.device.applianceId === obj.item.applianceId)
-
-          if (!accessory) {
-            this.infoLog('Device not found in my list. Maybe we should rerun this plugin?')
-            return
-          }
-
-          const erdName = lookupErdName(obj.item.erd)
-          if (erdName) {
-            this.debugLog(`ERD_CODES: ${erdName}`)
-            this.debugLog(`obj>item>value: ${obj.item.value}`)
-          }
-
-          // Let the device reflect the change in HomeKit straight away,
-          // rather than waiting to be asked (#10)
-          try {
-            accessory.control?.onErdUpdate(normaliseErd(obj.item.erd), liveValue)
-          } catch (error) {
-            this.debugLog(`onErdUpdate failed for ${obj.item.erd}: ${error}`)
-          }
+          this.handleErdPush(obj)
         }
       })
 
@@ -477,6 +453,44 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
           this.connectWebSocket()
         }, KEEPALIVE_TIMEOUT * 2)
       }
+    }
+  }
+
+  /**
+   * Handle an ERD value pushed over the websocket: keep it for later reads, and
+   * hand it to the accessory it belongs to so HomeKit updates straight away.
+   */
+  private handleErdPush(obj: any) {
+    // Keep the pushed value even if we have no accessory for it yet, so
+    // a device configured later still starts from live data
+    const liveValue = typeof obj.item.value === 'object' ? JSON.stringify(obj.item.value) : String(obj.item.value)
+    this.setLiveErd(obj.item.applianceId, obj.item.erd, liveValue)
+
+    const accessory = find(this.accessories, a => a.context.device.applianceId === obj.item.applianceId)
+
+    if (!accessory) {
+      // Routine, not a fault: the subscription covers every appliance on the
+      // account, so pushes arrive for appliances that are hidden, of a type the
+      // plugin does not handle, or simply not set up yet. The value has already
+      // been kept above, so nothing is lost. This used to be an info line that
+      // named no appliance and suggested rerunning the plugin - one owner's day
+      // had 89 copies of it (#120).
+      this.debugLog(`Ignoring pushed erd ${obj.item.erd} for ${obj.item.applianceId}, which has no accessory (hidden, unsupported, or not set up yet)`)
+      return
+    }
+
+    const erdName = lookupErdName(obj.item.erd)
+    if (erdName) {
+      this.debugLog(`ERD_CODES: ${erdName}`)
+      this.debugLog(`obj>item>value: ${obj.item.value}`)
+    }
+
+    // Let the device reflect the change in HomeKit straight away,
+    // rather than waiting to be asked (#10)
+    try {
+      accessory.control?.onErdUpdate(normaliseErd(obj.item.erd), liveValue)
+    } catch (error) {
+      this.debugLog(`onErdUpdate failed for ${obj.item.erd}: ${error}`)
     }
   }
 

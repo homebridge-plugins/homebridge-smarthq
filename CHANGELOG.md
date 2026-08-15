@@ -17,6 +17,7 @@ All notable changes to this project will be documented in this file. This projec
 - feat: treat a fisher & paykel dishdrawer as a dishwasher, so it is set up rather than skipped (#120)
 - fix: name the type and model when an appliance is unsupported, so one log line is enough to add it (#120)
 - feat: give a fisher & paykel dishdrawer its own handler, with a door and cycle for each of its two drawers (#120)
+- fix: stop an appliance the plugin does not handle filling the log with a 'device not found' line (#120)
 
 ## v0.6.4 (2026-08-13)
 

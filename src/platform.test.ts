@@ -232,6 +232,46 @@ describe('smartHQPlatform live ERD cache', () => {
 
     expect(platform.getLiveErd('APPLIANCE1', '0x1160')).toBeUndefined()
   })
+
+  /**
+   * The subscription covers every appliance on the account, so pushes arrive
+   * for appliances with no accessory - hidden, an unsupported type, or not set
+   * up yet. That is routine, but it was logged at info level with a message
+   * naming no appliance and suggesting the plugin be rerun. One owner's log had
+   * 89 copies of it in a day (#120).
+   */
+  it('should not log at info level for a push it has no accessory for', async () => {
+    // 'standard' logging: debug lines are suppressed, info lines are not - so
+    // anything reaching log.info here is noise a normal user would see.
+    // The awaits matter: infoLog and debugLog are both async, so asserting
+    // synchronously would pass whatever the code did.
+    ;(platform as any).platformLogging = 'standard'
+    ;(platform as any).handleErdPush({
+      kind: 'publish#erd',
+      item: { applianceId: 'UNKNOWN1', erd: '0x3237', value: '01' },
+    })
+    await new Promise(res => setImmediate(res))
+
+    expect(mockLog.info).not.toHaveBeenCalled()
+    // the value is still kept, so an appliance set up later starts from it
+    expect(platform.getLiveErd('UNKNOWN1', '0x3237')).toBe('01')
+  })
+
+  it('should say which appliance and erd it ignored, at debug level', async () => {
+    // debugLog is async, so let it settle before asserting
+    ;(platform as any).platformLogging = 'debug'
+    ;(platform as any).handleErdPush({
+      kind: 'publish#erd',
+      item: { applianceId: 'UNKNOWN1', erd: '0x3237', value: '01' },
+    })
+    await new Promise(res => setImmediate(res))
+
+    // with 'debug' logging the plugin routes its debug lines through log.info,
+    // tagged [DEBUG] - the point here is that the message names the appliance
+    // and the erd, which the old line did not
+    expect(mockLog.info).toHaveBeenCalledWith('[DEBUG]', expect.stringContaining('UNKNOWN1'))
+    expect(mockLog.info).toHaveBeenCalledWith('[DEBUG]', expect.stringContaining('0x3237'))
+  })
 })
 
 describe('smartHQPlatform appliance type dispatch', () => {
