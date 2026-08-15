@@ -233,3 +233,85 @@ describe('smartHQPlatform live ERD cache', () => {
     expect(platform.getLiveErd('APPLIANCE1', '0x1160')).toBeUndefined()
   })
 })
+
+describe('smartHQPlatform appliance type dispatch', () => {
+  let mockApi: API
+  let mockLog: Logging
+
+  const config = {
+    platform: 'SmartHQ',
+    name: 'SmartHQ',
+    credentials: { username: 'test@example.com', password: 'pass' },
+  } as unknown as PlatformConfig
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+
+    mockLog = {
+      prefix: 'SmartHQ',
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      debug: vi.fn(),
+    } as unknown as Logging
+
+    mockApi = {
+      hap: { Service: {}, Characteristic: {}, uuid: { generate: vi.fn().mockReturnValue('test-uuid') } },
+      on: vi.fn(),
+      registerPlatformAccessories: vi.fn(),
+      unregisterPlatformAccessories: vi.fn(),
+      updatePlatformAccessories: vi.fn(),
+    } as unknown as API
+  })
+
+  const discoverOne = async (device: Record<string, unknown>) => {
+    // Without a token set, discoverDevices bails at startRefreshTokenLogic long
+    // before the type switch - which would make every assertion below pass or
+    // fail for reasons that have nothing to do with the dispatch. No
+    // refresh_token, so the refresh path is skipped too.
+    const getAccessToken = await import('./getAccessToken.js')
+
+    vi.mocked(getAccessToken.default).mockResolvedValue({ access_token: 'test-token', refresh_token: 'test-refresh', expires_in: 3600 } as any)
+    vi.mocked(getAccessToken.refreshAccessToken).mockResolvedValue({ access_token: 'test-token', refresh_token: 'test-refresh', expires_in: 3600 } as any)
+
+    const axios = (await import('axios')).default
+    vi.mocked(axios.get).mockImplementation((url: string) => {
+      if (url === '/appliance') {
+        return Promise.resolve({ data: { userId: 'user-1', items: [device] } })
+      }
+      if (url.startsWith('/appliance/')) {
+        return Promise.resolve({ data: {} })
+      }
+      return Promise.reject(new Error(`Unexpected URL: ${url}`))
+    })
+    const platform = new SmartHQPlatform(mockLog, config, mockApi)
+
+    const spy = vi.spyOn(platform as any, 'createSmartHQDishWasher').mockResolvedValue(undefined)
+    await platform.discoverDevices()
+    return spy
+  }
+
+  // A Fisher & Paykel DishDrawer announces 'FP DishDrawer', which is not in
+  // GE's appliance-type enum and is not derivable from anything documented -
+  // it came from an owner's log (#120). Pin the exact string: a typo here puts
+  // the appliance straight back to unsupported with nothing to show why.
+  it('sets up an FP DishDrawer with the dishwasher handler', async () => {
+    const spy = await discoverOne({ applianceId: 'a-1', type: 'FP DishDrawer', nickname: 'Dish Drawer' })
+
+    expect(spy).toHaveBeenCalledTimes(1)
+    expect(mockLog.warn).not.toHaveBeenCalledWith(expect.stringContaining('Not Supported'))
+  })
+
+  it('still sets up an ordinary dishwasher', async () => {
+    const spy = await discoverOne({ applianceId: 'a-2', type: 'Dishwasher', nickname: 'Dishwasher' })
+
+    expect(spy).toHaveBeenCalledTimes(1)
+  })
+
+  it('names the type and model when it does not recognise an appliance', async () => {
+    await discoverOne({ applianceId: 'a-3', type: 'Toaster Oven', nickname: 'Toaster', model: 'TO123' })
+
+    // Quoted, and with the model, so one pasted line is enough to add support
+    expect(mockLog.warn).toHaveBeenCalledWith(expect.stringContaining('"Toaster Oven"'))
+  })
+})

@@ -545,7 +545,14 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
           ])
           this.debugLog(`Device: ${JSON.stringify(device)}`)
           switch (device.type) {
+            // A Fisher & Paykel DishDrawer announces itself as 'FP DishDrawer'
+            // rather than 'Dishwasher', so it fell through as unsupported. The
+            // string is not documented anywhere and does not follow GE's own
+            // appliance-type enum, which has no dish drawer at all - it came
+            // from an owner's log on a DDD196US (#120). Same handler: as far as
+            // the api is concerned a drawer is a dishwasher.
             case 'Dishwasher':
+            case 'FP DishDrawer':
               await this.createSmartHQDishWasher(userId, device, details, features)
               break
             case 'Oven':
@@ -605,7 +612,14 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
               await this.createSmartHQBeverageCenter(userId, device, details, features)
               break
             default:
-              await this.warnLog(`Device Type Not Supported: ${device.type}`)
+              // ⚠️ Quote the type and include the model. Adding an appliance is
+              // usually just another `case` here, but only if the exact string
+              // the API returned is known - and an unquoted type with trailing
+              // space, or a differently worded one, is impossible to spot in a
+              // pasted log. Naming the model too means a single line from an
+              // owner is enough to add support, instead of a round trip asking
+              // for it (#120).
+              await this.warnLog(`Device Type Not Supported: "${device.type}" (model ${details?.model ?? 'unknown'}). Please report this line so it can be added.`)
               break
           }
         }
