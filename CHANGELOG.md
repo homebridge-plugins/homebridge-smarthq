@@ -19,6 +19,7 @@ All notable changes to this project will be documented in this file. This projec
 - feat: give a fisher & paykel dishdrawer its own handler, with a door and cycle for each of its two drawers (#120)
 - fix: stop an appliance the plugin does not handle filling the log with a 'device not found' line (#120)
 - fix: recognise a dishdrawer cycle going idle, so cancelling one stops asking for a report (#120)
+- chore(deps): dependency updates
 
 ## v0.6.4 (2026-08-13)
 
