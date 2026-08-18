@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. This project uses [Semantic Versioning](https://semver.org/).
 
+## v0.7.1 (Pending Release)
+
+### Changed
+
+- chore(oven): log what the lower cavity reports about cooking, to work out its write support
+
 ## v0.7.0 (2026-08-16)
 
 ### Changed

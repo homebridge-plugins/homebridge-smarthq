@@ -595,6 +595,43 @@ export class SmartHQOven extends deviceBase {
    * does not answer it at all. So gate on that alone, and do not trust the
    * current state on its own.
    */
+  /**
+   * Log what the lower cavity says about cooking, so a double oven's write
+   * support can be established from a real appliance rather than guessed.
+   *
+   * ⚠️ Read-only, and diagnostic only. Nothing here writes, and nothing here
+   * creates a service. The upper cavity's cook modes were only ever worked out
+   * by watching UPPER_OVEN_COOK_MODE change on a real oven while the mode was
+   * switched in the SmartHQ app (#111), and the byte values turned out not to
+   * be guessable. The lower cavity has to be established the same way, on the
+   * one appliance that actually has one (#116).
+   *
+   * These four are the whole question:
+   * - REMOTE_ENABLED tells us whether the appliance would accept a write at
+   *   all. If it reports 0, everything else is moot.
+   * - AVAILABLE / EXTENDED_COOK_MODES say which modes the cavity offers, so a
+   *   mode it cannot do is never sent to it.
+   * - COOK_MODE is the one we would eventually write, and reading it while the
+   *   oven is baking is what confirms the payload matches the upper cavity's
+   *   shape (mode byte, then the target temperature in Fahrenheit).
+   *
+   * It runs at startup rather than on a timer, so the way to capture a change
+   * is to set the mode in the app and restart the plugin.
+   */
+  private async logLowerCavityCookCapability(): Promise<void> {
+    const codes: Array<[string, string]> = [
+      ['remote enabled', ERD_TYPES.LOWER_OVEN_REMOTE_ENABLED],
+      ['available cook modes', ERD_TYPES.LOWER_OVEN_AVAILABLE_COOK_MODES],
+      ['extended cook modes', ERD_TYPES.LOWER_OVEN_EXTENDED_COOK_MODES],
+      ['cook mode', ERD_TYPES.LOWER_OVEN_COOK_MODE],
+    ]
+
+    for (const [label, erd] of codes) {
+      const value = await this.try_get_erd_value(erd)
+      this.debugLog(`Lower oven ${label} ERD ${erd}: ${value ?? 'not reported'}`)
+    }
+  }
+
   private async initializeLowerCavity(): Promise<void> {
     const lowerRawTemperature = await this.try_get_erd_value(ERD_TYPES.LOWER_OVEN_RAW_TEMPERATURE)
 
@@ -617,6 +654,8 @@ export class SmartHQOven extends deviceBase {
     }
 
     this.debugLog('This oven reports a lower cavity, so the lower oven tiles have been added')
+
+    await this.logLowerCavityCookCapability()
 
     // Lower Oven Light — same on/off shape as the upper light
     if (await this.has_erd_code(ERD_TYPES.LOWER_OVEN_LIGHT)) {
