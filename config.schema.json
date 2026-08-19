@@ -363,7 +363,8 @@
           }
         },
         "required": [
-          "logging"
+          "logging",
+          "region"
         ]
       }
     },
