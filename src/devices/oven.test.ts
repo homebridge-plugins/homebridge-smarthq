@@ -1,7 +1,7 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { ERD_TYPES } from '../settings.js'
-import { cookModeSwitchStates, enabledCookModes, hasLowerOvenCavity, matterSupportedModes, OVEN_COOK_MODES, SmartHQOven } from './oven.js'
+import { cookModePayload, cookModeSwitchStates, enabledCookModes, hasLowerOvenCavity, matterSupportedModes, OVEN_COOK_MODES, SmartHQOven } from './oven.js'
 
 /**
  * Regression cover for #109: a single oven was given four lower-oven tiles.
@@ -211,5 +211,85 @@ describe('cavity temperature, without the display fallback', () => {
     })
 
     expect(await oven.getCavityTempC()).toBeCloseTo(80.56, 1)
+  })
+})
+
+/**
+ * The lower cavity's cook control (#116).
+ *
+ * ⚠️ The write is the dangerous half: both cavities take the same payload at
+ * ERDs one 0x100 apart, so a mistake here does not fail — it silently starts
+ * the wrong oven. Every case below asserts which ERD was written.
+ */
+describe('cook mode writes', () => {
+  function ovenWriting(values: Record<string, string | undefined> = {}) {
+    const writes: Array<{ erd: string, payload: string }> = []
+    const oven = Object.create(SmartHQOven.prototype)
+    oven.try_get_erd_value = async (erd: string) => values[erd]
+    oven.writeErd = async (erd: string, payload: string) => {
+      writes.push({ erd, payload })
+    }
+    oven.pushCookModeSwitchStates = vi.fn()
+    return { oven, writes }
+  }
+
+  it('builds the payload observed on a real oven', () => {
+    // Bake at 350F, read back byte for byte from both cavities
+    expect(cookModePayload(1, 350)).toBe('01015e00000000000000000000')
+  })
+
+  it('turns a cavity off with an all-zero payload', () => {
+    expect(cookModePayload(0, 0)).toBe('00000000000000000000000000')
+  })
+
+  it('keeps the payload 13 bytes whatever the temperature', () => {
+    expect(cookModePayload(1, 500)).toHaveLength(26)
+    expect(cookModePayload(0x1B, 175)).toHaveLength(26)
+  })
+
+  it('writes the upper cavity by default', async () => {
+    const { oven, writes } = ovenWriting()
+
+    await oven.writeCookMode(1, 350)
+
+    expect(writes).toEqual([{ erd: ERD_TYPES.UPPER_OVEN_COOK_MODE, payload: '01015e00000000000000000000' }])
+  })
+
+  it('writes the lower cavity when asked, and never the upper', async () => {
+    // The whole point of #116: starting the lower oven must not start the upper
+    const { oven, writes } = ovenWriting()
+
+    await oven.writeCookMode(1, 350, ERD_TYPES.LOWER_OVEN_COOK_MODE)
+
+    expect(writes).toEqual([{ erd: ERD_TYPES.LOWER_OVEN_COOK_MODE, payload: '01015e00000000000000000000' }])
+    expect(writes.map(write => write.erd)).not.toContain(ERD_TYPES.UPPER_OVEN_COOK_MODE)
+  })
+
+  it('leaves the upper cavity switches alone when the lower one is written', async () => {
+    // The mode switches belong to the upper oven, so a lower bake lighting up
+    // the upper oven's Bake switch would be a lie on the dashboard
+    const { oven } = ovenWriting()
+
+    await oven.writeCookMode(1, 350, ERD_TYPES.LOWER_OVEN_COOK_MODE)
+
+    expect(oven.pushCookModeSwitchStates).not.toHaveBeenCalled()
+  })
+
+  it('still updates the switches for an upper cavity write', async () => {
+    const { oven } = ovenWriting()
+
+    await oven.writeCookMode(1, 350)
+
+    expect(oven.pushCookModeSwitchStates).toHaveBeenCalledWith(1)
+  })
+
+  it('reads each cavity from its own cook mode erd', async () => {
+    const { oven } = ovenWriting({
+      [ERD_TYPES.UPPER_OVEN_COOK_MODE]: '00000000000000000000000000',
+      [ERD_TYPES.LOWER_OVEN_COOK_MODE]: '01015E00000000000000000000',
+    })
+
+    expect(await oven.readCookMode()).toEqual({ mode: 0, tempF: 0 })
+    expect(await oven.readCookMode(ERD_TYPES.LOWER_OVEN_COOK_MODE)).toEqual({ mode: 1, tempF: 350 })
   })
 })

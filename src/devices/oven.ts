@@ -140,6 +140,23 @@ export function cookModeSwitchStates(
  * Off is always present, and the Matter mode numbers are the appliance's own
  * bytes rather than a separate numbering, so the two protocols cannot drift.
  */
+/**
+ * The 13-byte cook-mode payload: mode byte, target temperature in Fahrenheit,
+ * then the fields this plugin leaves alone (cook time, probe target, delay and
+ * the two-temperature pair). Writing it is the same as pressing Bake+Start.
+ *
+ * Shared by both cavities. The lower cavity's encoding was confirmed on a real
+ * double oven in #116 - baking at 350F there reported `01015E00...`, byte for
+ * byte what the upper cavity reports for the same thing.
+ * @param mode - the appliance's mode byte, 0 to turn the cavity off
+ * @param tempF - the target temperature in Fahrenheit
+ */
+export function cookModePayload(mode: number, tempF: number): string {
+  return mode.toString(16).padStart(2, '0')
+    + tempF.toString(16).padStart(4, '0')
+    + '0'.repeat(20)
+}
+
 export function matterSupportedModes(
   config: Partial<Record<OvenCookMode['configKey'], boolean>>,
 ): { label: string, mode: number }[] {
@@ -180,6 +197,10 @@ export class SmartHQOven extends deviceBase {
   private lastCavityTempC?: number
   private cavityTempMissingLogged = false
   private lowerTempRemovalLogged = false
+  private lowerOvenThermostat?: Service
+  private lowerOvenBakeSwitch?: Service
+  private lastLowerTargetTempF = 350
+  private lastLowerCavityTempC?: number
   private lowerProbeTempSensor?: Service
   private lowerCookTimeValve?: Service
   private lowerProbeRemovalLogged: boolean = false
@@ -688,6 +709,9 @@ export class SmartHQOven extends deviceBase {
     // the cavity reports a real temperature (#116)
     await this.syncLowerTempSensor(lowerRawTemperature)
 
+    // Lower Oven cook control — only when the cavity answers for its cook mode
+    await this.syncLowerCookControl(lowerRawTemperature)
+
     // Lower Probe Temperature — only while a probe is actually fitted
     await this.syncLowerProbeSensor()
 
@@ -748,6 +772,141 @@ export class SmartHQOven extends deviceBase {
    * the middle of a confirmed bake. A tile stuck on a plausible number is worse
    * than no tile, because nobody thinks to doubt it.
    */
+  /**
+   * Give the lower cavity the same cook control the upper one has, in whichever
+   * shape the appliance can honestly support (#116).
+   *
+   * ⚠️ Two shapes, and which one appears is decided by the cavity itself:
+   * - **Thermostat**, when the cavity reports a real temperature. HomeKit
+   *   requires CurrentTemperature on a thermostat, so this shape is only
+   *   honest when there is a reading to put in it.
+   * - **A plain bake switch**, when it does not. The #116 appliance answers 400
+   *   for its lower temperature, and its display value is a placeholder frozen
+   *   at 100°F. A thermostat there would state a confident, permanent lie -
+   *   exactly the tile that was removed for that reason - so the switch starts
+   *   a bake at the default target instead and shows no temperature at all.
+   *
+   * Nothing appears if the cavity does not answer for its cook mode, since
+   * there would be nothing to write to.
+   * @param lowerRawTemperature - the cavity's raw thermistor reading, if any
+   */
+  private async syncLowerCookControl(lowerRawTemperature?: string): Promise<void> {
+    const cookMode = await this.try_get_erd_value(ERD_TYPES.LOWER_OVEN_COOK_MODE)
+    if (cookMode === undefined) {
+      this.debugLog('The lower cavity does not report a cook mode, so it gets no cook control')
+      return
+    }
+
+    const canShowTemperature = lowerRawTemperature !== undefined
+
+    // Only one of the two shapes at a time - drop the other if a cached
+    // accessory carries it, or the oven ends up with both
+    const stale = this.accessory!.getService(canShowTemperature ? 'Lower Oven Bake' : 'Lower Oven')
+    if (stale) {
+      this.accessory!.removeService(stale)
+    }
+
+    if (canShowTemperature) {
+      const thermostat = this.accessory!.getService('Lower Oven')
+        ?? this.accessory!.addService(this.platform.Service.Thermostat, 'Lower Oven', 'LowerOvenThermostat')
+      this.lowerOvenThermostat = thermostat
+      this.setServiceName(thermostat, 'Lower Oven')
+      thermostat
+        .getCharacteristic(this.platform.Characteristic.CurrentTemperature)
+        .setProps({ minValue: -20, maxValue: 500, minStep: 0.1 })
+        .onGet(async () => {
+          try {
+            const celsius = await this.getLowerCavityTempC()
+            if (celsius === undefined) {
+              return this.lastLowerCavityTempC ?? 0
+            }
+            this.lastLowerCavityTempC = celsius
+            return celsius
+          } catch (error: any) {
+            this.warnLog?.(`Lower Oven Temperature error: ${error?.message ?? error}`)
+            return this.lastLowerCavityTempC ?? 0
+          }
+        })
+      thermostat
+        .getCharacteristic(this.platform.Characteristic.TargetTemperature)
+        .setProps({ minValue: 76.5, maxValue: 288, minStep: 0.5 })
+        .onGet(async () => {
+          const current = await this.readCookMode(ERD_TYPES.LOWER_OVEN_COOK_MODE)
+          if (current && current.mode !== 0 && current.tempF > 0) {
+            this.lastLowerTargetTempF = current.tempF
+          }
+          return fToC(this.lastLowerTargetTempF)
+        })
+        .onSet(async (value: CharacteristicValue) => {
+          const tempF = Math.round(cToF(value as number) / 5) * 5
+          this.lastLowerTargetTempF = tempF
+          const current = await this.readCookMode(ERD_TYPES.LOWER_OVEN_COOK_MODE)
+          if (current && current.mode !== 0) {
+            await this.writeCookMode(current.mode, tempF, ERD_TYPES.LOWER_OVEN_COOK_MODE)
+          }
+        })
+      thermostat
+        .getCharacteristic(this.platform.Characteristic.CurrentHeatingCoolingState)
+        .setProps({ validValues: [0, 1] })
+        .onGet(async () => {
+          return await this.isLowerOvenRunning()
+            ? this.platform.Characteristic.CurrentHeatingCoolingState.HEAT
+            : this.platform.Characteristic.CurrentHeatingCoolingState.OFF
+        })
+      thermostat
+        .getCharacteristic(this.platform.Characteristic.TargetHeatingCoolingState)
+        .setProps({ validValues: [0, 1] })
+        .onGet(async () => {
+          const current = await this.readCookMode(ERD_TYPES.LOWER_OVEN_COOK_MODE)
+          return current && current.mode !== 0
+            ? this.platform.Characteristic.TargetHeatingCoolingState.HEAT
+            : this.platform.Characteristic.TargetHeatingCoolingState.OFF
+        })
+        .onSet(async (value: CharacteristicValue) => {
+          if (value === this.platform.Characteristic.TargetHeatingCoolingState.HEAT) {
+            this.infoLog(`Starting a lower oven bake at ${this.lastLowerTargetTempF}F from HomeKit`)
+            await this.writeCookMode(1, this.lastLowerTargetTempF, ERD_TYPES.LOWER_OVEN_COOK_MODE)
+          } else {
+            this.infoLog('Turning the lower oven off from HomeKit')
+            await this.writeCookMode(0, 0, ERD_TYPES.LOWER_OVEN_COOK_MODE)
+          }
+        })
+      thermostat
+        .getCharacteristic(this.platform.Characteristic.TemperatureDisplayUnits)
+        .onGet(async () => this.platform.Characteristic.TemperatureDisplayUnits.FAHRENHEIT)
+      return
+    }
+
+    const bakeSwitch = this.accessory!.getService('Lower Oven Bake')
+      ?? this.accessory!.addService(this.platform.Service.Switch, 'Lower Oven Bake', 'LowerOvenBake')
+    this.lowerOvenBakeSwitch = bakeSwitch
+    this.setServiceName(bakeSwitch, 'Lower Oven Bake')
+    bakeSwitch
+      .getCharacteristic(this.platform.Characteristic.On)
+      .onGet(async () => {
+        try {
+          const current = await this.readCookMode(ERD_TYPES.LOWER_OVEN_COOK_MODE)
+          return !!current && current.mode !== 0
+        } catch (error: any) {
+          this.warnLog?.(`Lower Oven Bake handleGetOn error: ${error?.message ?? error}`)
+          return false
+        }
+      })
+      .onSet(async (value: CharacteristicValue) => {
+        try {
+          if (value) {
+            this.infoLog(`Starting a lower oven bake at ${this.lastLowerTargetTempF}F from HomeKit`)
+            await this.writeCookMode(1, this.lastLowerTargetTempF, ERD_TYPES.LOWER_OVEN_COOK_MODE)
+          } else {
+            this.infoLog('Turning the lower oven off from HomeKit')
+            await this.writeCookMode(0, 0, ERD_TYPES.LOWER_OVEN_COOK_MODE)
+          }
+        } catch (error: any) {
+          this.warnLog?.(`Lower Oven Bake handleSetOn error: ${error?.message ?? error}`)
+        }
+      })
+  }
+
   private async getLowerCavityTempC(): Promise<number | undefined> {
     const hex = await this.try_get_erd_value(ERD_TYPES.LOWER_OVEN_RAW_TEMPERATURE)
     if (!hex) {
@@ -893,8 +1052,8 @@ export class SmartHQOven extends deviceBase {
    * OvenCookModeConverter and was confirmed byte-for-byte on a real JS760
    * (bake at 350F reports 01015E00000000000000000000).
    */
-  private async readCookMode(): Promise<{ mode: number, tempF: number } | undefined> {
-    const r = await this.try_get_erd_value(ERD_TYPES.UPPER_OVEN_COOK_MODE)
+  private async readCookMode(erd: string = ERD_TYPES.UPPER_OVEN_COOK_MODE): Promise<{ mode: number, tempF: number } | undefined> {
+    const r = await this.try_get_erd_value(erd)
     if (!r || r.length < 6) {
       return undefined
     }
@@ -907,15 +1066,18 @@ export class SmartHQOven extends deviceBase {
    * turns the oven off. Remaining payload fields (times, probe, delay)
    * are zero - a plain immediate bake, exactly like pressing Bake+Start.
    */
-  private async writeCookMode(mode: number, tempF: number): Promise<void> {
-    const payload = mode.toString(16).padStart(2, '0')
-      + tempF.toString(16).padStart(4, '0')
-      + '0'.repeat(20)
-    await this.writeErd(ERD_TYPES.UPPER_OVEN_COOK_MODE, payload)
+  private async writeCookMode(mode: number, tempF: number, erd: string = ERD_TYPES.UPPER_OVEN_COOK_MODE): Promise<void> {
+    await this.writeErd(erd, cookModePayload(mode, tempF))
     // Reflect it straight away rather than waiting for the oven to tell us what
     // we just told it. Every mode change funnels through here - the thermostat's
     // Heat button as well as the switches - so one call keeps them all in step.
-    this.pushCookModeSwitchStates(mode)
+    //
+    // The mode switches belong to the upper cavity, so a lower-cavity write
+    // must not touch them - otherwise starting the lower oven would light up
+    // the upper oven's Bake switch.
+    if (erd === ERD_TYPES.UPPER_OVEN_COOK_MODE) {
+      this.pushCookModeSwitchStates(mode)
+    }
   }
 
   /**
