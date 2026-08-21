@@ -66,6 +66,15 @@
               "placeholder": "FCB97E120A84",
               "description": "This is devices unique applicationId."
             },
+            "serialNumber": {
+              "title": "Serial Number",
+              "type": "string",
+              "placeholder": "MZ123456",
+              "description": "Optional. The serial number shown on the appliance's own label. SmartHQ does not hold a serial number for every appliance, and HomeKit shows 'Unknown' when it does not. The plugin asks the appliance itself first, so only fill this in if HomeKit still shows 'Unknown'.",
+              "condition": {
+                "functionBody": "return (model.devices && model.devices[arrayIndices].applianceId);"
+              }
+            },
             "hide_device": {
               "title": "Hide Device",
               "type": "boolean",
@@ -404,6 +413,7 @@
           "items": [
             "devices[].configDeviceName",
             "devices[].applianceId",
+            "devices[].serialNumber",
             "devices[].keurig",
             "devices[].keurigOnly",
             "devices[].hide_device",

@@ -45,6 +45,12 @@ export interface credentials {
 
 export interface devicesConfig {
   applianceId?: string
+  /**
+   * Overrides the serial number shown in HomeKit. The SmartHQ cloud does not
+   * hold one for every appliance, and reports the literal string `Unknown`
+   * when it does not.
+   */
+  serialNumber?: string
   firmware: string
   refreshRate?: number
   logging?: string

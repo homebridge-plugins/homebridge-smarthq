@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file. This projec
 
 - chore(oven): log what the lower cavity reports about cooking, to work out its write support
 - fix(schema): require the account region to drop the duplicate unset entry
+- fix: show a real serial number, by asking the appliance when the smarthq cloud says unknown
 
 ## v0.7.0 (2026-08-16)
 

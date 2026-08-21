@@ -55,6 +55,43 @@ export function isTransientNetworkError(error: any): boolean {
 }
 
 // Type for Matter accessory (will be properly typed in Homebridge 2.0)
+/**
+ * Decode an ERD string value into readable text.
+ *
+ * ERDs carry their values as hex, so a serial number arrives as something like
+ * `4D5A3132333435360000` rather than `MZ123456`, usually padded with trailing
+ * nulls. Anything that is not hex is handed back as-is, on the assumption the
+ * appliance answered in plain text, and anything with no printable characters
+ * left in it comes back empty.
+ */
+export function decodeErdString(raw: string | undefined): string {
+  if (typeof raw !== 'string') {
+    return ''
+  }
+  const trimmed = raw.trim()
+  if (trimmed === '') {
+    return ''
+  }
+  const hex = trimmed.startsWith('0x') || trimmed.startsWith('0X') ? trimmed.slice(2) : trimmed
+  if (hex.length === 0 || hex.length % 2 !== 0 || !/^[0-9a-f]+$/i.test(hex)) {
+    // Not hex at all - treat it as text the appliance already decoded
+    return printableOnly(trimmed)
+  }
+  let decoded = ''
+  for (let i = 0; i < hex.length; i += 2) {
+    decoded += String.fromCharCode(Number.parseInt(hex.slice(i, i + 2), 16))
+  }
+  return printableOnly(decoded)
+}
+
+/**
+ * Keep only printable ASCII, then trim. Serial ERDs are null-padded, and a
+ * value that decodes to nothing but padding is no serial at all.
+ */
+function printableOnly(value: string): string {
+  return value.replace(/[^\x20-\x7E]/g, '').trim()
+}
+
 export interface MatterAccessory {
   UUID: string
   displayName: string
@@ -252,6 +289,12 @@ export abstract class deviceBase {
 
     this.getDeviceContext(this.accessory, device)
 
+    // Resolved once and written back, so the plugin's own device table in the
+    // settings UI reads the same value HomeKit was given rather than the
+    // "Unknown" the cloud sent
+    const serialNumber = await this.resolveSerialNumber()
+    this.accessory.context.device.serial = serialNumber
+
     // Set accessory information
     this.accessory
       .getService(this.hap.Service.AccessoryInformation)!
@@ -259,12 +302,48 @@ export abstract class deviceBase {
       .setCharacteristic(this.hap.Characteristic.Name, this.accessory.context.device.nickname)
       .setCharacteristic(this.hap.Characteristic.ConfiguredName, this.accessory.context.device.nickname)
       .setCharacteristic(this.hap.Characteristic.Model, this.accessory.context.device.model)
-      .setCharacteristic(this.hap.Characteristic.SerialNumber, this.accessory.context.device.serial)
+      .setCharacteristic(this.hap.Characteristic.SerialNumber, serialNumber)
       .setCharacteristic(this.hap.Characteristic.HardwareRevision, this.deviceFirmwareVersion || '1.0.0')
       .setCharacteristic(this.hap.Characteristic.SoftwareRevision, this.deviceFirmwareVersion || '1.0.0')
       .setCharacteristic(this.hap.Characteristic.FirmwareRevision, this.deviceFirmwareVersion || '1.0.0')
       .getCharacteristic(this.hap.Characteristic.FirmwareRevision)
       .updateValue(this.deviceFirmwareVersion || '1.0.0')
+  }
+
+  /**
+   * Work out the serial number to publish, in order of how much it can be
+   * trusted.
+   *
+   * The SmartHQ cloud sends the literal string `Unknown` rather than omitting
+   * the field when it holds no serial for an appliance, which is what puts
+   * "Unknown" in the Home app's device panel. A Fisher & Paykel washer came
+   * through that way, so before giving up the appliance itself is asked - ERD
+   * 0x0002 is its own serial number, and readErd caches a 400 so a model that
+   * does not answer is asked once and never again.
+   */
+  protected async resolveSerialNumber(): Promise<string> {
+    const device = (this.accessory?.context?.device ?? {}) as any
+
+    // What the user typed wins: it is read off the label on the machine
+    const configured = typeof device.serialNumber === 'string' ? device.serialNumber.trim() : ''
+    if (configured) {
+      return configured
+    }
+
+    const fromCloud = typeof device.serial === 'string' ? device.serial.trim() : ''
+    if (fromCloud && fromCloud !== 'Unknown') {
+      return fromCloud
+    }
+
+    const fromAppliance = decodeErdString(await this.readErd(ERD_TYPES.SERIAL_NUMBER))
+    if (fromAppliance) {
+      await this.debugLog(`Serial number read from the appliance: ${fromAppliance}`)
+      return fromAppliance
+    }
+
+    // Nothing knows it. Hand back whatever the cloud said so the panel reads the
+    // same as it always has, rather than going blank
+    return fromCloud || 'Unknown'
   }
 
   /**
