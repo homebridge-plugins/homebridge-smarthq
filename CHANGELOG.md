@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file. This projec
 
 - feat: add the Profile smoker, driven over the v2 Digital Twin API (#122) (@mrosenbergtech)
 - feat(oven): control the lower cavity of a double oven from HomeKit
+- chore(deps): dependency updates
 
 ## v0.7.1 (2026-08-21)
 
