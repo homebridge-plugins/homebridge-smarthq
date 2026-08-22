@@ -29,11 +29,13 @@ import { decideKeurigCapability, parseHotWaterStatus, SmartHQKeurig } from './de
 import { SmartHQMicrowave } from './devices/microwave.js'
 import { SmartHQOven } from './devices/oven.js'
 import { SmartHQRefrigerator } from './devices/refrigerator.js'
+import { SmartHQSmoker } from './devices/smoker.js'
 import { SmartHQWaterFilter } from './devices/waterFilter.js'
 import { SmartHQWaterHeater } from './devices/waterHeater.js'
 import { SmartHQWaterSoftener } from './devices/waterSoftener.js'
 import getAccessToken, { refreshAccessToken } from './getAccessToken.js'
 import { API_TIMEOUT_MS, API_URL, ERD_TYPES, KEEPALIVE_TIMEOUT, lookupErdName, MAX_TIMER_MS, normaliseErd, PLATFORM_NAME, PLUGIN_NAME } from './settings.js'
+import { SmartHQV2 } from './smarthqV2.js'
 
 const { find, keyBy } = pkg
 
@@ -55,6 +57,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
   public Service!: typeof this.api.hap.Service
   public Characteristic!: typeof this.api.hap.Characteristic
   private tokenSet!: TokenSet
+  private v2Transport?: SmartHQV2
 
   platformConfig!: SmartHQPlatformConfig
   platformLogging!: options['logging']
@@ -163,6 +166,11 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       this.wsReconnectTimer = undefined
     }
     this.accessories.forEach(accessory => (accessory as any).control?.shutdown?.())
+
+    // The v2 websocket is shared by every v2 appliance, so the platform owns
+    // closing it. ge-smarthq reconnects with backoff on its own, so one left
+    // open keeps waking up and reconnecting after Homebridge has gone.
+    void this.v2Transport?.disconnect().catch(() => {})
   }
 
   /**
@@ -192,6 +200,28 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
    */
   public getLiveErd(applianceId: string, erd: string): string | undefined {
     return this.erdCache.get(applianceId)?.get(normaliseErd(erd))
+  }
+
+  /**
+   * The token the plugin is currently authenticated with.
+   *
+   * Exposed so the v2 transport can borrow it rather than logging in a second
+   * time or refreshing on its own — see the note on SmartHQV2.seedToken().
+   */
+  public currentTokenSet(): TokenSet | undefined {
+    return this.tokenSet
+  }
+
+  /**
+   * The v2 Digital Twin transport, created on first use. Appliances that publish
+   * nothing usable over v1 ERDs (the Profile smoker, so far) are driven through
+   * this instead.
+   */
+  public get v2(): SmartHQV2 {
+    if (!this.v2Transport) {
+      this.v2Transport = new SmartHQV2(this)
+    }
+    return this.v2Transport
   }
 
   private setLiveErd(applianceId: string, erd: string, value: string) {
@@ -629,6 +659,12 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
               break
             case 'Beverage Center':
               await this.createSmartHQBeverageCenter(userId, device, details, features)
+              break
+            // The Profile smoker (P9SBAAS6VBB) is driven over the v2 Digital
+            // Twin API, not ERDs — it publishes nothing usable on v1. See the
+            // note atop smarthqV2.ts for what was measured.
+            case 'Smoker':
+              await this.createSmartHQSmoker(userId, device, details, features)
               break
             default:
               // ⚠️ Quote the type and include the model. Adding an appliance is
@@ -1688,6 +1724,49 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       accessory.displayName = await this.validateAndCleanDisplayName(displayName, 'configDeviceName', displayName)
       accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
       accessory.control = new SmartHQBeverageCenter(this, accessory, deviceData)
+      this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
+      this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
+      this.accessories.push(accessory)
+    } else {
+      this.debugErrorLog(`Unable to Register new device: ${JSON.stringify(device.nickname)}`)
+    }
+  }
+
+  /**
+   * The smoker has no Matter path: it is read over v2 and the Matter bridge here
+   * is built around the ERD devices, so it is always registered as HAP.
+   */
+  private async createSmartHQSmoker(userId: any, device: any, details: any, features: any) {
+    const deviceData = { brand: 'GE', ...details, ...features, ...device }
+    const displayName = (deviceData as any).configDeviceName || deviceData.nickname
+
+    const uuid = this.api.hap.uuid.generate(deviceData.applianceId)
+    const existingAccessory = this.accessories.find(accessory => accessory.UUID === uuid)
+
+    if (existingAccessory) {
+      if (!deviceData.hide_device) {
+        existingAccessory.context.device = deviceData
+        existingAccessory.context = { device: deviceData, userId }
+        existingAccessory.displayName = await this.validateAndCleanDisplayName(displayName, 'configDeviceName', displayName)
+        existingAccessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
+        this.infoLog(`[HAP] Restoring existing accessory from cache: ${existingAccessory.displayName}`)
+        // Construct before persisting, not after: the device widens its
+        // temperature characteristics with setProps in its constructor, and
+        // caching first froze the stock 0-100°C range into the cache file.
+        existingAccessory.control = new SmartHQSmoker(this, existingAccessory, deviceData)
+        this.api.updatePlatformAccessories([existingAccessory])
+        this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
+      } else {
+        this.unregisterPlatformAccessories(existingAccessory)
+      }
+    } else if (!deviceData.hide_device && !existingAccessory) {
+      this.infoLog(`[HAP] Adding new accessory: ${deviceData.nickname}`)
+      const accessory = new this.api.platformAccessory<SmartHqContext>(displayName, uuid)
+      accessory.context.device = deviceData
+      accessory.context = { device: deviceData, userId }
+      accessory.displayName = await this.validateAndCleanDisplayName(displayName, 'configDeviceName', displayName)
+      accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
+      accessory.control = new SmartHQSmoker(this, accessory, deviceData)
       this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
       this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
       this.accessories.push(accessory)

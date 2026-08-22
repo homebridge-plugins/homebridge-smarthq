@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. This project uses [Semantic Versioning](https://semver.org/).
 
+## v0.8.0 (Pending Release)
+
+### Changed
+
+- feat: add the Profile smoker, driven over the v2 Digital Twin API (#122) (@mrosenbergtech)
+
 ## v0.7.1 (2026-08-21)
 
 ### Changed

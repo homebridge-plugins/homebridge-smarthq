@@ -364,3 +364,57 @@ describe('smartHQPlatform appliance type dispatch', () => {
     expect(mockLog.warn).toHaveBeenCalledWith(expect.stringContaining('"Toaster Oven"'))
   })
 })
+
+/**
+ * ⚠️ The v2 websocket is shared by every v2 appliance, so the platform owns
+ * closing it. ge-smarthq reconnects with exponential backoff of its own, so one
+ * left open keeps waking up and reconnecting after Homebridge has torn down —
+ * exactly the fault the v1 reconnect timer had before it was cleared here.
+ */
+describe('smartHQPlatform shutdown', () => {
+  let platform: SmartHQPlatform
+
+  beforeEach(() => {
+    const mockLog = { prefix: 'SmartHQ', info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logging
+    const mockApi = {
+      hap: { Service: {}, Characteristic: {}, uuid: { generate: vi.fn().mockReturnValue('test-uuid') } },
+      on: vi.fn(),
+      registerPlatformAccessories: vi.fn(),
+      unregisterPlatformAccessories: vi.fn(),
+      updatePlatformAccessories: vi.fn(),
+    } as unknown as API
+    platform = new SmartHQPlatform(mockLog, { platform: 'SmartHQ', name: 'SmartHQ' } as PlatformConfig, mockApi)
+  })
+
+  it('closes the shared v2 websocket', () => {
+    const disconnect = vi.fn(async () => {})
+    ;(platform as any).v2Transport = { disconnect }
+
+    ;(platform as any).shutdown()
+
+    expect(disconnect).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not fall over when no v2 appliance was ever set up', () => {
+    // The overwhelming majority of installs, where the transport is never built
+    expect(() => (platform as any).shutdown()).not.toThrow()
+  })
+
+  it('survives a disconnect that rejects on the way out', async () => {
+    ;(platform as any).v2Transport = { disconnect: vi.fn(async () => {
+      throw new Error('socket already gone')
+    }) }
+
+    expect(() => (platform as any).shutdown()).not.toThrow()
+    await new Promise(resolve => setTimeout(resolve, 0))
+  })
+
+  it('tells each accessory to shut down too', () => {
+    const shutdown = vi.fn()
+    ;(platform as any).accessories = [{ control: { shutdown } }]
+
+    ;(platform as any).shutdown()
+
+    expect(shutdown).toHaveBeenCalledTimes(1)
+  })
+})
