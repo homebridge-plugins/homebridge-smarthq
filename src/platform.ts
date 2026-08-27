@@ -34,7 +34,7 @@ import { SmartHQWaterFilter } from './devices/waterFilter.js'
 import { SmartHQWaterHeater } from './devices/waterHeater.js'
 import { SmartHQWaterSoftener } from './devices/waterSoftener.js'
 import getAccessToken, { refreshAccessToken } from './getAccessToken.js'
-import { API_TIMEOUT_MS, API_URL, ERD_TYPES, KEEPALIVE_TIMEOUT, lookupErdName, MAX_TIMER_MS, normaliseErd, PLATFORM_NAME, PLUGIN_NAME } from './settings.js'
+import { API_TIMEOUT_MS, API_URL, ERD_TYPES, KEEPALIVE_TIMEOUT, lookupErdName, MAX_TIMER_MS, normaliseErd, PLATFORM_NAME, PLUGIN_NAME, WS_ROUTINE_HOLD_MS } from './settings.js'
 import { SmartHQV2 } from './smarthqV2.js'
 
 const { find, keyBy } = pkg
@@ -83,6 +83,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
 
   // Websocket lifecycle timers
   private wsKeepAliveTimer?: ReturnType<typeof setInterval>
+  private wsConnectedAt?: number
   private wsReconnectTimer?: ReturnType<typeof setTimeout>
 
   constructor(
@@ -441,9 +442,20 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
           this.wsKeepAliveTimer = undefined
         }
 
-        // Reconnect with a freshly fetched endpoint after a short delay
+        // Reconnect with a freshly fetched endpoint after a short delay.
+        // SmartHQ's servers recycle long-held connections about once an hour,
+        // so a socket that held for a while closing again is routine and only
+        // worth a debug line - a warning every hour reads as a fault (#117).
+        // A socket that could not hold (dropped soon after opening) is the
+        // real news, and keeps the warning
         if (!this.wsReconnectTimer) {
-          this.warnLog(`Websocket connection lost, reconnecting in ${KEEPALIVE_TIMEOUT / 1000} seconds`)
+          const heldMs = this.wsConnectedAt ? Date.now() - this.wsConnectedAt : 0
+          const message = `Websocket connection lost, reconnecting in ${KEEPALIVE_TIMEOUT / 1000} seconds`
+          if (heldMs >= WS_ROUTINE_HOLD_MS) {
+            this.debugLog(message)
+          } else {
+            this.warnLog(message)
+          }
           this.wsReconnectTimer = setTimeout(() => {
             this.wsReconnectTimer = undefined
             this.connectWebSocket()
@@ -452,6 +464,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       })
 
       connection.on('open', () => {
+        this.wsConnectedAt = Date.now()
         connection.send(
           JSON.stringify({
             kind: 'websocket#subscribe',

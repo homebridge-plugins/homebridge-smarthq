@@ -1,6 +1,8 @@
 import type { API, Logging, PlatformConfig } from 'homebridge'
 
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { Buffer } from 'node:buffer'
+
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { SmartHQPlatform } from './platform.js'
 
@@ -20,6 +22,23 @@ vi.mock('axios', () => ({
     get: vi.fn(),
   },
 }))
+
+// Mock the ws module with a bare EventEmitter so tests can play the
+// socket lifecycle by hand; the newest instance is recorded for reach
+const wsInstances: any[] = []
+vi.mock('ws', async () => {
+  const { EventEmitter } = await import('node:events')
+  class FakeWs extends EventEmitter {
+    constructor() {
+      super()
+      wsInstances.push(this)
+    }
+
+    send() {}
+    close() {}
+  }
+  return { default: FakeWs }
+})
 
 describe('smartHQPlatform Authentication Error Handling', () => {
   let platform: SmartHQPlatform
@@ -416,5 +435,60 @@ describe('smartHQPlatform shutdown', () => {
     ;(platform as any).shutdown()
 
     expect(shutdown).toHaveBeenCalledTimes(1)
+  })
+})
+
+/**
+ * SmartHQ's servers recycle long-held websocket connections about once an
+ * hour. That routine drop used to log a warning every time, so a perfectly
+ * healthy setup showed a page of "connection lost" warnings a day and read
+ * as broken (#117). Only a socket that could not hold - dropped soon after
+ * opening - deserves the warning.
+ */
+describe('websocket drop logging', () => {
+  let platform: SmartHQPlatform
+  let mockLog: Logging
+
+  beforeEach(async () => {
+    vi.useFakeTimers()
+    wsInstances.length = 0
+    mockLog = {
+      prefix: 'SmartHQ',
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      debug: vi.fn(),
+    } as unknown as Logging
+    const mockApi = {
+      hap: { Service: {}, Characteristic: {}, uuid: { generate: vi.fn().mockReturnValue('test-uuid') } },
+      on: vi.fn(),
+    } as unknown as API
+    platform = new SmartHQPlatform(mockLog, { platform: 'SmartHQ', name: 'SmartHQ', credentials: { username: 'u', password: 'p' } } as PlatformConfig, mockApi)
+    const axios = (await import('axios')).default
+    vi.mocked(axios.get).mockResolvedValue({ data: { endpoint: 'wss://example.invalid' } })
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  async function dropAfter(heldMs: number) {
+    await (platform as any).connectWebSocket()
+    const socket = wsInstances.at(-1)
+    socket.emit('open')
+    vi.advanceTimersByTime(heldMs)
+    socket.emit('close', 0, Buffer.from('server recycle'))
+  }
+
+  it('treats a drop after a long hold as routine - no warning', async () => {
+    await dropAfter(60 * 60 * 1000)
+
+    expect(mockLog.warn).not.toHaveBeenCalledWith(expect.stringContaining('Websocket connection lost'))
+  })
+
+  it('still warns when the socket could not hold', async () => {
+    await dropAfter(5 * 1000)
+
+    expect(mockLog.warn).toHaveBeenCalledWith(expect.stringContaining('Websocket connection lost'))
   })
 })

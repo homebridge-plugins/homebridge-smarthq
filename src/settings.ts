@@ -192,6 +192,10 @@ export const OAUTH2_REDIRECT_URI = 'brillion.4e617a766474657344444e562b5935566e5
 export const API_URL = 'https://api.brillion.geappliances.com/v1/'
 export const KEEPALIVE_TIMEOUT = 30 * 1000
 
+// A websocket that held at least this long before closing is a routine
+// server-side recycle (SmartHQ cycles connections about hourly), not a fault
+export const WS_ROUTINE_HOLD_MS = 5 * 60 * 1000
+
 /**
  * ⚠️ Axios defaults to no timeout at all, so a connection that opens and then
  * stops responding waits forever rather than failing - one stalled read holds a

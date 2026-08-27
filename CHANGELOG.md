@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. This project uses [Semantic Versioning](https://semver.org/).
 
+## v0.8.1 (Pending Release)
+
+### Changed
+
+- fix(ws): routine hourly server-side websocket recycles log at debug, not as warnings (#117)
+
 ## v0.8.0 (2026-08-22)
 
 ### Changed
