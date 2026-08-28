@@ -50,8 +50,8 @@
     "changelog:sync": "node .github/scripts/sync-changelog.mjs"
   },
   "dependencies": {
-    "@homebridge/plugin-ui-utils": "^2.2.5",
-    "axios": "^1.19.0",
+    "@homebridge/plugin-ui-utils": "^2.2.6",
+    "axios": "^1.20.0",
     "axios-cookiejar-support": "^7.0.0",
     "cheerio": "^1.2.0",
     "ge-smarthq": "^1.2.0",
@@ -64,7 +64,7 @@
   "devDependencies": {
     "@antfu/eslint-config": "^9.3.0",
     "@types/lodash": "^4.17.25",
-    "@types/node": "^26.2.0",
+    "@types/node": "^26.4.0",
     "@vitest/coverage-v8": "^4.1.11",
     "homebridge": "^2.4.0",
     "nodemon": "^3.1.14",
