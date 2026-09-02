@@ -291,6 +291,23 @@ describe('smartHQPlatform live ERD cache', () => {
     expect(mockLog.info).toHaveBeenCalledWith('[DEBUG]', expect.stringContaining('UNKNOWN1'))
     expect(mockLog.info).toHaveBeenCalledWith('[DEBUG]', expect.stringContaining('0x3237'))
   })
+
+  /**
+   * For an appliance the plugin does not support yet, the pushes that arrive
+   * while its owner uses it are exactly the data adding support needs - and a
+   * line carrying the erd code but not its value meant a second round trip
+   * asking for it (#125).
+   */
+  it('should include the pushed value in the debug line for an appliance it has no accessory for', async () => {
+    ;(platform as any).platformLogging = 'debug'
+    ;(platform as any).handleErdPush({
+      kind: 'publish#erd',
+      item: { applianceId: 'UNKNOWN1', erd: '0x3237', value: '01' },
+    })
+    await new Promise(res => setImmediate(res))
+
+    expect(mockLog.info).toHaveBeenCalledWith('[DEBUG]', expect.stringContaining('0x3237=01'))
+  })
 })
 
 describe('smartHQPlatform appliance type dispatch', () => {
@@ -374,6 +391,16 @@ describe('smartHQPlatform appliance type dispatch', () => {
 
     expect(spies.dishwasher).toHaveBeenCalledTimes(1)
     expect(spies.dishDrawer).not.toHaveBeenCalled()
+  })
+
+  // With the type unknown there is no handler to read anything, so discovery
+  // itself fetches every erd the appliance reports and puts them in the debug
+  // log - the one paste an owner can give that is enough to add support (#125)
+  it('reads every erd of an appliance it does not recognise', async () => {
+    await discoverOne({ applianceId: 'a-4', type: 'Induction Cooktop', nickname: 'Cooktop', model: 'CHP95362M4SS' })
+
+    const axios = (await import('axios')).default
+    expect(vi.mocked(axios.get)).toHaveBeenCalledWith('/appliance/a-4/erd')
   })
 
   it('names the type and model when it does not recognise an appliance', async () => {

@@ -500,6 +500,28 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
   }
 
   /**
+   * Log everything an unsupported appliance currently reports, at debug.
+   *
+   * Adding an appliance type means knowing which ERDs it exposes and what they
+   * hold in each state, and the only source for that is a real unit. With this
+   * in the debug log, an owner's single paste after a restart carries the whole
+   * picture, instead of a round trip asking them to find it (#125). A failure
+   * here is logged and swallowed - it must never stop discovery.
+   */
+  private async logUnsupportedApplianceErds(device: any): Promise<void> {
+    try {
+      const res = await axios.get(`/appliance/${device.applianceId}/erd`)
+      const items = Array.isArray(res.data?.items) ? res.data.items : res.data
+      const dump = Array.isArray(items)
+        ? items.map((item: any) => `${item.erd}=${typeof item.value === 'object' ? JSON.stringify(item.value) : item.value}`).join(', ')
+        : JSON.stringify(items)
+      await this.debugLog(`ERDs reported by unsupported "${device.type}" ${device.applianceId}: ${dump}`)
+    } catch (e: any) {
+      await this.debugLog(`Could not read the ERDs of unsupported "${device.type}" ${device.applianceId}: ${e?.message ?? e}`)
+    }
+  }
+
+  /**
    * Handle an ERD value pushed over the websocket: keep it for later reads, and
    * hand it to the accessory it belongs to so HomeKit updates straight away.
    */
@@ -518,7 +540,11 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       // been kept above, so nothing is lost. This used to be an info line that
       // named no appliance and suggested rerunning the plugin - one owner's day
       // had 89 copies of it (#120).
-      this.debugLog(`Ignoring pushed erd ${obj.item.erd} for ${obj.item.applianceId}, which has no accessory (hidden, unsupported, or not set up yet)`)
+      // The value goes in the line too: for an appliance the plugin does not
+      // support yet, these pushes while the owner uses it are the data that
+      // adding support needs, and a debug log with the code but no value
+      // meant a second round trip asking for it (#125)
+      this.debugLog(`Ignoring pushed erd ${obj.item.erd}=${liveValue} for ${obj.item.applianceId}, which has no accessory (hidden, unsupported, or not set up yet)`)
       return
     }
 
@@ -688,6 +714,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
               // owner is enough to add support, instead of a round trip asking
               // for it (#120).
               await this.warnLog(`Device Type Not Supported: "${device.type}" (model ${details?.model ?? 'unknown'}). Please report this line so it can be added.`)
+              await this.logUnsupportedApplianceErds(device)
               break
           }
         }

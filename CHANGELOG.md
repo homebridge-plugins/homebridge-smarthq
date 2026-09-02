@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. This project uses [Semantic Versioning](https://semver.org/).
 
+## v0.8.2 (Pending Release)
+
+### Changed
+
+- feat(log): record what an unsupported appliance reports at debug, so one paste is enough to add it (#125)
+
 ## v0.8.1 (2026-08-28)
 
 ### Changed
