@@ -1072,10 +1072,10 @@ export class SmartHQOven extends deviceBase {
     // we just told it. Every mode change funnels through here - the thermostat's
     // Heat button as well as the switches - so one call keeps them all in step.
     //
-    // The mode switches belong to the upper cavity, so a lower-cavity write
-    // must not touch them - otherwise starting the lower oven would light up
-    // the upper oven's Bake switch.
-    if (erd === ERD_TYPES.UPPER_OVEN_COOK_MODE) {
+    // The mode switches belong to one cavity, so a write to the other must
+    // not touch them - otherwise starting the lower oven would light up the
+    // upper oven's Bake switch.
+    if (erd === this.cookModeSwitchErd()) {
       this.pushCookModeSwitchStates(mode)
     }
   }
@@ -1121,7 +1121,7 @@ export class SmartHQOven extends deviceBase {
         .getCharacteristic(this.platform.Characteristic.On)
         .onGet(async () => {
           try {
-            const current = await this.readCookMode()
+            const current = await this.readCookMode(this.cookModeSwitchErd())
             return current?.mode === cookMode.mode
           } catch (error: any) {
             this.warnLog?.(`Oven ${cookMode.label} state error: ${error?.message ?? error}`)
@@ -1131,17 +1131,9 @@ export class SmartHQOven extends deviceBase {
         .onSet(async (value: CharacteristicValue) => {
           try {
             if (value) {
-              this.infoLog(`Starting ${cookMode.label} at ${this.lastTargetTempF}F from HomeKit`)
-              await this.writeCookMode(cookMode.mode, this.lastTargetTempF)
+              await this.startCookModeSwitch(cookMode)
             } else {
-              // Only stop the oven if this mode is the one actually running -
-              // otherwise a switch reverting to off after another mode started
-              // would turn the oven off underneath the user.
-              const current = await this.readCookMode()
-              if (current?.mode === cookMode.mode) {
-                this.infoLog(`Turning the oven off from HomeKit (${cookMode.label})`)
-                await this.writeCookMode(0, 0)
-              }
+              await this.stopCookModeSwitch(cookMode)
             }
           } catch (error: any) {
             this.warnLog?.(`Oven ${cookMode.label} set error: ${error?.message ?? error}`)
@@ -1165,9 +1157,44 @@ export class SmartHQOven extends deviceBase {
 
     // Set them from the oven's real mode at startup, so a switch restored from
     // the cache does not sit showing whatever it last happened to be (#111).
-    void this.readCookMode()
+    void this.readCookMode(this.cookModeSwitchErd())
       .then(cookMode => this.pushCookModeSwitchStates(cookMode?.mode))
       .catch(() => this.pushCookModeSwitchStates(undefined))
+  }
+
+  /**
+   * Which cavity the mode switches drive.
+   *
+   * On many double ovens the specialty modes - convection bake, convection
+   * roast, air fry - exist only in the lower oven, and a write of one of them
+   * to the upper cavity is simply ignored (the range reports the upper cook
+   * mode as all zeros afterwards). The API gives no reliable way to read
+   * which cavity offers which mode, so the owner says so in the config (#128).
+   */
+  private cookModeSwitchErd(): string {
+    return this.device?.cookModeCavity === 'lower' ? ERD_TYPES.LOWER_OVEN_COOK_MODE : ERD_TYPES.UPPER_OVEN_COOK_MODE
+  }
+
+  /** The target temperature the mode switches start at, for their cavity. */
+  private cookModeSwitchTempF(): number {
+    return this.device?.cookModeCavity === 'lower' ? this.lastLowerTargetTempF : this.lastTargetTempF
+  }
+
+  private async startCookModeSwitch(cookMode: { label: string, mode: number }): Promise<void> {
+    const cavity = this.device?.cookModeCavity === 'lower' ? 'the lower oven' : 'the oven'
+    this.infoLog(`Starting ${cookMode.label} in ${cavity} at ${this.cookModeSwitchTempF()}F from HomeKit`)
+    await this.writeCookMode(cookMode.mode, this.cookModeSwitchTempF(), this.cookModeSwitchErd())
+  }
+
+  private async stopCookModeSwitch(cookMode: { label: string, mode: number }): Promise<void> {
+    // Only stop the oven if this mode is the one actually running - otherwise
+    // a switch reverting to off after another mode started would turn the
+    // oven off underneath the user.
+    const current = await this.readCookMode(this.cookModeSwitchErd())
+    if (current?.mode === cookMode.mode) {
+      this.infoLog(`Turning the oven off from HomeKit (${cookMode.label})`)
+      await this.writeCookMode(0, 0, this.cookModeSwitchErd())
+    }
   }
 
   /**
@@ -1300,7 +1327,17 @@ export class SmartHQOven extends deviceBase {
           )
           // Follow a change made anywhere else - the oven's own panel, the
           // SmartHQ app, or a schedule finishing (#111).
-          this.pushCookModeSwitchStates(cookMode?.mode)
+          if (this.cookModeSwitchErd() === ERD_TYPES.UPPER_OVEN_COOK_MODE) {
+            this.pushCookModeSwitchStates(cookMode?.mode)
+          }
+          break
+        }
+        case ERD_TYPES.LOWER_OVEN_COOK_MODE: {
+          // The switches only follow the lower cavity when they drive it (#128)
+          if (this.cookModeSwitchErd() === ERD_TYPES.LOWER_OVEN_COOK_MODE) {
+            const cookMode = await this.readCookMode(ERD_TYPES.LOWER_OVEN_COOK_MODE)
+            this.pushCookModeSwitchStates(cookMode?.mode)
+          }
           break
         }
         case ERD_TYPES.UPPER_OVEN_CURRENT_STATE: {

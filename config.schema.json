@@ -267,6 +267,26 @@
               "default": false,
               "description": "Ovens only: expose a switch that starts Air Fry at the target temperature. Only ovens with an Air Fry mode will respond."
             },
+            "cookModeCavity": {
+              "title": "Mode Switches Control",
+              "type": "string",
+              "default": "upper",
+              "description": "Double ovens only: which cavity the mode switches above start. Many double ovens only offer Convection Bake, Convection Roast and Air Fry in the lower oven - if the switches do nothing on yours, pick Lower Oven.",
+              "oneOf": [
+                {
+                  "title": "Upper Oven (default)",
+                  "enum": [
+                    "upper"
+                  ]
+                },
+                {
+                  "title": "Lower Oven",
+                  "enum": [
+                    "lower"
+                  ]
+                }
+              ]
+            },
             "showRunningSwitch": {
               "title": "Show Running Switch",
               "type": "boolean",

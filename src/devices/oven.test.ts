@@ -255,6 +255,48 @@ describe('cook mode writes', () => {
     expect(writes).toEqual([{ erd: ERD_TYPES.UPPER_OVEN_COOK_MODE, payload: '01015e00000000000000000000' }])
   })
 
+  /**
+   * On many double ovens the specialty modes only exist in the lower cavity,
+   * and a write to the upper is silently ignored (#128). The switches follow a
+   * per-device setting for which cavity they drive.
+   */
+  it('drives the mode switches at the upper cavity unless told otherwise', async () => {
+    const { oven, writes } = ovenWriting()
+    oven.device = { showAirFrySwitch: true }
+    oven.lastTargetTempF = 350
+    oven.lastLowerTargetTempF = 375
+    oven.infoLog = vi.fn()
+
+    await oven.startCookModeSwitch({ label: 'Air Fry', mode: 0x9E })
+
+    expect(writes).toEqual([{ erd: ERD_TYPES.UPPER_OVEN_COOK_MODE, payload: cookModePayload(0x9E, 350) }])
+  })
+
+  it('drives the mode switches at the lower cavity when the config says so', async () => {
+    const { oven, writes } = ovenWriting()
+    oven.device = { showAirFrySwitch: true, cookModeCavity: 'lower' }
+    oven.lastTargetTempF = 350
+    oven.lastLowerTargetTempF = 375
+    oven.infoLog = vi.fn()
+
+    await oven.startCookModeSwitch({ label: 'Air Fry', mode: 0x9E })
+
+    // the lower cavity, at the lower cavity's own target temperature
+    expect(writes).toEqual([{ erd: ERD_TYPES.LOWER_OVEN_COOK_MODE, payload: cookModePayload(0x9E, 375) }])
+  })
+
+  it('stops the configured cavity only when that mode is the one running', async () => {
+    const { oven, writes } = ovenWriting({ [ERD_TYPES.LOWER_OVEN_COOK_MODE]: cookModePayload(0x9E, 375) })
+    oven.device = { showAirFrySwitch: true, cookModeCavity: 'lower' }
+    oven.infoLog = vi.fn()
+
+    await oven.stopCookModeSwitch({ label: 'Convection Roast', mode: 0x24 })
+    expect(writes).toEqual([])
+
+    await oven.stopCookModeSwitch({ label: 'Air Fry', mode: 0x9E })
+    expect(writes).toEqual([{ erd: ERD_TYPES.LOWER_OVEN_COOK_MODE, payload: cookModePayload(0, 0) }])
+  })
+
   it('writes the lower cavity when asked, and never the upper', async () => {
     // The whole point of #116: starting the lower oven must not start the upper
     const { oven, writes } = ovenWriting()

@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file. This projec
 
 - feat(log): record what an unsupported appliance reports at debug, so one paste is enough to add it (#125)
 - feat(cooktop): add the induction cooktop as a read-only cooktop-on sensor (#125)
+- fix(oven): mode switches can drive the lower cavity, where many double ovens keep those modes (#128)
 
 ## v0.8.1 (2026-08-28)
 

@@ -69,6 +69,7 @@ export interface devicesConfig {
   showConvBakeMultiSwitch?: boolean
   showConvRoastSwitch?: boolean
   showAirFrySwitch?: boolean
+  cookModeCavity?: 'upper' | 'lower' // which cavity the mode switches drive on a double oven
   showRunningSwitch?: boolean // laundry only: expose a read-only switch that mirrors whether the machine is running
   showFilterBattery?: boolean // water filter only: expose the filter life as a battery so the percentage is glanceable in HomeKit
   keurig?: boolean // Override auto-detect for the built-in Keurig K-Cup brewer (e.g. PYE22PYNHFS)
