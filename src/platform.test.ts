@@ -397,7 +397,7 @@ describe('smartHQPlatform appliance type dispatch', () => {
   // itself fetches every erd the appliance reports and puts them in the debug
   // log - the one paste an owner can give that is enough to add support (#125)
   it('reads every erd of an appliance it does not recognise', async () => {
-    await discoverOne({ applianceId: 'a-4', type: 'Induction Cooktop', nickname: 'Cooktop', model: 'CHP95362M4SS' })
+    await discoverOne({ applianceId: 'a-4', type: 'Bread Maker', nickname: 'Bread Maker', model: 'BM100' })
 
     const axios = (await import('axios')).default
     expect(vi.mocked(axios.get)).toHaveBeenCalledWith('/appliance/a-4/erd')

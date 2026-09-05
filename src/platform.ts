@@ -22,6 +22,7 @@ import { SmartHQClothesDryer } from './devices/clothesDryer.js'
 import { SmartHQClothesWasher } from './devices/clothesWasher.js'
 import { SmartHQCoffeeMaker } from './devices/coffeeMaker.js'
 import { SmartHQCombinationWasherDryer } from './devices/combinationWasherDryer.js'
+import { SmartHQCooktop } from './devices/cooktop.js'
 import { SmartHQDishDrawer } from './devices/dishDrawer.js'
 import { SmartHQDishWasher } from './devices/dishwasher.js'
 import { SmartHQHood } from './devices/hood.js'
@@ -628,6 +629,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
             axios.get(`/appliance/${device.applianceId}/feature`),
           ])
           this.debugLog(`Device: ${JSON.stringify(device)}`)
+
           switch (device.type) {
             case 'Dishwasher':
               await this.createSmartHQDishWasher(userId, device, details, features)
@@ -704,6 +706,12 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
             // note atop smarthqV2.ts for what was measured.
             case 'Smoker':
               await this.createSmartHQSmoker(userId, device, details, features)
+              break
+            // A standalone hob. Shown as a read-only "cooktop on" sensor, the
+            // same as a range's cooktop; the status layout was read off a
+            // CHP95362M4SS (#125)
+            case 'Induction Cooktop':
+              await this.createSmartHQCooktop(userId, device, details, features)
               break
             default:
               // ⚠️ Quote the type and include the model. Adding an appliance is
@@ -1204,6 +1212,62 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       accessory.displayName = await this.validateAndCleanDisplayName(displayName, 'configDeviceName', displayName)
       accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
       accessory.control = new SmartHQHood(this, accessory, deviceData)
+      this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
+      this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
+      this.accessories.push(accessory)
+    } else {
+      this.debugErrorLog(`Unable to Register new device: ${JSON.stringify(deviceData.nickname)}`)
+    }
+  }
+
+  private async createSmartHQCooktop(userId: any, device: any, details: any, features: any) {
+    // Merge device data
+    // `configDeviceName` is written by the device picker in the custom UI and was
+    // read by nothing, so renaming a device there had no effect at all. Resolve it
+    // once here, falling back to the appliance's own nickname.
+    const deviceData = { brand: 'GE', ...details, ...features, ...device }
+    const displayName = (deviceData as any).configDeviceName || deviceData.nickname
+
+    // Determine protocol (Matter or HAP)
+    deviceData.useMatter = this.shouldUseMatter(deviceData)
+
+    const uuid = this.api.hap.uuid.generate(deviceData.applianceId)
+    const existingAccessory = this.accessories.find(accessory => accessory.UUID === uuid)
+
+    const protocol = deviceData.useMatter ? 'Matter' : 'HAP'
+
+    if (existingAccessory) {
+      if (!deviceData.hide_device) {
+        // Check if protocol changed to Matter - if so, remove from HAP bridge
+        if (this.shouldUnregisterForMatter(existingAccessory, deviceData)) {
+          const accessory = new this.api.platformAccessory<SmartHqContext>(displayName, uuid)
+          accessory.context.device = deviceData
+          accessory.context = { device: deviceData, userId }
+          accessory.displayName = await this.validateAndCleanDisplayName(displayName, 'configDeviceName', displayName)
+          accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
+          accessory.control = new SmartHQCooktop(this, accessory, deviceData)
+          this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
+        } else {
+          existingAccessory.context.device = deviceData
+          existingAccessory.context = { device: deviceData, userId }
+          existingAccessory.displayName = await this.validateAndCleanDisplayName(displayName, 'configDeviceName', displayName)
+          existingAccessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
+          this.api.updatePlatformAccessories([existingAccessory])
+          this.infoLog(`[${protocol}] Restoring existing accessory from cache: ${existingAccessory.displayName}`)
+          existingAccessory.control = new SmartHQCooktop(this, existingAccessory, deviceData)
+          this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
+        }
+      } else {
+        this.unregisterPlatformAccessories(existingAccessory)
+      }
+    } else if (!deviceData.hide_device && !existingAccessory) {
+      this.infoLog(`[${protocol}] Adding new accessory: ${deviceData.nickname}`)
+      const accessory = new this.api.platformAccessory<SmartHqContext>(displayName, uuid)
+      accessory.context.device = deviceData
+      accessory.context = { device: deviceData, userId }
+      accessory.displayName = await this.validateAndCleanDisplayName(displayName, 'configDeviceName', displayName)
+      accessory.context.device.firmware = deviceData.firmware ?? await this.getVersion()
+      accessory.control = new SmartHQCooktop(this, accessory, deviceData)
       this.debugLog(`${deviceData.nickname} uuid: ${deviceData.applianceId}`)
       this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
       this.accessories.push(accessory)

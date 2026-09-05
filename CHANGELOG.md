@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file. This projec
 ### Changed
 
 - feat(log): record what an unsupported appliance reports at debug, so one paste is enough to add it (#125)
+- feat(cooktop): add the induction cooktop as a read-only cooktop-on sensor (#125)
 
 ## v0.8.1 (2026-08-28)
 
