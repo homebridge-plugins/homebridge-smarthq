@@ -630,6 +630,16 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
           ])
           this.debugLog(`Device: ${JSON.stringify(device)}`)
 
+          // The appliance record sometimes arrives without its firmware
+          // version. Falling back to the plugin's own version then made the
+          // firmware shown in Home flip between the two across restarts (#126),
+          // so keep the last real value the appliance did report instead
+          if (!details?.firmware && !device.firmware) {
+            const remembered = this.accessories.find(a => a.context?.device?.applianceId === device.applianceId)?.context?.device?.firmware
+            if (remembered && remembered !== this.version) {
+              details.firmware = remembered
+            }
+          }
           switch (device.type) {
             case 'Dishwasher':
               await this.createSmartHQDishWasher(userId, device, details, features)

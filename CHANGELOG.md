@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file. This projec
 - feat(cooktop): add the induction cooktop as a read-only cooktop-on sensor (#125)
 - fix(oven): mode switches can drive the lower cavity, where many double ovens keep those modes (#128)
 - fix(water-heater): allow target temperatures up to 70c, heat pump heaters go to 150f (#126)
+- fix(firmware): keep the appliance's last reported firmware when the api omits it (#126)
 
 ## v0.8.1 (2026-08-28)
 

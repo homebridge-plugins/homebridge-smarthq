@@ -403,6 +403,34 @@ describe('smartHQPlatform appliance type dispatch', () => {
     expect(vi.mocked(axios.get)).toHaveBeenCalledWith('/appliance/a-4/erd')
   })
 
+  /**
+   * The appliance record sometimes arrives without its firmware. Falling back
+   * to the plugin's own version made the value shown in Home flip between the
+   * two across restarts (#126) - so the last real value is kept instead.
+   */
+  it('keeps the firmware an appliance last reported when the api omits it', async () => {
+    const getAccessToken = await import('./getAccessToken.js')
+    vi.mocked(getAccessToken.default).mockResolvedValue({ access_token: 'test-token', refresh_token: 'test-refresh', expires_in: 3600 } as any)
+    vi.mocked(getAccessToken.refreshAccessToken).mockResolvedValue({ access_token: 'test-token', refresh_token: 'test-refresh', expires_in: 3600 } as any)
+    const axios = (await import('axios')).default
+    vi.mocked(axios.get).mockImplementation((url: string) => {
+      if (url === '/appliance') {
+        return Promise.resolve({ data: { userId: 'user-1', items: [{ applianceId: 'a-5', type: 'Dishwasher', nickname: 'Dishwasher' }] } })
+      }
+      // details without a firmware field this time round
+      return Promise.resolve({ data: {} })
+    })
+    const platform = new SmartHQPlatform(mockLog, config, mockApi)
+    ;(platform as any).accessories.push({ UUID: 'other', context: { device: { applianceId: 'a-5', firmware: '2.1.0' } } })
+    const dishwasher = vi.spyOn(platform as any, 'createSmartHQDishWasher').mockResolvedValue(undefined)
+
+    await platform.discoverDevices()
+
+    expect(dishwasher).toHaveBeenCalledTimes(1)
+    const details = dishwasher.mock.calls[0][2] as any
+    expect(details.firmware).toBe('2.1.0')
+  })
+
   it('names the type and model when it does not recognise an appliance', async () => {
     await discoverOne({ applianceId: 'a-3', type: 'Toaster Oven', nickname: 'Toaster', model: 'TO123' })
 
