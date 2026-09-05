@@ -220,8 +220,11 @@ export class SmartHQWaterHeater extends deviceBase {
     heaterService
       .getCharacteristic(this.platform.Characteristic.TargetTemperature)
       .setProps({
+        // Heat pump heaters go to 150F (65.5C) and their app lets owners set
+        // it; capping HomeKit at 60 made every higher reading a characteristic
+        // warning and hid the real setting (#126)
         minValue: 40,
-        maxValue: 60,
+        maxValue: 70,
         minStep: 1,
       })
       .onGet(async () => {
