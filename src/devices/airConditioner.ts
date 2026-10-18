@@ -70,6 +70,7 @@ export class SmartHQAirConditioner extends deviceBase {
 
   // Lazily flipped off when the appliance reports no swing mode ERD (#99)
   private swingModeSupported = true
+  private filterStatusSupported = true
 
   private readonly defaultOperationMode: OperationMode
   private readonly createSeparateFanService: boolean
@@ -921,6 +922,9 @@ export class SmartHQAirConditioner extends deviceBase {
   }
 
   public async handleGetFilterChangeIndication(): Promise<CharacteristicValue> {
+    if (!this.filterStatusSupported) {
+      return this.platform.Characteristic.FilterChangeIndication.FILTER_OK
+    }
     try {
       const value: FilterStatus = await this.getFilterStatus()
 
@@ -928,6 +932,15 @@ export class SmartHQAirConditioner extends deviceBase {
         ? this.platform.Characteristic.FilterChangeIndication.FILTER_OK
         : this.platform.Characteristic.FilterChangeIndication.CHANGE_FILTER
     } catch (cause) {
+      // Some models (e.g. the Haier AS35TBCHRA split system) report no filter
+      // status at all. Erroring here aborted every refresh at the filter step,
+      // so nothing after it was ever updated (#137) - remember it instead, the
+      // same way a model without swing hardware is handled
+      if (cause instanceof Error && cause.message.includes('No value returned')) {
+        this.filterStatusSupported = false
+        this.platform.log.info(`[${this.accessory.displayName}] Filter status is not reported by this model, so it will not be shown as needing a change`)
+        return this.platform.Characteristic.FilterChangeIndication.FILTER_OK
+      }
       const error = new Error(`Failed to handle get filter change indication: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`, { cause })
       this.platform.log.error(`[${this.accessory.displayName}] ${error.message}`)
 
