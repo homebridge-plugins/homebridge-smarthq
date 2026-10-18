@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file. This projec
 - fix(water-heater): allow target temperatures up to 70c, heat pump heaters go to 150f (#126)
 - fix(firmware): keep the appliance's last reported firmware when the api omits it (#126)
 - fix(schema): stop requiring logging and region in options, both have defaults (#126)
+- fix(schema): show the oven mode switches cavity setting in the settings form (#128)
 
 ## v0.8.1 (2026-08-28)
 

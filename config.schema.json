@@ -442,6 +442,7 @@
             "devices[].showConvBakeMultiSwitch",
             "devices[].showConvRoastSwitch",
             "devices[].showAirFrySwitch",
+            "devices[].cookModeCavity",
             "devices[].showRunningSwitch",
             "devices[].showFilterBattery",
             "devices[].firmware",
