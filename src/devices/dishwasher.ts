@@ -10,6 +10,20 @@ import type { devicesConfig, SmartHqContext } from '../settings.js'
 import { ERD_TYPES } from '../settings.js'
 import { deviceBase } from './device.js'
 
+/**
+ * Whether a DISHWASHER_DOOR_STATUS value means the door is open.
+ *
+ * `00` is open and `01` is closed - the reverse of what this handler used to
+ * assume (#134). Three sources agree: an owner's capture of the door opening
+ * and closing, the Fisher & Paykel DishDrawer proven on hardware on the same
+ * ERD, and the gehome library (`CLOSED = 1, OPEN = 0, NA = 255`). `FF` (not
+ * available) and an unreadable value both count as closed, so a missing
+ * reading never shows the door as open.
+ */
+export function isDishwasherDoorOpen(raw: string | undefined): boolean {
+  return raw !== undefined && raw !== '' && Number.parseInt(raw, 16) === 0
+}
+
 export class SmartHQDishWasher extends deviceBase {
   // Updates
   deviceStatus: any
@@ -210,8 +224,7 @@ export class SmartHQDishWasher extends deviceBase {
       .getCharacteristic(this.platform.Characteristic.ContactSensorState)
       .onGet(async () => {
         const r = await this.readErd(ERD_TYPES.DISHWASHER_DOOR_STATUS)
-        // 0=closed (detected), 1=open (not detected)
-        return r && Number.parseInt(r, 16) === 1
+        return isDishwasherDoorOpen(r)
           ? this.platform.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED
           : this.platform.Characteristic.ContactSensorState.CONTACT_DETECTED
       })
@@ -285,7 +298,7 @@ export class SmartHQDishWasher extends deviceBase {
           const r = await this.try_get_erd_value(ERD_TYPES.DISHWASHER_DOOR_STATUS)
           this.doorSensor?.updateCharacteristic(
             this.platform.Characteristic.ContactSensorState,
-            r && Number.parseInt(r, 16) === 1
+            isDishwasherDoorOpen(r)
               ? this.platform.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED
               : this.platform.Characteristic.ContactSensorState.CONTACT_DETECTED,
           )

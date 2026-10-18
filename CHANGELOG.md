@@ -14,6 +14,7 @@ All notable changes to this project will be documented in this file. This projec
 - fix(schema): stop requiring logging and region in options, both have defaults (#126)
 - fix(schema): show the oven mode switches cavity setting in the settings form (#128)
 - fix(ac): treat a missing filter status as unsupported, so refreshes stop failing partway (#137)
+- fix(dishwasher): read the door the right way round, 00 is open and 01 is closed (#134)
 
 ## v0.8.1 (2026-08-28)
 
