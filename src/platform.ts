@@ -509,6 +509,32 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
    * picture, instead of a round trip asking them to find it (#125). A failure
    * here is logged and swallowed - it must never stop discovery.
    */
+  /**
+   * Log every service the v2 API publishes for an appliance, with its current
+   * state - one line each. A diagnostic: nothing reads these services yet for
+   * appliances other than the smoker.
+   */
+  private async logV2Services(device: any): Promise<void> {
+    try {
+      const deviceId = await this.v2.resolveDeviceId(device.applianceId)
+      if (!deviceId) {
+        await this.debugLog(`v2 services of "${device.type}" ${device.applianceId}: not listed on the v2 API`)
+        return
+      }
+      const services = await this.v2.getServices(deviceId)
+      if (!services.length) {
+        await this.debugLog(`v2 services of "${device.type}" ${device.applianceId}: none`)
+      }
+      for (const service of services) {
+        await this.debugLog(`v2 service of "${device.type}" ${device.applianceId}: ${service.serviceType}`
+          + ` domain=${service.domainType ?? '-'} device=${service.serviceDeviceType ?? '-'}`
+          + ` state=${JSON.stringify(service.state ?? {})}`)
+      }
+    } catch (e: any) {
+      await this.debugLog(`Could not read the v2 services of "${device.type}" ${device.applianceId}: ${e?.message ?? e}`)
+    }
+  }
+
   private async logUnsupportedApplianceErds(device: any): Promise<void> {
     try {
       const res = await axios.get(`/appliance/${device.applianceId}/erd`)
@@ -629,6 +655,14 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
             axios.get(`/appliance/${device.applianceId}/feature`),
           ])
           this.debugLog(`Device: ${JSON.stringify(device)}`)
+
+          // With the plugin's own logging level on Debug only: list what the v2
+          // API publishes for the appliance, to find out what it offers beyond
+          // its ERDs, such as an energy reading (#135). Read once over the web
+          // API, so the v2 websocket stays closed for appliances that don't use it
+          if (this.platformLogging === 'debug' && device.type !== 'Smoker') {
+            await this.logV2Services(device)
+          }
 
           // The appliance record sometimes arrives without its firmware
           // version. Falling back to the plugin's own version then made the
