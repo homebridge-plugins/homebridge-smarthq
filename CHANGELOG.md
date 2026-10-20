@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file. This projec
 ### Changed
 
 - ci: update github actions to their latest versions (#138)
+- feat: list what the v2 api reports for each appliance at the debug logging level (#135)
 
 ## v0.9.0 (2026-10-18)
 
