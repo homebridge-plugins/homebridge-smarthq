@@ -91,7 +91,9 @@ describe('oven cooking modes', () => {
 
   it('exposes nothing at all by default, so an existing oven is unchanged', () => {
     expect(enabledCookModes({})).toEqual([])
-    expect(matterSupportedModes({})).toEqual([{ label: 'Off', mode: 0 }])
+    expect(matterSupportedModes({})).toEqual([
+      { label: 'Off', mode: 0 },
+    ])
   })
 
   it('ignores an option that is present but false', () => {
@@ -159,7 +161,9 @@ describe('cookModeSwitchStates', () => {
 
   it('reports nothing for a mode the oven is in but the user has not enabled', () => {
     // Bake started from the thermostat, with only the Air Fry switch enabled.
-    expect(cookModeSwitchStates({ showAirFrySwitch: true }, 0x01)).toEqual([{ key: 'AIR_FRY', on: false }])
+    expect(cookModeSwitchStates({ showAirFrySwitch: true }, 0x01)).toEqual([
+      { key: 'AIR_FRY', on: false },
+    ])
   })
 })
 
@@ -252,7 +256,9 @@ describe('cook mode writes', () => {
 
     await oven.writeCookMode(1, 350)
 
-    expect(writes).toEqual([{ erd: ERD_TYPES.UPPER_OVEN_COOK_MODE, payload: '01015e00000000000000000000' }])
+    expect(writes).toEqual([
+      { erd: ERD_TYPES.UPPER_OVEN_COOK_MODE, payload: '01015e00000000000000000000' },
+    ])
   })
 
   /**
@@ -269,7 +275,12 @@ describe('cook mode writes', () => {
 
     await oven.startCookModeSwitch({ label: 'Air Fry', mode: 0x9E })
 
-    expect(writes).toEqual([{ erd: ERD_TYPES.UPPER_OVEN_COOK_MODE, payload: cookModePayload(0x9E, 350) }])
+    expect(writes).toEqual([
+      {
+        erd: ERD_TYPES.UPPER_OVEN_COOK_MODE,
+        payload: cookModePayload(0x9E, 350),
+      },
+    ])
   })
 
   it('drives the mode switches at the lower cavity when the config says so', async () => {
@@ -282,11 +293,18 @@ describe('cook mode writes', () => {
     await oven.startCookModeSwitch({ label: 'Air Fry', mode: 0x9E })
 
     // the lower cavity, at the lower cavity's own target temperature
-    expect(writes).toEqual([{ erd: ERD_TYPES.LOWER_OVEN_COOK_MODE, payload: cookModePayload(0x9E, 375) }])
+    expect(writes).toEqual([
+      {
+        erd: ERD_TYPES.LOWER_OVEN_COOK_MODE,
+        payload: cookModePayload(0x9E, 375),
+      },
+    ])
   })
 
   it('stops the configured cavity only when that mode is the one running', async () => {
-    const { oven, writes } = ovenWriting({ [ERD_TYPES.LOWER_OVEN_COOK_MODE]: cookModePayload(0x9E, 375) })
+    const { oven, writes } = ovenWriting({
+      [ERD_TYPES.LOWER_OVEN_COOK_MODE]: cookModePayload(0x9E, 375),
+    })
     oven.device = { showAirFrySwitch: true, cookModeCavity: 'lower' }
     oven.infoLog = vi.fn()
 
@@ -294,7 +312,12 @@ describe('cook mode writes', () => {
     expect(writes).toEqual([])
 
     await oven.stopCookModeSwitch({ label: 'Air Fry', mode: 0x9E })
-    expect(writes).toEqual([{ erd: ERD_TYPES.LOWER_OVEN_COOK_MODE, payload: cookModePayload(0, 0) }])
+    expect(writes).toEqual([
+      {
+        erd: ERD_TYPES.LOWER_OVEN_COOK_MODE,
+        payload: cookModePayload(0, 0),
+      },
+    ])
   })
 
   it('writes the lower cavity when asked, and never the upper', async () => {
@@ -303,7 +326,9 @@ describe('cook mode writes', () => {
 
     await oven.writeCookMode(1, 350, ERD_TYPES.LOWER_OVEN_COOK_MODE)
 
-    expect(writes).toEqual([{ erd: ERD_TYPES.LOWER_OVEN_COOK_MODE, payload: '01015e00000000000000000000' }])
+    expect(writes).toEqual([
+      { erd: ERD_TYPES.LOWER_OVEN_COOK_MODE, payload: '01015e00000000000000000000' },
+    ])
     expect(writes.map(write => write.erd)).not.toContain(ERD_TYPES.UPPER_OVEN_COOK_MODE)
   })
 

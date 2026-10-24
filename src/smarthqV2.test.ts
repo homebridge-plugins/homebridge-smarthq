@@ -74,7 +74,10 @@ describe('borrowing the plugin token for v2', () => {
   })
 
   it('refuses to run at all with no token to borrow', async () => {
-    const v2 = new SmartHQV2({ ...platform, currentTokenSet: () => undefined })
+    const v2 = new SmartHQV2({
+      ...platform,
+      currentTokenSet: () => undefined,
+    })
     await expect((v2 as any).getClient()).rejects.toThrow(/no smarthq access token/i)
   })
 

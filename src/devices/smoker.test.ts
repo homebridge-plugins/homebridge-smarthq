@@ -26,8 +26,14 @@ describe('reading a smoker temperature', () => {
   it.each([
     ['no state at all', undefined],
     ['an empty state', {}],
-    ['a non-numeric reading', { fahrenheit: 'hot' }],
-    ['a null reading', { celsiusConverted: null }],
+    [
+      'a non-numeric reading',
+      { fahrenheit: 'hot' },
+    ],
+    [
+      'a null reading',
+      { celsiusConverted: null },
+    ],
   ])('says nothing rather than guessing for %s', (_label, state) => {
     expect(readCelsius(state as any)).toBeUndefined()
   })
@@ -93,17 +99,26 @@ describe('fitting a smoker temperature into HomeKit', () => {
  */
 describe('the setpoint behind the thermostat target', () => {
   const modes = new Map<string, Record<string, any>>([
-    ['cloud.smarthq.domain.cooking.food.porkrib', {
-      cavityTemperatureCelsiusConverted: 107.22222222222223,
-      cavityTemperatureFahrenheit: 225,
-    }],
-    ['cloud.smarthq.domain.cooking.food.wings', {
-      cavityTemperatureCelsiusConverted: 148.88888888888889,
-      cavityTemperatureFahrenheit: 300,
-    }],
-    ['cloud.smarthq.domain.cooking.warm', {
-      cavityTemperatureFahrenheit: 150, // this preset ships no converted celsius
-    }],
+    [
+      'cloud.smarthq.domain.cooking.food.porkrib',
+      {
+        cavityTemperatureCelsiusConverted: 107.22222222222223,
+        cavityTemperatureFahrenheit: 225,
+      },
+    ],
+    [
+      'cloud.smarthq.domain.cooking.food.wings',
+      {
+        cavityTemperatureCelsiusConverted: 148.88888888888889,
+        cavityTemperatureFahrenheit: 300,
+      },
+    ],
+    [
+      'cloud.smarthq.domain.cooking.warm',
+      {
+        cavityTemperatureFahrenheit: 150, // this preset ships no converted celsius
+      },
+    ],
   ])
 
   it('reads the setpoint of whichever preset is running', () => {

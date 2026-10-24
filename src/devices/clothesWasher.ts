@@ -82,7 +82,9 @@ export class SmartHQClothesWasher extends deviceBase {
       UUID: this.matterUuid,
       displayName: this.device.nickname || 'SmartHQ Washer',
       serialNumber,
-      manufacturer: this.device.brand && this.device.brand !== 'Unknown' ? this.device.brand : 'GE Appliances',
+      manufacturer: this.device.brand && this.device.brand !== 'Unknown'
+        ? this.device.brand
+        : 'GE Appliances',
       model: this.device.model || 'SmartHQ',
       firmwareRevision: this.deviceFirmwareVersion,
       hardwareRevision: this.deviceFirmwareVersion,
@@ -92,7 +94,14 @@ export class SmartHQClothesWasher extends deviceBase {
         operationalState: {
           operationalState: 0, // 0=Stopped, 1=Running, 2=Paused
           operationalError: { errorStateID: 0 },
-          phaseList: ['Fill', 'Soak', 'Wash', 'Rinse', 'Spin', 'Drain'],
+          phaseList: [
+            'Fill',
+            'Soak',
+            'Wash',
+            'Rinse',
+            'Spin',
+            'Drain',
+          ],
           currentPhase: 0,
         },
         // LaundryWasher Mode cluster for cycle selection (maps to LAUNDRY_CYCLE)
@@ -203,13 +212,17 @@ export class SmartHQClothesWasher extends deviceBase {
     washerValve
       .getCharacteristic(this.platform.Characteristic.Active)
       .onGet(async () => {
-        return await this.isMachineRunning() ? this.platform.Characteristic.Active.ACTIVE : this.platform.Characteristic.Active.INACTIVE
+        return await this.isMachineRunning()
+          ? this.platform.Characteristic.Active.ACTIVE
+          : this.platform.Characteristic.Active.INACTIVE
       })
 
     washerValve
       .getCharacteristic(this.platform.Characteristic.InUse)
       .onGet(async () => {
-        return await this.isMachineRunning() ? this.platform.Characteristic.InUse.IN_USE : this.platform.Characteristic.InUse.NOT_IN_USE
+        return await this.isMachineRunning()
+          ? this.platform.Characteristic.InUse.IN_USE
+          : this.platform.Characteristic.InUse.NOT_IN_USE
       })
 
     washerValve
@@ -342,10 +355,14 @@ export class SmartHQClothesWasher extends deviceBase {
             8: 'Extra Rinse',
           }
 
-          const subCode = subCycleCode ? Number.parseInt(subCycleCode, 16) : 0
+          const subCode = subCycleCode
+            ? Number.parseInt(subCycleCode, 16)
+            : 0
           const subCycleName = subCycleMap[subCode] || ''
 
-          this.infoLog(`Washer Cycle: ${cycleName}${subCycleName !== 'None' ? ` - ${subCycleName}` : ''}`)
+          this.infoLog(`Washer Cycle: ${cycleName}${subCycleName !== 'None'
+            ? ` - ${subCycleName}`
+            : ''}`)
           return true // Motion detected when cycle is running
         }
         return false

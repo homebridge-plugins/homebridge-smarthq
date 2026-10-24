@@ -418,7 +418,10 @@ export function normaliseErd(erd: string): string {
 }
 
 const ERD_CODES_BY_NORMALISED: Record<string, string> = Object.fromEntries(
-  Object.entries(ERD_CODES).map(([code, name]) => [normaliseErd(code), name as string]),
+  Object.entries(ERD_CODES).map(([code, name]) => [
+    normaliseErd(code),
+    name as string,
+  ]),
 )
 
 /**

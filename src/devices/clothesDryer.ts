@@ -82,7 +82,9 @@ export class SmartHQClothesDryer extends deviceBase {
       UUID: this.matterUuid,
       displayName: this.device.nickname || 'SmartHQ Dryer',
       serialNumber,
-      manufacturer: this.device.brand && this.device.brand !== 'Unknown' ? this.device.brand : 'GE Appliances',
+      manufacturer: this.device.brand && this.device.brand !== 'Unknown'
+        ? this.device.brand
+        : 'GE Appliances',
       model: this.device.model || 'SmartHQ',
       firmwareRevision: this.deviceFirmwareVersion,
       hardwareRevision: this.deviceFirmwareVersion,
@@ -209,13 +211,17 @@ export class SmartHQClothesDryer extends deviceBase {
     dryerValve
       .getCharacteristic(this.platform.Characteristic.Active)
       .onGet(async () => {
-        return await this.isMachineRunning() ? this.platform.Characteristic.Active.ACTIVE : this.platform.Characteristic.Active.INACTIVE
+        return await this.isMachineRunning()
+          ? this.platform.Characteristic.Active.ACTIVE
+          : this.platform.Characteristic.Active.INACTIVE
       })
 
     dryerValve
       .getCharacteristic(this.platform.Characteristic.InUse)
       .onGet(async () => {
-        return await this.isMachineRunning() ? this.platform.Characteristic.InUse.IN_USE : this.platform.Characteristic.InUse.NOT_IN_USE
+        return await this.isMachineRunning()
+          ? this.platform.Characteristic.InUse.IN_USE
+          : this.platform.Characteristic.InUse.NOT_IN_USE
       })
 
     dryerValve
@@ -331,10 +337,14 @@ export class SmartHQClothesDryer extends deviceBase {
             133: 'Air Fluff',
           }
 
-          const subCode = subCycleCode ? Number.parseInt(subCycleCode, 16) : 0
+          const subCode = subCycleCode
+            ? Number.parseInt(subCycleCode, 16)
+            : 0
           const subCycleName = subCycleMap[subCode] || ''
 
-          this.infoLog(`Dryer Cycle: ${cycleName}${subCycleName !== 'None' ? ` - ${subCycleName}` : ''}`)
+          this.infoLog(`Dryer Cycle: ${cycleName}${subCycleName !== 'None'
+            ? ` - ${subCycleName}`
+            : ''}`)
           return true // Motion detected when cycle is running
         }
         return false

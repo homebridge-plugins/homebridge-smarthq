@@ -204,7 +204,9 @@ export class SmartHQCombinationWasherDryer extends deviceBase {
       UUID: this.matterUuid,
       displayName: this.device.nickname || 'SmartHQ Washer/Dryer',
       serialNumber,
-      manufacturer: this.device.brand && this.device.brand !== 'Unknown' ? this.device.brand : 'GE Appliances',
+      manufacturer: this.device.brand && this.device.brand !== 'Unknown'
+        ? this.device.brand
+        : 'GE Appliances',
       model: this.device.model || 'SmartHQ',
       firmwareRevision: this.deviceFirmwareVersion,
       hardwareRevision: this.deviceFirmwareVersion,
@@ -214,7 +216,16 @@ export class SmartHQCombinationWasherDryer extends deviceBase {
         operationalState: {
           operationalState: 0, // 0=Stopped, 1=Running, 2=Paused
           operationalError: { errorStateID: 0 },
-          phaseList: ['Fill', 'Soak', 'Wash', 'Rinse', 'Spin', 'Drain', 'Drying', 'Cooling'],
+          phaseList: [
+            'Fill',
+            'Soak',
+            'Wash',
+            'Rinse',
+            'Spin',
+            'Drain',
+            'Drying',
+            'Cooling',
+          ],
           currentPhase: 0,
         },
         // LaundryWasher Mode cluster for cycle selection (maps to LAUNDRY_CYCLE).
@@ -322,13 +333,17 @@ export class SmartHQCombinationWasherDryer extends deviceBase {
     machineValve
       .getCharacteristic(this.platform.Characteristic.Active)
       .onGet(async () => {
-        return await this.isMachineRunning() ? this.platform.Characteristic.Active.ACTIVE : this.platform.Characteristic.Active.INACTIVE
+        return await this.isMachineRunning()
+          ? this.platform.Characteristic.Active.ACTIVE
+          : this.platform.Characteristic.Active.INACTIVE
       })
 
     machineValve
       .getCharacteristic(this.platform.Characteristic.InUse)
       .onGet(async () => {
-        return await this.isMachineRunning() ? this.platform.Characteristic.InUse.IN_USE : this.platform.Characteristic.InUse.NOT_IN_USE
+        return await this.isMachineRunning()
+          ? this.platform.Characteristic.InUse.IN_USE
+          : this.platform.Characteristic.InUse.NOT_IN_USE
       })
 
     machineValve
@@ -410,10 +425,19 @@ export class SmartHQCombinationWasherDryer extends deviceBase {
         // sub-cycle phase, then to a plain "Running".
         const cycleCode = await this.readErd(ERD_TYPES.LAUNDRY_CYCLE)
         const subCycleCode = await this.readErd(ERD_TYPES.LAUNDRY_SUB_CYCLE)
-        const cycleName = cycleCode && cycleCode !== '00' ? combinationCycleName(Number.parseInt(cycleCode, 16)) : undefined
-        const subCycleName = subCycleCode ? combinationSubCycleName(Number.parseInt(subCycleCode, 16)) : ''
+        const cycleName = cycleCode && cycleCode !== '00'
+          ? combinationCycleName(Number.parseInt(cycleCode, 16))
+          : undefined
+        const subCycleName = subCycleCode
+          ? combinationSubCycleName(Number.parseInt(subCycleCode, 16))
+          : ''
 
-        const label = [cycleName, subCycleName && subCycleName !== 'None' ? subCycleName : undefined].filter(Boolean).join(' - ')
+        const label = [
+          cycleName,
+          subCycleName && subCycleName !== 'None'
+            ? subCycleName
+            : undefined,
+        ].filter(Boolean).join(' - ')
         this.infoLog(`Washer/Dryer Cycle: ${label || 'Running'}`)
         return true // Motion detected whenever the machine is running
       })

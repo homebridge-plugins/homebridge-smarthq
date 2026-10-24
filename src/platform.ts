@@ -450,7 +450,9 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
         // A socket that could not hold (dropped soon after opening) is the
         // real news, and keeps the warning
         if (!this.wsReconnectTimer) {
-          const heldMs = this.wsConnectedAt ? Date.now() - this.wsConnectedAt : 0
+          const heldMs = this.wsConnectedAt
+            ? Date.now() - this.wsConnectedAt
+            : 0
           const message = `Websocket connection lost, reconnecting in ${KEEPALIVE_TIMEOUT / 1000} seconds`
           if (heldMs >= WS_ROUTINE_HOLD_MS) {
             this.debugLog(message)
@@ -538,9 +540,13 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
   private async logUnsupportedApplianceErds(device: any): Promise<void> {
     try {
       const res = await axios.get(`/appliance/${device.applianceId}/erd`)
-      const items = Array.isArray(res.data?.items) ? res.data.items : res.data
+      const items = Array.isArray(res.data?.items)
+        ? res.data.items
+        : res.data
       const dump = Array.isArray(items)
-        ? items.map((item: any) => `${item.erd}=${typeof item.value === 'object' ? JSON.stringify(item.value) : item.value}`).join(', ')
+        ? items.map((item: any) => `${item.erd}=${typeof item.value === 'object'
+            ? JSON.stringify(item.value)
+            : item.value}`).join(', ')
         : JSON.stringify(items)
       await this.debugLog(`ERDs reported by unsupported "${device.type}" ${device.applianceId}: ${dump}`)
     } catch (e: any) {
@@ -555,7 +561,9 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
   private handleErdPush(obj: any) {
     // Keep the pushed value even if we have no accessory for it yet, so
     // a device configured later still starts from live data
-    const liveValue = typeof obj.item.value === 'object' ? JSON.stringify(obj.item.value) : String(obj.item.value)
+    const liveValue = typeof obj.item.value === 'object'
+      ? JSON.stringify(obj.item.value)
+      : String(obj.item.value)
     this.setLiveErd(obj.item.applianceId, obj.item.erd, liveValue)
 
     const accessory = find(this.accessories, a => a.context.device.applianceId === obj.item.applianceId)
@@ -783,7 +791,12 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
     // `configDeviceName` is written by the device picker in the custom UI and was
     // read by nothing, so renaming a device there had no effect at all. Resolve it
     // once here, falling back to the appliance's own nickname.
-    const deviceData = { brand: 'GE', ...details, ...features, ...device }
+    const deviceData = {
+      brand: 'GE',
+      ...details,
+      ...features,
+      ...device,
+    }
     const displayName = (deviceData as any).configDeviceName || deviceData.nickname
 
     // Determine protocol (Matter or HAP)
@@ -844,7 +857,12 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
    * HAP bridge and leave nothing behind it.
    */
   private async createSmartHQDishDrawer(userId: any, device: any, details: any, features: any) {
-    const deviceData = { brand: 'Fisher and Paykel', ...details, ...features, ...device }
+    const deviceData = {
+      brand: 'Fisher and Paykel',
+      ...details,
+      ...features,
+      ...device,
+    }
     const displayName = (deviceData as any).configDeviceName || deviceData.nickname
 
     deviceData.useMatter = false
@@ -886,7 +904,12 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
     // `configDeviceName` is written by the device picker in the custom UI and was
     // read by nothing, so renaming a device there had no effect at all. Resolve it
     // once here, falling back to the appliance's own nickname.
-    const deviceData = { brand: 'GE', ...details, ...features, ...device }
+    const deviceData = {
+      brand: 'GE',
+      ...details,
+      ...features,
+      ...device,
+    }
     const displayName = (deviceData as any).configDeviceName || deviceData.nickname
 
     // Determine protocol (Matter or HAP)
@@ -943,7 +966,12 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
     // `configDeviceName` is written by the device picker in the custom UI and was
     // read by nothing, so renaming a device there had no effect at all. Resolve it
     // once here, falling back to the appliance's own nickname.
-    const deviceData = { brand: 'GE', ...details, ...features, ...device }
+    const deviceData = {
+      brand: 'GE',
+      ...details,
+      ...features,
+      ...device,
+    }
     const displayName = (deviceData as any).configDeviceName || deviceData.nickname
 
     // Determine protocol (Matter or HAP)
@@ -1019,7 +1047,12 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
     // `configDeviceName` is written by the device picker in the custom UI and was
     // read by nothing, so renaming a device there had no effect at all. Resolve it
     // once here, falling back to the appliance's own nickname.
-    const deviceData = { brand: 'GE', ...details, ...features, ...device }
+    const deviceData = {
+      brand: 'GE',
+      ...details,
+      ...features,
+      ...device,
+    }
     const displayName = (deviceData as any).configDeviceName || deviceData.nickname
 
     // `keurigOnly: true` means skip the main Refrigerator accessory but still
@@ -1087,7 +1120,12 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
     // `configDeviceName` is written by the device picker in the custom UI and was
     // read by nothing, so renaming a device there had no effect at all. Resolve it
     // once here, falling back to the appliance's own nickname.
-    const deviceData = { brand: 'GE', ...details, ...features, ...device }
+    const deviceData = {
+      brand: 'GE',
+      ...details,
+      ...features,
+      ...device,
+    }
     const keurigUuid = this.api.hap.uuid.generate(`${deviceData.applianceId}-keurig`)
     const existingAccessory = this.accessories.find(accessory => accessory.UUID === keurigUuid)
 
@@ -1156,7 +1194,12 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
     // `configDeviceName` is written by the device picker in the custom UI and was
     // read by nothing, so renaming a device there had no effect at all. Resolve it
     // once here, falling back to the appliance's own nickname.
-    const deviceData = { brand: 'GE', ...details, ...features, ...device }
+    const deviceData = {
+      brand: 'GE',
+      ...details,
+      ...features,
+      ...device,
+    }
     const displayName = (deviceData as any).configDeviceName || deviceData.nickname
 
     // Determine protocol (Matter or HAP)
@@ -1213,7 +1256,12 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
     // `configDeviceName` is written by the device picker in the custom UI and was
     // read by nothing, so renaming a device there had no effect at all. Resolve it
     // once here, falling back to the appliance's own nickname.
-    const deviceData = { brand: 'GE', ...details, ...features, ...device }
+    const deviceData = {
+      brand: 'GE',
+      ...details,
+      ...features,
+      ...device,
+    }
     const displayName = (deviceData as any).configDeviceName || deviceData.nickname
 
     // Determine protocol (Matter or HAP)
@@ -1269,7 +1317,12 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
     // `configDeviceName` is written by the device picker in the custom UI and was
     // read by nothing, so renaming a device there had no effect at all. Resolve it
     // once here, falling back to the appliance's own nickname.
-    const deviceData = { brand: 'GE', ...details, ...features, ...device }
+    const deviceData = {
+      brand: 'GE',
+      ...details,
+      ...features,
+      ...device,
+    }
     const displayName = (deviceData as any).configDeviceName || deviceData.nickname
 
     // Determine protocol (Matter or HAP)
@@ -1325,7 +1378,12 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
     // `configDeviceName` is written by the device picker in the custom UI and was
     // read by nothing, so renaming a device there had no effect at all. Resolve it
     // once here, falling back to the appliance's own nickname.
-    const deviceData = { brand: 'GE', ...details, ...features, ...device }
+    const deviceData = {
+      brand: 'GE',
+      ...details,
+      ...features,
+      ...device,
+    }
     const displayName = (deviceData as any).configDeviceName || deviceData.nickname
 
     // Determine protocol (Matter or HAP)
@@ -1381,7 +1439,12 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
     // `configDeviceName` is written by the device picker in the custom UI and was
     // read by nothing, so renaming a device there had no effect at all. Resolve it
     // once here, falling back to the appliance's own nickname.
-    const deviceData = { brand: 'GE', ...details, ...features, ...device }
+    const deviceData = {
+      brand: 'GE',
+      ...details,
+      ...features,
+      ...device,
+    }
     const displayName = (deviceData as any).configDeviceName || deviceData.nickname
 
     // Determine protocol (Matter or HAP)
@@ -1437,7 +1500,12 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
     // `configDeviceName` is written by the device picker in the custom UI and was
     // read by nothing, so renaming a device there had no effect at all. Resolve it
     // once here, falling back to the appliance's own nickname.
-    const deviceData = { brand: 'GE', ...details, ...features, ...device }
+    const deviceData = {
+      brand: 'GE',
+      ...details,
+      ...features,
+      ...device,
+    }
     const displayName = (deviceData as any).configDeviceName || deviceData.nickname
 
     // Determine protocol (Matter or HAP)
@@ -1493,7 +1561,12 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
     // `configDeviceName` is written by the device picker in the custom UI and was
     // read by nothing, so renaming a device there had no effect at all. Resolve it
     // once here, falling back to the appliance's own nickname.
-    const deviceData = { brand: 'GE', ...details, ...features, ...device }
+    const deviceData = {
+      brand: 'GE',
+      ...details,
+      ...features,
+      ...device,
+    }
     const displayName = (deviceData as any).configDeviceName || deviceData.nickname
 
     // Determine protocol (Matter or HAP)
@@ -1549,7 +1622,12 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
     // `configDeviceName` is written by the device picker in the custom UI and was
     // read by nothing, so renaming a device there had no effect at all. Resolve it
     // once here, falling back to the appliance's own nickname.
-    const deviceData = { brand: 'GE', ...details, ...features, ...device }
+    const deviceData = {
+      brand: 'GE',
+      ...details,
+      ...features,
+      ...device,
+    }
     const displayName = (deviceData as any).configDeviceName || deviceData.nickname
 
     // Determine protocol (Matter or HAP)
@@ -1605,7 +1683,12 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
     // `configDeviceName` is written by the device picker in the custom UI and was
     // read by nothing, so renaming a device there had no effect at all. Resolve it
     // once here, falling back to the appliance's own nickname.
-    const deviceData = { brand: 'GE', ...details, ...features, ...device }
+    const deviceData = {
+      brand: 'GE',
+      ...details,
+      ...features,
+      ...device,
+    }
     const displayName = (deviceData as any).configDeviceName || deviceData.nickname
 
     // Determine protocol (Matter or HAP)
@@ -1661,7 +1744,12 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
     // `configDeviceName` is written by the device picker in the custom UI and was
     // read by nothing, so renaming a device there had no effect at all. Resolve it
     // once here, falling back to the appliance's own nickname.
-    const deviceData = { brand: 'GE', ...details, ...features, ...device }
+    const deviceData = {
+      brand: 'GE',
+      ...details,
+      ...features,
+      ...device,
+    }
     const displayName = (deviceData as any).configDeviceName || deviceData.nickname
 
     // Determine protocol (Matter or HAP)
@@ -1717,7 +1805,12 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
     // `configDeviceName` is written by the device picker in the custom UI and was
     // read by nothing, so renaming a device there had no effect at all. Resolve it
     // once here, falling back to the appliance's own nickname.
-    const deviceData = { brand: 'GE', ...details, ...features, ...device }
+    const deviceData = {
+      brand: 'GE',
+      ...details,
+      ...features,
+      ...device,
+    }
     const displayName = (deviceData as any).configDeviceName || deviceData.nickname
 
     // Determine protocol (Matter or HAP)
@@ -1773,7 +1866,12 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
     // `configDeviceName` is written by the device picker in the custom UI and was
     // read by nothing, so renaming a device there had no effect at all. Resolve it
     // once here, falling back to the appliance's own nickname.
-    const deviceData = { brand: 'GE', ...details, ...features, ...device }
+    const deviceData = {
+      brand: 'GE',
+      ...details,
+      ...features,
+      ...device,
+    }
     const displayName = (deviceData as any).configDeviceName || deviceData.nickname
 
     // Determine protocol (Matter or HAP)
@@ -1829,7 +1927,12 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
     // `configDeviceName` is written by the device picker in the custom UI and was
     // read by nothing, so renaming a device there had no effect at all. Resolve it
     // once here, falling back to the appliance's own nickname.
-    const deviceData = { brand: 'GE', ...details, ...features, ...device }
+    const deviceData = {
+      brand: 'GE',
+      ...details,
+      ...features,
+      ...device,
+    }
     const displayName = (deviceData as any).configDeviceName || deviceData.nickname
 
     // Determine protocol (Matter or HAP)
@@ -1885,7 +1988,12 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
    * is built around the ERD devices, so it is always registered as HAP.
    */
   private async createSmartHQSmoker(userId: any, device: any, details: any, features: any) {
-    const deviceData = { brand: 'GE', ...details, ...features, ...device }
+    const deviceData = {
+      brand: 'GE',
+      ...details,
+      ...features,
+      ...device,
+    }
     const displayName = (deviceData as any).configDeviceName || deviceData.nickname
 
     const uuid = this.api.hap.uuid.generate(deviceData.applianceId)

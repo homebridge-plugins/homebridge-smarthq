@@ -37,7 +37,9 @@ export class OpalPowerSvcManager extends OpalDeviceBase {
       .setValue(this.configuredName)
     service
       .getCharacteristic(this.platform.Characteristic.On)
-      .onGet(() => this.readErd(ERD_TYPES.OIM_POWER).then(r => r ? Number.parseInt(r) !== 0 : false))
+      .onGet(() => this.readErd(ERD_TYPES.OIM_POWER).then(r => r
+        ? Number.parseInt(r) !== 0
+        : false))
       .onSet(value => this.writeErd(ERD_TYPES.OIM_POWER, value as boolean))
 
     return service

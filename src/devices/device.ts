@@ -72,7 +72,9 @@ export function decodeErdString(raw: string | undefined): string {
   if (trimmed === '') {
     return ''
   }
-  const hex = trimmed.startsWith('0x') || trimmed.startsWith('0X') ? trimmed.slice(2) : trimmed
+  const hex = trimmed.startsWith('0x') || trimmed.startsWith('0X')
+    ? trimmed.slice(2)
+    : trimmed
   if (hex.length === 0 || hex.length % 2 !== 0 || !/^[0-9a-f]+$/i.test(hex)) {
     // Not hex at all - treat it as text the appliance already decoded
     return printableOnly(trimmed)
@@ -215,7 +217,9 @@ export abstract class deviceBase {
 
   async getDeviceLogSettings(device: devicesConfig): Promise<void> {
     this.deviceLogging = device.logging ?? this.platform.platformLogging ?? 'standard'
-    const logging = device.logging ? 'Device Config' : this.platform.platformLogging ? 'Platform Config' : 'Default'
+    const logging = device.logging
+      ? 'Device Config'
+      : this.platform.platformLogging ? 'Platform Config' : 'Default'
     await this.debugLog(`Using ${logging} Logging: ${this.deviceLogging}`)
   }
 
@@ -228,7 +232,9 @@ export abstract class deviceBase {
       device.refreshRate ?? this.platform.platformRefreshRate ?? 360,
       MAX_TIMER_MS / 1000,
     )
-    const refreshRate = device.refreshRate ? 'Device Config' : this.platform.platformRefreshRate ? 'Platform Config' : 'Default'
+    const refreshRate = device.refreshRate
+      ? 'Device Config'
+      : this.platform.platformRefreshRate ? 'Platform Config' : 'Default'
     await this.debugLog(`Using ${refreshRate} refreshRate: ${this.deviceRefreshRate}`)
     // updateRate used to be parsed and echoed back here, which made it look
     // accepted - it was offered in the settings, described as how often HomeKit
@@ -298,7 +304,9 @@ export abstract class deviceBase {
     // Set accessory information
     this.accessory
       .getService(this.hap.Service.AccessoryInformation)!
-      .setCharacteristic(this.hap.Characteristic.Manufacturer, this.accessory.context.device.brand && this.accessory.context.device.brand !== 'Unknown' ? this.accessory.context.device.brand : 'GE Appliances')
+      .setCharacteristic(this.hap.Characteristic.Manufacturer, this.accessory.context.device.brand && this.accessory.context.device.brand !== 'Unknown'
+        ? this.accessory.context.device.brand
+        : 'GE Appliances')
       .setCharacteristic(this.hap.Characteristic.Name, this.accessory.context.device.nickname)
       .setCharacteristic(this.hap.Characteristic.ConfiguredName, this.accessory.context.device.nickname)
       .setCharacteristic(this.hap.Characteristic.Model, this.accessory.context.device.model)
@@ -325,12 +333,16 @@ export abstract class deviceBase {
     const device = (this.accessory?.context?.device ?? {}) as any
 
     // What the user typed wins: it is read off the label on the machine
-    const configured = typeof device.serialNumber === 'string' ? device.serialNumber.trim() : ''
+    const configured = typeof device.serialNumber === 'string'
+      ? device.serialNumber.trim()
+      : ''
     if (configured) {
       return configured
     }
 
-    const fromCloud = typeof device.serial === 'string' ? device.serial.trim() : ''
+    const fromCloud = typeof device.serial === 'string'
+      ? device.serial.trim()
+      : ''
     if (fromCloud && fromCloud !== 'Unknown') {
       return fromCloud
     }
@@ -569,7 +581,9 @@ export abstract class deviceBase {
       // For other errors, log warning and return undefined. A connection error
       // reaching here has already been retried, so say so - otherwise the line
       // reads as a one-off blip that nobody tried to recover from.
-      const attempts = isTransientNetworkError(error) ? ` after ${ERD_READ_ATTEMPTS} attempts` : ''
+      const attempts = isTransientNetworkError(error)
+        ? ` after ${ERD_READ_ATTEMPTS} attempts`
+        : ''
       await this.warnLog(`readErd ${erd} error${attempts}: ${error?.message ?? error}`)
       return undefined
     }
@@ -593,7 +607,9 @@ export abstract class deviceBase {
           userId: this.getUserId(),
           applianceId: this.getApplianceId(),
           erd,
-          value: typeof value === 'boolean' ? (value ? '01' : '00') : value,
+          value: typeof value === 'boolean'
+            ? (value ? '01' : '00')
+            : value,
         })
       await this.debugLog(`Successfully wrote ERD ${erd}`)
     } catch (error: any) {
@@ -713,7 +729,9 @@ export abstract class deviceBase {
 
         if (matterAPI.deviceTypes && typeof matterAPI.deviceTypes === 'object') {
           const deviceTypeKeys = Object.keys(matterAPI.deviceTypes)
-          this.infoLog(`[Matter Debug] Available deviceTypes (${deviceTypeKeys.length}): ${deviceTypeKeys.slice(0, 15).join(', ')}${deviceTypeKeys.length > 15 ? '...' : ''}`)
+          this.infoLog(`[Matter Debug] Available deviceTypes (${deviceTypeKeys.length}): ${deviceTypeKeys.slice(0, 15).join(', ')}${deviceTypeKeys.length > 15
+            ? '...'
+            : ''}`)
         }
       }
 
@@ -746,7 +764,9 @@ export abstract class deviceBase {
    * Helper to create base Matter accessory info
    */
   protected createBaseMatterConfig() {
-    const device = this.accessory ? this.accessory.context.device : {} as any
+    const device = this.accessory
+      ? this.accessory.context.device
+      : {} as any
     const displayName = device.nickname || 'SmartHQ Device'
     const serialNumber = device.applianceId || 'unknown'
 
@@ -764,7 +784,9 @@ export abstract class deviceBase {
 
         if (matterAPI.deviceTypes) {
           const deviceTypeKeys = Object.keys(matterAPI.deviceTypes)
-          this.infoLog(`[Matter Debug] Available deviceTypes (${deviceTypeKeys.length}): ${deviceTypeKeys.slice(0, 10).join(', ')}${deviceTypeKeys.length > 10 ? '...' : ''}`)
+          this.infoLog(`[Matter Debug] Available deviceTypes (${deviceTypeKeys.length}): ${deviceTypeKeys.slice(0, 10).join(', ')}${deviceTypeKeys.length > 10
+            ? '...'
+            : ''}`)
         }
       }
       this.constructor.prototype._matterAPILogged = true
@@ -779,7 +801,9 @@ export abstract class deviceBase {
       UUID: matterAPI.uuid.generate(serialNumber),
       displayName,
       serialNumber,
-      manufacturer: device.brand && device.brand !== 'Unknown' ? device.brand : 'GE Appliances',
+      manufacturer: device.brand && device.brand !== 'Unknown'
+        ? device.brand
+        : 'GE Appliances',
       model: device.model || 'SmartHQ',
       firmwareRevision: this.deviceFirmwareVersion || '1.0.0',
       hardwareRevision: this.deviceFirmwareVersion || '1.0.0',

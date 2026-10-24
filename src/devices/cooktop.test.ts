@@ -19,8 +19,12 @@ describe('reading the cooktop status', () => {
   })
 
   it('picks out which burner is lit and at what power', () => {
-    expect(cooktopBurners(leftFrontOn).filter(b => b.on)).toEqual([{ slot: 1, on: true, power: 0x19 }])
-    expect(cooktopBurners(rightRearOn).filter(b => b.on)).toEqual([{ slot: 6, on: true, power: 0x23 }])
+    expect(cooktopBurners(leftFrontOn).filter(b => b.on)).toEqual([
+      { slot: 1, on: true, power: 0x19 },
+    ])
+    expect(cooktopBurners(rightRearOn).filter(b => b.on)).toEqual([
+      { slot: 6, on: true, power: 0x23 },
+    ])
     expect(cooktopBurners(idle).some(b => b.on)).toBe(false)
   })
 
