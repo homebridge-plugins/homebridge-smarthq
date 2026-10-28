@@ -51,7 +51,7 @@
   },
   "dependencies": {
     "@homebridge/plugin-ui-utils": "^2.2.6",
-    "axios": "^1.20.0",
+    "axios": "^1.21.0",
     "axios-cookiejar-support": "^7.0.0",
     "cheerio": "^1.2.0",
     "ge-smarthq": "^1.2.2",
@@ -64,7 +64,7 @@
   "devDependencies": {
     "@antfu/eslint-config": "^10.0.0",
     "@types/lodash": "^4.17.27",
-    "@types/node": "^26.6.5",
+    "@types/node": "^26.6.6",
     "@vitest/coverage-v8": "^5.0.5",
     "homebridge": "^2.4.0",
     "nodemon": "^3.1.14",
