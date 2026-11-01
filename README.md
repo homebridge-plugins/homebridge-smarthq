@@ -34,6 +34,25 @@ Homebridge plugin to integrate SmartHQ appliances into HomeKit
 - [Beta Version](https://github.com/homebridge-plugins/homebridge-smarthq/wiki/Beta-Version)
 - [Node Version](https://github.com/homebridge-plugins/homebridge-smarthq/wiki/Node-Version)
 
+### Supported Appliances
+
+- Dishwashers, including Fisher & Paykel DishDrawers
+- Ovens
+- Refrigerators, including a built-in Keurig K-Cup brewer
+- Opal Nugget Ice Makers
+- Air conditioners, including portable, split and through-the-wall units
+- Hoods
+- Clothes washers, clothes dryers and combination washer dryers
+- Water filters
+- Water softeners
+- Water heaters
+- Advantium ovens
+- Microwaves
+- Coffee and espresso makers
+- Beverage centers
+- Smokers
+- Induction cooktops
+
 ### Features
 
 - **HomeKit Controller notifications** are supported for the Opal Ice Maker. To set up, install the HomeKit Controller app and configure notifications for each respective event. Put your HomeKit Controller client secret in the plugin advanced options, and the path associated with each available notification in the Opal device options. Supported events:
