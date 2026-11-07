@@ -7,7 +7,7 @@ import type { TokenSet } from 'openid-client'
 
 import type { credentials, devicesConfig, options, SmartHqContext, SmartHQPlatformConfig } from './settings.js'
 
-import { readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { SmartHQIceMaker } from '@opal/index.js'
@@ -25,6 +25,7 @@ import { SmartHQCombinationWasherDryer } from './devices/combinationWasherDryer.
 import { SmartHQCooktop } from './devices/cooktop.js'
 import { SmartHQDishDrawer } from './devices/dishDrawer.js'
 import { SmartHQDishWasher } from './devices/dishwasher.js'
+import { ENERGY_MODELS, EnergyHistory, EnergyMonitor, EnergyStore, removeEnergyServices } from './devices/energy/index.js'
 import { SmartHQHood } from './devices/hood.js'
 import { decideKeurigCapability, parseHotWaterStatus, SmartHQKeurig } from './devices/keurig.js'
 import { SmartHQMicrowave } from './devices/microwave.js'
@@ -69,6 +70,13 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
   public matterEnabled = false
   public matterAvailable = false
   public readonly matterAccessories: Map<string, MatterAccessory> = new Map()
+
+  /** Running kWh totals for the estimated energy tiles (see devices/energy). */
+  private energyStore?: EnergyStore
+  /** Daily kWh and finished cycles, for the settings-page dashboard. */
+  private energyHistory?: EnergyHistory
+  /** Writes smarthq-energy-status.json for the dashboard while any tile is on. */
+  private energyStatusTimer?: ReturnType<typeof setInterval>
 
   /**
    * Live ERD values pushed to us over the websocket, keyed by appliance id and
@@ -168,6 +176,14 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       this.wsReconnectTimer = undefined
     }
     this.accessories.forEach(accessory => (accessory as any).control?.shutdown?.())
+    this.accessories.forEach(accessory => accessory.control?.energy?.shutdown())
+    this.energyStore?.flush()
+    this.energyHistory?.flush()
+    if (this.energyStatusTimer) {
+      clearInterval(this.energyStatusTimer)
+      this.energyStatusTimer = undefined
+    }
+    this.writeEnergyStatus()
 
     // The v2 websocket is shared by every v2 appliance, so the platform owns
     // closing it. ge-smarthq reconnects with backoff on its own, so one left
@@ -588,6 +604,133 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
     } catch (error) {
       this.debugLog(`onErdUpdate failed for ${obj.item.erd}: ${error}`)
     }
+    // Every accessory of the appliance (a fridge and its Keurig share one id)
+    for (const a of this.accessories) {
+      if (a.context?.device?.applianceId === obj.item.applianceId) {
+        try {
+          a.control?.energy?.onErdUpdate(normaliseErd(obj.item.erd), liveValue)
+        } catch (error) {
+          this.debugLog(`energy onErdUpdate failed for ${obj.item.erd}: ${error}`)
+        }
+      }
+    }
+  }
+
+  /** Which energy model an appliance class uses. */
+  private energyModelFor(control: unknown) {
+    const pairs: Array<[new (...args: any[]) => unknown, (typeof ENERGY_MODELS)[keyof typeof ENERGY_MODELS]]> = [
+      [SmartHQClothesWasher, ENERGY_MODELS.washer],
+      [SmartHQClothesDryer, ENERGY_MODELS.dryer],
+      [SmartHQCombinationWasherDryer, ENERGY_MODELS.washerDryer],
+      [SmartHQDishWasher, ENERGY_MODELS.dishwasher],
+      [SmartHQDishDrawer, ENERGY_MODELS.dishDrawer],
+      [SmartHQOven, ENERGY_MODELS.oven],
+      [SmartHQCooktop, ENERGY_MODELS.cooktop],
+      [SmartHQMicrowave, ENERGY_MODELS.microwave],
+      [SmartHQAdvantium, ENERGY_MODELS.advantium],
+      [SmartHQCoffeeMaker, ENERGY_MODELS.coffeeMaker],
+      [SmartHQSmoker, ENERGY_MODELS.smoker],
+      [SmartHQHood, ENERGY_MODELS.hood],
+      [SmartHQKeurig, ENERGY_MODELS.keurig],
+      [SmartHQRefrigerator, ENERGY_MODELS.refrigerator],
+      [SmartHQBeverageCenter, ENERGY_MODELS.beverageCenter],
+      [SmartHQIceMaker, ENERGY_MODELS.iceMaker],
+      [SmartHQAirConditioner, ENERGY_MODELS.airConditioner],
+      [SmartHQWaterHeater, ENERGY_MODELS.waterHeater],
+      [SmartHQWaterFilter, ENERGY_MODELS.waterFilter],
+      [SmartHQWaterSoftener, ENERGY_MODELS.waterSoftener],
+    ]
+    return pairs.find(([cls]) => control instanceof cls)?.[1]
+  }
+
+  /**
+   * Keep smarthq-energy-status.json current for the settings-page dashboard.
+   * The page runs in its own process and cannot reach the monitors, so this
+   * file is how it sees live watts. Every 30 s matches the monitors' own tick.
+   */
+  private startEnergyStatus(): void {
+    if (this.energyStatusTimer) {
+      return
+    }
+    const timer: any = setInterval(() => this.writeEnergyStatus(), 30_000)
+    timer.unref?.()
+    this.energyStatusTimer = timer
+    // The first write waits for the monitors' first readings
+    const first: any = setTimeout(() => this.writeEnergyStatus(), 5_000)
+    first.unref?.()
+  }
+
+  /** Atomically write the live status of every energy tile, plus their history. */
+  private writeEnergyStatus(): void {
+    if (!this.energyStore) {
+      return
+    }
+    try {
+      const monitors = this.accessories
+        .map(accessory => accessory.control?.energy)
+        .filter((monitor): monitor is EnergyMonitor => !!monitor)
+        .map(monitor => monitor.status())
+      const status = {
+        version: 1,
+        writtenAt: Date.now(),
+        pluginVersion: this.version,
+        monitors,
+        history: this.energyHistory?.snapshot(),
+      }
+      const path = join(this.api.user.storagePath(), 'smarthq-energy-status.json')
+      writeFileSync(`${path}.tmp`, JSON.stringify(status))
+      renameSync(`${path}.tmp`, path)
+    } catch (error: any) {
+      this.debugLog(`Could not write the energy status file: ${error?.message ?? error}`)
+    }
+  }
+
+  /**
+   * Add (or remove) the estimated energy tile on every accessory of an
+   * appliance, once its device class has been created. Works for every
+   * appliance type, so no device class needs to know about it.
+   */
+  private attachEnergy(device: devicesConfig & Record<string, any>): void {
+    for (const accessory of this.accessories) {
+      const control = accessory.control
+      if (!control || control.energy || accessory.context?.device?.applianceId !== device.applianceId) {
+        continue
+      }
+      const model = this.energyModelFor(control)
+      if (!model) {
+        continue
+      }
+      try {
+        if (!device.showEnergy) {
+          removeEnergyServices(accessory, this.api.hap, model)
+          continue
+        }
+        this.energyStore ??= new EnergyStore(join(this.api.user.storagePath(), 'smarthq-energy.json'), message => this.warnLog(message))
+        this.energyHistory ??= new EnergyHistory(join(this.api.user.storagePath(), 'smarthq-energy-history.json'), message => this.warnLog(message))
+        this.startEnergyStatus()
+        const c = control as any
+        control.energy = new EnergyMonitor({
+          hap: this.api.hap,
+          accessory,
+          device,
+          applianceId: device.applianceId!,
+          refreshRateSeconds: c.deviceRefreshRate,
+          readErd: erd => control.readErd(erd),
+          store: this.energyStore,
+          history: this.energyHistory,
+          name: accessory.displayName,
+          infoLog: (...log) => control.infoLog(...log),
+          debugLog: (...log) => control.debugLog(...log),
+          warnLog: (...log) => control.warnLog(...log),
+          matterApi: (this.api as any).matter,
+          externalActive: model.key === 'smoker'
+            ? () => c.cooking === true
+            : undefined,
+        }, model)
+      } catch (error: any) {
+        this.warnLog(`Could not set up the energy estimate for ${accessory.displayName}: ${error?.message ?? error}`)
+      }
+    }
   }
 
   async discoverDevices() {
@@ -769,6 +912,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
               await this.logUnsupportedApplianceErds(device)
               break
           }
+          this.attachEnergy(device)
         }
       } catch (e: any) {
         await this.errorLog(`discoverDevices, Failed to get Devices Data, Error Message: ${e.message ?? e}, Submit Bugs Here: https://bit.ly/smarthq-bug-report`)

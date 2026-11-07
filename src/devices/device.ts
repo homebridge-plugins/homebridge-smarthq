@@ -6,6 +6,7 @@ import type { API, CharacteristicValue, HAP, Logging, PlatformAccessory, Service
 
 import type { SmartHQPlatform } from '../platform.js'
 import type { devicesConfig, SmartHqContext, SmartHQPlatformConfig } from '../settings.js'
+import type { EnergyMonitor } from './energy/monitor.js'
 
 import axios from 'axios'
 
@@ -121,6 +122,8 @@ declare module 'homebridge' {
 
 export abstract class deviceBase {
   public readonly api: API
+  /** Estimated power/energy tile, attached by the platform when showEnergy is on. */
+  public energy?: EnergyMonitor
   public readonly log: Logging
   public readonly config!: SmartHQPlatformConfig
   protected readonly hap: HAP
