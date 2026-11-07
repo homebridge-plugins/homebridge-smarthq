@@ -174,8 +174,10 @@ export class SmartHQClothesDryer extends deviceBase {
   private initializeHAP(): void {
     // Optional read-only running switch, a simple on/off tile for automations
     // and a clear visual in the Home app (#60)
-    const existingRunningSwitch = this.accessory!.getService('Dryer Running')
-    if (this.device.showRunningSwitch) {
+    const existingRunningSwitch = this.accessory!.getServiceById(this.platform.Service.Switch, 'DryerRunning')
+    if (this.device.showEnergy) {
+      // The platform's energy tile takes over this switch (devices/energy)
+    } else if (this.device.showRunningSwitch) {
       const runningSwitch = existingRunningSwitch ?? this.accessory!.addService(this.platform.Service.Switch, 'Dryer Running', 'DryerRunning')
       this.setServiceName(runningSwitch, 'Dryer Running')
       runningSwitch

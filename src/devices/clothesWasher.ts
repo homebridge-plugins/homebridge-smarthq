@@ -168,8 +168,10 @@ export class SmartHQClothesWasher extends deviceBase {
   private initializeHAP(): void {
     // Optional read-only running switch, a simple on/off tile for automations
     // and a clear visual in the Home app (#60)
-    const existingRunningSwitch = this.accessory!.getService('Washer Running')
-    if (this.device.showRunningSwitch) {
+    const existingRunningSwitch = this.accessory!.getServiceById(this.platform.Service.Switch, 'WasherRunning')
+    if (this.device.showEnergy) {
+      // The platform's energy tile takes over this switch (devices/energy)
+    } else if (this.device.showRunningSwitch) {
       const runningSwitch = existingRunningSwitch ?? this.accessory!.addService(this.platform.Service.Switch, 'Washer Running', 'WasherRunning')
       this.setServiceName(runningSwitch, 'Washer Running')
       runningSwitch

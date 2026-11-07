@@ -33,6 +33,7 @@
 <div id="menuWrapper" class="btn-group w-100 mb-0" role="group" aria-label="UI Menu" style="display: none">
   <button type="button" class="btn btn-primary" id="menuSettings">Settings</button>
   <button type="button" class="btn btn-primary" id="menuDevices">My Devices</button>
+  <button type="button" class="btn btn-primary" id="menuEnergy">Energy</button>
   <button type="button" class="btn btn-primary mr-0" id="menuHome">Support</button>
 </div>
 <div id="disabledBanner" class="alert alert-secondary mb-0 mt-3" role="alert" style="display: none">
@@ -538,12 +539,14 @@
           homebridge.showSpinner();
           const thisAcc = cachedAccessories.find((x) => x.UUID === UUID);
           const context = thisAcc.context;
-          document.getElementById('displayName').innerHTML = thisAcc.displayName;
-          document.getElementById('brand').innerHTML = context.device.brand;
-          document.getElementById('model').innerHTML = context.device.model;
-          document.getElementById('serial').innerHTML = context.device.serial;
-          document.getElementById('applianceId').innerHTML = context.device.applianceId;
-          document.getElementById('firmware').innerHTML = context.device.firmware;
+          // textContent, not innerHTML: names come from the SmartHQ account
+          // and config, and must show as typed rather than be read as HTML
+          document.getElementById('displayName').textContent = thisAcc.displayName;
+          document.getElementById('brand').textContent = context.device.brand;
+          document.getElementById('model').textContent = context.device.model;
+          document.getElementById('serial').textContent = context.device.serial;
+          document.getElementById('applianceId').textContent = context.device.applianceId;
+          document.getElementById('firmware').textContent = context.device.firmware;
           document.getElementById('deviceTable').style.display = 'inline-table';
 
           document.getElementById('deviceAdvancedOptions').innerHTML = ''
@@ -912,5 +915,663 @@
     } finally {
       homebridge.hideSpinner();
     }
+  })();
+</script>
+<style>
+  #pageEnergy .energy-card { background: rgba(127, 127, 127, 0.08); border-radius: 8px; padding: 0.75rem 1rem; }
+  #pageEnergy .energy-card .label { font-size: 0.8rem; opacity: 0.75; }
+  #pageEnergy .energy-card .value { font-size: 1.4rem; font-weight: 500; }
+  #pageEnergy .energy-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.75rem; }
+  #pageEnergy .energy-row { display: flex; align-items: center; gap: 0.75rem; padding: 0.6rem 0.25rem; border-bottom: 1px solid rgba(127, 127, 127, 0.2); }
+  #pageEnergy .energy-row:last-child { border-bottom: none; }
+  #pageEnergy .energy-row .grow { flex: 1; min-width: 0; }
+  #pageEnergy .energy-row .sub { font-size: 0.8rem; opacity: 0.75; }
+  #pageEnergy .energy-watts { min-width: 80px; text-align: right; font-weight: 500; }
+  #pageEnergy .energy-badge { font-size: 0.7rem; padding: 0.15rem 0.45rem; border-radius: 4px; white-space: nowrap; }
+  #pageEnergy .badge-matter { background: rgba(40, 167, 69, 0.15); color: #1e7e34; }
+  #pageEnergy .badge-hap { background: rgba(0, 123, 255, 0.12); color: #0062cc; }
+  #pageEnergy .badge-fallback { background: rgba(255, 193, 7, 0.2); color: #856404; }
+  #pageEnergy .badge-fixed { background: rgba(127, 127, 127, 0.15); }
+  .dark-mode #pageEnergy .badge-matter { color: #6fdc8c; }
+  .dark-mode #pageEnergy .badge-hap { color: #7ab8ff; }
+  .dark-mode #pageEnergy .badge-fallback { color: #ffd966; }
+  #pageEnergy .energy-tabs .btn { font-size: 0.85rem; }
+  #pageEnergy table { font-size: 0.85rem; }
+  #pageEnergy table input.form-control { min-width: 56px; padding: 0.15rem 0.3rem; height: auto; }
+  #pageEnergy table select.form-control { min-width: 92px; padding: 0.15rem 0.3rem; height: auto; }
+  #pageEnergy .text-fallback { color: #856404; }
+  .dark-mode #pageEnergy .text-fallback { color: #ffd966; }
+  #pageEnergy pre { font-size: 0.75rem; white-space: pre-wrap; word-break: break-all; }
+  #pageEnergy .energy-chart text { fill: currentColor; font-size: 10px; }
+</style>
+<div id="pageEnergy" class="mt-4" style="display: none">
+  <div class="btn-group w-100 mb-3 energy-tabs" role="group" aria-label="Energy sections">
+    <button type="button" class="btn btn-sm btn-elegant" data-energy-tab="overview">Overview</button>
+    <button type="button" class="btn btn-sm btn-primary" data-energy-tab="devices">Devices</button>
+    <button type="button" class="btn btn-sm btn-primary" data-energy-tab="calibrate">Calibrate</button>
+    <button type="button" class="btn btn-sm btn-primary" data-energy-tab="diagnostics">Diagnostics</button>
+  </div>
+  <div id="energyNotice" class="alert alert-secondary" role="status" style="display: none"></div>
+
+  <div data-energy-section="overview">
+    <div class="energy-grid mb-3">
+      <div class="energy-card"><div class="label">Using now</div><div class="value" id="energyNow">-</div></div>
+      <div class="energy-card"><div class="label">Today</div><div class="value" id="energyToday">-</div></div>
+      <div class="energy-card"><div class="label">This month</div><div class="value" id="energyMonth">-</div></div>
+      <div class="energy-card"><div class="label">Est. cost this month</div><div class="value" id="energyCost">-</div></div>
+    </div>
+    <div id="energyAppliances" class="mb-3"></div>
+    <h6 class="mt-4">Last 14 days</h6>
+    <div id="energyChart" class="mb-2"></div>
+    <div id="energyLegend" class="mb-3 small"></div>
+    <h6 class="mt-4">Recent cycles</h6>
+    <div id="energyCycles"></div>
+    <p class="small text-muted mt-3 mb-0">All figures are estimates: SmartHQ reports no power readings, so they are worked out from what each appliance reports. Use Calibrate to match them to a real meter.</p>
+  </div>
+
+  <div data-energy-section="devices" style="display: none">
+    <p class="small">Turn on estimated energy per appliance and adjust its wattages. Leave a wattage blank to use the default shown. Changes apply after Homebridge restarts.</p>
+    <div class="form-row mb-3">
+      <div class="col">
+        <label class="small mb-1" for="energyRate">Electricity rate per kWh</label>
+        <input type="number" class="form-control form-control-sm" id="energyRate" min="0" step="0.001" placeholder="0.31" />
+      </div>
+      <div class="col">
+        <label class="small mb-1" for="energyCurrency">Currency symbol</label>
+        <input type="text" class="form-control form-control-sm" id="energyCurrency" maxlength="4" placeholder="$" />
+      </div>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm">
+        <thead>
+          <tr>
+            <th scope="col">Appliance</th>
+            <th scope="col">Energy</th>
+            <th scope="col">Protocol</th>
+            <th scope="col">Watts as lux</th>
+            <th scope="col">Standby W</th>
+            <th scope="col">Motor W</th>
+            <th scope="col">Spin W</th>
+            <th scope="col">Heater W</th>
+          </tr>
+        </thead>
+        <tbody id="energyDeviceRows"></tbody>
+      </table>
+    </div>
+    <div class="text-right">
+      <button type="button" class="btn btn-primary btn-sm m-0" id="energySaveDevices">Save energy settings</button>
+    </div>
+  </div>
+
+  <div data-energy-section="calibrate" style="display: none">
+    <p class="small">Measure one cycle with a smart plug or your power meter, enter what it read, and the plugin works out wattages that would have matched it.</p>
+    <div class="form-group">
+      <label class="small mb-1" for="calAppliance">Appliance</label>
+      <select class="form-control form-control-sm" id="calAppliance"></select>
+    </div>
+    <div class="form-group">
+      <label class="small mb-1" for="calCycle">Cycle to compare</label>
+      <select class="form-control form-control-sm" id="calCycle"></select>
+    </div>
+    <div class="form-row">
+      <div class="col form-group">
+        <label class="small mb-1" for="calEstimated">Estimated kWh</label>
+        <input type="number" class="form-control form-control-sm" id="calEstimated" min="0" step="0.001" />
+      </div>
+      <div class="col form-group">
+        <label class="small mb-1" for="calMeasured">Measured kWh</label>
+        <input type="number" class="form-control form-control-sm" id="calMeasured" min="0" step="0.001" placeholder="0.75" />
+      </div>
+    </div>
+    <div id="calError" class="small text-danger mb-2" role="alert"></div>
+    <div id="calResult"></div>
+    <div class="text-right">
+      <button type="button" class="btn btn-primary btn-sm m-0" id="calApply" style="display: none">Apply these wattages</button>
+    </div>
+  </div>
+
+  <div data-energy-section="diagnostics" style="display: none">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <div class="small" id="diagSummary"></div>
+      <button type="button" class="btn btn-sm btn-primary m-0" id="diagCopy">Copy for a bug report</button>
+    </div>
+    <div id="diagMonitors"></div>
+  </div>
+</div>
+<script>
+  (() => {
+    // ===== Energy dashboard =====
+    // Reads what the plugin writes to smarthq-energy-status.json (via the
+    // settings server) and edits the same config the Settings tab edits.
+    const $ = (id) => document.getElementById(id);
+    const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+    const looseId = (id) => (id || '').toString().toUpperCase().replace(/[^A-Z0-9]+/g, '');
+    const WATT_FIELDS = [
+      ['energyStandbyWatts', 'standbyWatts'],
+      ['energyMotorWatts', 'motorWatts'],
+      ['energySpinWatts', 'spinWatts'],
+      ['energyHeaterWatts', 'heaterWatts'],
+    ];
+    const SPIN_MODELS = ['washer', 'washerDryer'];
+    const STALE_MS = 2 * 60 * 1000;
+    const POLL_MS = 15 * 1000;
+
+    let models = null;
+    let statusResp = null;
+    let pollTimer = null;
+    let currentTab = 'overview';
+    let calSuggestion = null;
+
+    const fmtW = (w) => (w >= 1000 ? (w / 1000).toFixed(2) + ' kW' : Math.round(w) + ' W');
+    const fmtKwh = (k) => (k < 10 ? k.toFixed(2) : k.toFixed(1)) + ' kWh';
+    const fmtDuration = (ms) => {
+      const min = Math.max(0, Math.round(ms / 60000));
+      return min < 60 ? min + ' min' : Math.floor(min / 60) + ' h ' + (min % 60) + ' min';
+    };
+    const fmtAgo = (ms) => {
+      const s = Math.max(0, Math.round(ms / 1000));
+      if (s < 90) return s + ' s ago';
+      if (s < 5400) return Math.round(s / 60) + ' min ago';
+      if (s < 172800) return Math.round(s / 3600) + ' h ago';
+      return Math.round(s / 86400) + ' days ago';
+    };
+    const localDay = (ms) => {
+      const d = new Date(ms);
+      const pad = (n) => String(n).padStart(2, '0');
+      return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+    };
+    const fmtWhen = (ms) => {
+      const d = new Date(ms);
+      const time = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+      const today = localDay(Date.now());
+      const yesterday = localDay(Date.now() - 86400000);
+      const day = localDay(ms);
+      return (day === today ? 'Today' : day === yesterday ? 'Yesterday' : d.toLocaleDateString([], { day: 'numeric', month: 'short' })) + ' ' + time;
+    };
+
+    const getConfigBlocks = async () => {
+      const blocks = await homebridge.getPluginConfig();
+      if (!blocks.length) blocks.push({ name: 'SmartHQ' });
+      return blocks;
+    };
+    const costSettings = async () => {
+      const blocks = await getConfigBlocks();
+      const o = blocks[0].options || {};
+      const rate = typeof o.energyCostPerKwh === 'number' && o.energyCostPerKwh > 0 ? o.energyCostPerKwh : null;
+      return { rate, currency: o.energyCurrency || '$' };
+    };
+    const fmtCost = (kwh, cost) => (cost.rate ? cost.currency + (kwh * cost.rate).toFixed(2) : '');
+
+    const loadModels = async () => {
+      if (!models) models = await homebridge.request('/energy/models');
+      return models;
+    };
+    const loadStatus = async () => {
+      try {
+        statusResp = await homebridge.request('/energy/status');
+      } catch (err) {
+        statusResp = { found: false, error: err.message };
+      }
+      return statusResp;
+    };
+    const monitors = () => (statusResp && statusResp.found && statusResp.status.monitors) || [];
+    const history = () => (statusResp && statusResp.found && statusResp.status.history) || { days: {}, cycles: [] };
+
+    const showNotice = (text, kind) => {
+      const n = $('energyNotice');
+      if (!text) {
+        n.style.display = 'none';
+        return;
+      }
+      n.className = 'alert alert-' + (kind || 'secondary');
+      n.textContent = text;
+      n.style.display = 'block';
+    };
+    const updateNotice = () => {
+      if (!statusResp || !statusResp.found) {
+        showNotice(statusResp && statusResp.error
+          ? statusResp.error
+          : 'No energy data yet. Turn on energy for an appliance in the Devices tab, save, and restart Homebridge. Readings appear here within a minute.');
+        return;
+      }
+      const age = (statusResp.readAt || Date.now()) - statusResp.status.writtenAt;
+      showNotice(age > STALE_MS
+        ? 'These figures are from ' + fmtAgo(age) + '. Homebridge may not be running, or the plugin has restarted without energy turned on.'
+        : null, 'warning');
+    };
+
+    // --- Overview -------------------------------------------------------
+    const protocolBadge = (m) => {
+      if (m.fixed) return '<span class="energy-badge badge-fixed">Fixed average</span>';
+      if (m.protocolWanted === 'matter' && m.protocol !== 'matter') return '<span class="energy-badge badge-fallback" title="' + esc(m.fallbackReason || '') + '">HAP fallback</span>';
+      return m.protocol === 'matter' ? '<span class="energy-badge badge-matter">Matter</span>' : '<span class="energy-badge badge-hap">HAP</span>';
+    };
+
+    const renderOverview = async () => {
+      const cost = await costSettings();
+      const mons = monitors();
+      const hist = history();
+      const today = localDay(Date.now());
+      const month = today.slice(0, 7);
+      let todayKwh = 0;
+      let monthKwh = 0;
+      for (const days of Object.values(hist.days || {})) {
+        for (const [day, kwh] of Object.entries(days)) {
+          if (day === today) todayKwh += kwh;
+          if (day.startsWith(month)) monthKwh += kwh;
+        }
+      }
+      const nowW = mons.reduce((sum, m) => sum + (m.watts || 0), 0);
+      $('energyNow').textContent = mons.length ? fmtW(nowW) : '-';
+      $('energyToday').textContent = mons.length ? fmtKwh(todayKwh) : '-';
+      $('energyMonth').textContent = mons.length ? fmtKwh(monthKwh) : '-';
+      $('energyCost').textContent = cost.rate ? fmtCost(monthKwh, cost) : 'Set a rate in Devices';
+
+      $('energyAppliances').innerHTML = mons.length
+        ? mons.map((m) => {
+          const sub = m.description || (m.alwaysOn ? 'Always on' : m.active ? 'Running' : 'Idle');
+          const cycle = m.cycle ? ' - ' + fmtKwh(m.cycle.kwh) + ' so far' : '';
+          return '<div class="energy-row"><div class="grow"><div>' + esc(m.name) + (m.tileName && m.tileName !== m.name ? ' <span class="sub">(' + esc(m.tileName) + ')</span>' : '')
+            + '</div><div class="sub">' + esc(sub) + esc(cycle) + '</div></div>' + protocolBadge(m)
+            + '<div class="energy-watts">' + fmtW(m.watts || 0) + '</div></div>';
+        }).join('')
+        : '';
+
+      renderChart(hist, mons);
+      renderCycles(hist, cost);
+    };
+
+    const CHART_COLOURS = ['#1d9e75', '#378add', '#d85a30', '#7f77dd', '#ba7517', '#d4537e', '#639922', '#888780'];
+    const renderChart = (hist, mons) => {
+      const keys = Object.keys(hist.days || {}).filter((k) => Object.keys(hist.days[k]).length);
+      if (!keys.length) {
+        $('energyChart').innerHTML = '<p class="small text-muted">Daily totals appear here after the first day of readings.</p>';
+        $('energyLegend').innerHTML = '';
+        return;
+      }
+      const names = {};
+      mons.forEach((m) => { names[m.key] = m.name; });
+      const days = [];
+      for (let i = 13; i >= 0; i--) days.push(localDay(Date.now() - i * 86400000));
+      const totals = days.map((d) => keys.reduce((s, k) => s + (hist.days[k][d] || 0), 0));
+      const max = Math.max(0.1, ...totals);
+      const W = 600, H = 170, left = 34, bottom = 20, top = 8;
+      const bw = (W - left) / days.length;
+      let svg = '<svg class="energy-chart" viewBox="0 0 ' + W + ' ' + H + '" width="100%" role="img" aria-label="Estimated energy per day for the last 14 days">';
+      [0, 0.5, 1].forEach((f) => {
+        const y = top + (H - top - bottom) * (1 - f);
+        svg += '<line x1="' + left + '" x2="' + W + '" y1="' + y + '" y2="' + y + '" stroke="currentColor" stroke-opacity="0.15" />';
+        svg += '<text x="' + (left - 4) + '" y="' + (y + 3) + '" text-anchor="end">' + (max * f).toFixed(max * f < 10 ? 1 : 0) + '</text>';
+      });
+      days.forEach((d, i) => {
+        let y = H - bottom;
+        keys.forEach((k, ki) => {
+          const kwh = hist.days[k][d] || 0;
+          if (!kwh) return;
+          const h = (H - top - bottom) * (kwh / max);
+          y -= h;
+          svg += '<rect x="' + (left + i * bw + 3) + '" y="' + y.toFixed(1) + '" width="' + (bw - 6).toFixed(1) + '" height="' + h.toFixed(1) + '" fill="' + CHART_COLOURS[ki % CHART_COLOURS.length] + '">'
+            + '<title>' + esc((names[k] || k) + ', ' + d + ': ' + kwh.toFixed(2) + ' kWh') + '</title></rect>';
+        });
+        if (i % 2 === 1 || days.length <= 7) {
+          svg += '<text x="' + (left + i * bw + bw / 2) + '" y="' + (H - 6) + '" text-anchor="middle">' + Number(d.slice(8)) + '</text>';
+        }
+      });
+      svg += '</svg>';
+      $('energyChart').innerHTML = svg;
+      $('energyLegend').innerHTML = keys.map((k, ki) => '<span class="mr-3"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:'
+        + CHART_COLOURS[ki % CHART_COLOURS.length] + ';margin-right:4px"></span>' + esc(names[k] || k) + '</span>').join('') + '<span class="text-muted">kWh per day</span>';
+    };
+
+    const renderCycles = (hist, cost) => {
+      const cycles = (hist.cycles || []).slice(-10).reverse();
+      $('energyCycles').innerHTML = cycles.length
+        ? cycles.map((c) => '<div class="energy-row"><div class="grow"><div>' + esc(c.name) + (c.cycle ? ', ' + esc(c.cycle) : '') + '</div><div class="sub">'
+          + esc(fmtWhen(c.start)) + ', ' + fmtDuration(c.end - c.start) + ', peak ' + fmtW(c.peakWatts) + '</div></div>'
+          + (cost.rate ? '<div class="sub">' + fmtCost(c.kwh, cost) + '</div>' : '')
+          + '<div class="energy-watts">' + fmtKwh(c.kwh) + '</div></div>').join('')
+        : '<p class="small text-muted">Each wash, dry or other cycle is listed here when it finishes.</p>';
+    };
+
+    // --- Devices --------------------------------------------------------
+    let deviceRows = [];
+    const renderDevices = async () => {
+      const m = await loadModels();
+      const blocks = await getConfigBlocks();
+      const config = blocks[0];
+      const cached = typeof homebridge.getCachedAccessories === 'function'
+        ? await homebridge.getCachedAccessories()
+        : await homebridge.request('/getCachedAccessories');
+      const byId = new Map();
+      (cached || []).forEach((a) => {
+        const d = (a.context && a.context.device) || {};
+        if (!d.applianceId) return;
+        // A fridge with a Keurig has two accessories with one appliance id,
+        // the Keurig named "<fridge> Keurig". The cache keeps no set order,
+        // so prefer the fridge's own name whichever comes first.
+        const isKeurig = / Keurig$/.test(a.displayName || '');
+        const existing = byId.get(looseId(d.applianceId));
+        if (existing && (isKeurig || !existing.fromKeurig)) return;
+        byId.set(looseId(d.applianceId), { applianceId: d.applianceId, name: d.configDeviceName || a.displayName, type: d.type, fromKeurig: isKeurig });
+      });
+      (config.devices || []).forEach((entry) => {
+        if (entry && entry.applianceId && !byId.has(looseId(entry.applianceId))) {
+          byId.set(looseId(entry.applianceId), { applianceId: entry.applianceId, name: entry.configDeviceName || entry.applianceId, type: undefined });
+        }
+      });
+      deviceRows = [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
+      const o = config.options || {};
+      $('energyRate').value = typeof o.energyCostPerKwh === 'number' ? o.energyCostPerKwh : '';
+      $('energyCurrency').value = o.energyCurrency || '';
+      if (!deviceRows.length) {
+        $('energyDeviceRows').innerHTML = '<tr><td colspan="8" class="text-muted">No appliances found yet. Restart Homebridge once your SmartHQ login is set, so the plugin can discover them.</td></tr>';
+        return;
+      }
+      $('energyDeviceRows').innerHTML = deviceRows.map((row, i) => {
+        const entry = (config.devices || []).find((e) => e && looseId(e.applianceId) === looseId(row.applianceId)) || {};
+        const keys = (m.byApplianceType[row.type] || []);
+        const model = keys.length ? m.models[keys[0]] : null;
+        const extra = keys.slice(1).map((k) => m.models[k].label).join(', ');
+        const defaults = model ? model.defaults : null;
+        const watt = (field, prop) => {
+          const disabled = prop === 'spinWatts' && !SPIN_MODELS.includes(keys[0]);
+          const value = typeof entry[field] === 'number' ? entry[field] : '';
+          return '<td><input type="number" min="0" max="10000" step="1" class="form-control form-control-sm" data-row="' + i + '" data-field="' + field + '" value="' + esc(value) + '"'
+            + ' placeholder="' + esc(defaults ? defaults[prop] : '') + '"' + (disabled ? ' disabled title="Washers only"' : '') + ' aria-label="' + esc(row.name + ' ' + prop) + '" /></td>';
+        };
+        return '<tr>'
+          + '<td>' + esc(row.name) + '<div class="small text-muted">' + esc(model ? model.label : (row.type || 'Unknown type'))
+          + (extra ? ', also ' + esc(extra) : '') + (model && model.fixed ? ', fixed average' : '') + '</div></td>'
+          + '<td><input type="checkbox" data-row="' + i + '" data-field="showEnergy"' + (entry.showEnergy ? ' checked' : '') + ' aria-label="' + esc(row.name) + ' energy" /></td>'
+          + '<td><select class="form-control form-control-sm" data-row="' + i + '" data-field="energyProtocol" aria-label="' + esc(row.name) + ' protocol">'
+          + '<option value="hap"' + (entry.energyProtocol !== 'matter' ? ' selected' : '') + '>HAP</option>'
+          + '<option value="matter"' + (entry.energyProtocol === 'matter' ? ' selected' : '') + '>Matter</option></select></td>'
+          + '<td><input type="checkbox" data-row="' + i + '" data-field="showEnergyInHome"' + (entry.showEnergyInHome ? ' checked' : '') + ' aria-label="' + esc(row.name) + ' watts as lux" /></td>'
+          + WATT_FIELDS.map(([f, p]) => watt(f, p)).join('')
+          + '</tr>';
+      }).join('');
+    };
+
+    const saveDevices = async () => {
+      try {
+        const blocks = await getConfigBlocks();
+        const config = blocks[0];
+        const rate = $('energyRate').value.trim();
+        const currency = $('energyCurrency').value.trim();
+        if (rate !== '' && !(Number(rate) >= 0)) {
+          homebridge.toast.error('Enter the rate as a number, like 0.31.', 'Not saved');
+          return;
+        }
+        config.options = config.options || {};
+        if (rate === '') delete config.options.energyCostPerKwh; else config.options.energyCostPerKwh = Number(rate);
+        if (currency === '') delete config.options.energyCurrency; else config.options.energyCurrency = currency;
+        if (!Object.keys(config.options).length) delete config.options;
+        for (let i = 0; i < deviceRows.length; i++) {
+          const row = deviceRows[i];
+          const get = (field) => document.querySelector('[data-row="' + i + '"][data-field="' + field + '"]');
+          const values = { showEnergy: get('showEnergy').checked, energyProtocol: get('energyProtocol').value, showEnergyInHome: get('showEnergyInHome').checked };
+          const watts = {};
+          for (const [field] of WATT_FIELDS) {
+            const el = get(field);
+            const v = el.disabled ? '' : el.value.trim();
+            if (v !== '' && !(Number(v) >= 0 && Number(v) <= 10000)) {
+              homebridge.toast.error(row.name + ': wattages must be between 0 and 10000.', 'Not saved');
+              return;
+            }
+            watts[field] = v === '' ? undefined : Number(v);
+          }
+          let entry = (config.devices || []).find((e) => e && looseId(e.applianceId) === looseId(row.applianceId));
+          const anything = values.showEnergy || values.showEnergyInHome || values.energyProtocol === 'matter' || Object.values(watts).some((v) => v !== undefined);
+          if (!entry && !anything) continue;
+          if (!entry) {
+            config.devices = config.devices || [];
+            entry = { applianceId: row.applianceId, configDeviceName: row.name };
+            config.devices.push(entry);
+          }
+          // Keep the entry tidy: defaults are left out rather than stored
+          if (values.showEnergy) entry.showEnergy = true; else delete entry.showEnergy;
+          if (values.energyProtocol === 'matter') entry.energyProtocol = 'matter'; else delete entry.energyProtocol;
+          if (values.showEnergyInHome) entry.showEnergyInHome = true; else delete entry.showEnergyInHome;
+          for (const [field] of WATT_FIELDS) {
+            if (watts[field] === undefined) delete entry[field]; else entry[field] = watts[field];
+          }
+        }
+        await homebridge.updatePluginConfig(blocks);
+        await homebridge.savePluginConfig();
+        homebridge.toast.success('Restart Homebridge to apply the changes.', 'Energy settings saved');
+      } catch (err) {
+        homebridge.toast.error(err.message, 'Error');
+      }
+    };
+
+    // --- Calibrate ------------------------------------------------------
+    const renderCalibrate = () => {
+      const mons = monitors().filter((m) => !m.fixed);
+      const sel = $('calAppliance');
+      const keep = sel.value;
+      sel.innerHTML = mons.length
+        ? mons.map((m) => '<option value="' + esc(m.key) + '">' + esc(m.name + (m.tileName !== m.name ? ' (' + m.label + ')' : '')) + '</option>').join('')
+        : '<option value="">No appliances with energy on</option>';
+      if (keep && mons.some((m) => m.key === keep)) sel.value = keep;
+      renderCalCycles();
+    };
+    const calMonitor = () => monitors().find((m) => m.key === $('calAppliance').value);
+    const renderCalCycles = () => {
+      const m = calMonitor();
+      const sel = $('calCycle');
+      if (!m) {
+        sel.innerHTML = '<option value="">-</option>';
+        $('calEstimated').value = '';
+        renderCalResult();
+        return;
+      }
+      let options = [];
+      if (m.alwaysOn) {
+        const days = Object.entries(history().days[m.key] || {}).sort().reverse().slice(1, 31);
+        options = days.map(([d, kwh]) => ({ value: kwh, label: d + ': ' + fmtKwh(kwh) }));
+        options.unshift({ value: '', label: 'A whole day (pick one below, or enter your own)' });
+      } else {
+        options = (history().cycles || []).filter((c) => c.key === m.key).slice(-20).reverse()
+          .map((c) => ({ value: c.kwh, label: fmtWhen(c.start) + (c.cycle ? ', ' + c.cycle : '') + ': ' + fmtKwh(c.kwh) }));
+        if (!options.length) options.push({ value: '', label: 'No finished cycles yet - enter the estimate yourself' });
+      }
+      sel.innerHTML = options.map((o) => '<option value="' + esc(o.value) + '">' + esc(o.label) + '</option>').join('');
+      $('calEstimated').value = sel.value;
+      renderCalResult();
+    };
+    const roundW = (w) => (w < 20 ? Math.round(w * 10) / 10 : Math.round(w / 5) * 5);
+    const renderCalResult = () => {
+      calSuggestion = null;
+      $('calApply').style.display = 'none';
+      $('calError').textContent = '';
+      $('calResult').innerHTML = '';
+      const m = calMonitor();
+      const est = Number($('calEstimated').value);
+      const measuredRaw = $('calMeasured').value.trim();
+      if (!m || measuredRaw === '') return;
+      const meas = Number(measuredRaw);
+      if (!(est > 0)) {
+        $('calError').textContent = 'Enter the estimated kWh, or pick a cycle that has one.';
+        return;
+      }
+      if (!(meas > 0)) {
+        $('calError').textContent = 'Enter the measured kWh as a number above 0.';
+        return;
+      }
+      const factor = meas / est;
+      // Always-on appliances are modelled by their average, so that is what
+      // scales; everything else scales the loads that vary during a cycle
+      const scaled = m.alwaysOn ? ['standbyWatts'] : ['motorWatts', 'spinWatts', 'heaterWatts'];
+      const next = {};
+      Object.keys(m.profile).forEach((p) => { next[p] = scaled.includes(p) ? roundW(m.profile[p] * factor) : m.profile[p]; });
+      calSuggestion = { applianceId: m.applianceId, next };
+      const labels = { standbyWatts: 'Standby', motorWatts: 'Motor', spinWatts: 'Spin', heaterWatts: 'Heater' };
+      const rows = Object.keys(next).filter((p) => p !== 'spinWatts' || SPIN_MODELS.includes(m.model))
+        .map((p) => '<tr><td>' + labels[p] + '</td><td>' + m.profile[p] + ' W</td><td>' + next[p] + ' W</td></tr>').join('');
+      const warn = factor < 0.25 || factor > 4
+        ? '<div class="alert alert-warning small">That is ' + factor.toFixed(1) + ' times the estimate. Check both figures cover the same cycle before applying.</div>' : '';
+      $('calResult').innerHTML = warn + '<p class="small mb-1">The measurement is ' + Math.round(factor * 100) + '% of the estimate. Suggested wattages:</p>'
+        + '<table class="table table-sm"><thead><tr><th scope="col"></th><th scope="col">Now</th><th scope="col">Suggested</th></tr></thead><tbody>' + rows + '</tbody></table>'
+        + (m.key.endsWith(':keurig') || m.key.endsWith(':refrigerator') ? '<p class="small text-muted">A fridge and its Keurig share one set of wattages, so this changes both.</p>' : '');
+      $('calApply').style.display = 'inline-block';
+    };
+    const applyCalibration = async () => {
+      if (!calSuggestion) return;
+      try {
+        const blocks = await getConfigBlocks();
+        const config = blocks[0];
+        config.devices = config.devices || [];
+        let entry = config.devices.find((e) => e && looseId(e.applianceId) === looseId(calSuggestion.applianceId));
+        if (!entry) {
+          entry = { applianceId: calSuggestion.applianceId };
+          config.devices.push(entry);
+        }
+        for (const [field, prop] of WATT_FIELDS) entry[field] = calSuggestion.next[prop];
+        await homebridge.updatePluginConfig(blocks);
+        await homebridge.savePluginConfig();
+        homebridge.toast.success('Restart Homebridge to use the new wattages.', 'Calibration saved');
+        $('calApply').style.display = 'none';
+      } catch (err) {
+        homebridge.toast.error(err.message, 'Error');
+      }
+    };
+
+    // --- Diagnostics ----------------------------------------------------
+    const diagnosticsText = () => {
+      const s = statusResp && statusResp.found ? statusResp.status : null;
+      const lines = ['SmartHQ energy diagnostics', 'Plugin version: ' + (s ? s.pluginVersion : 'unknown'),
+        'Status written: ' + (s ? new Date(s.writtenAt).toISOString() + ' (' + fmtAgo((statusResp.readAt || Date.now()) - s.writtenAt) + ')' : 'no status file')];
+      monitors().forEach((m) => {
+        lines.push('', '[' + m.model + '] ' + m.name + ' - ' + m.tileName,
+          'protocol: wanted ' + m.protocolWanted + ', using ' + m.protocol + (m.fallbackReason ? ' (fallback: ' + m.fallbackReason + ')' : '') + ', matter registered ' + m.matterRegistered,
+          'now: ' + m.watts + ' W, active ' + m.active + (m.description ? ', ' + m.description : '') + ', total ' + m.totalKwh + ' kWh',
+          'last reading: ' + (m.lastValueAt ? fmtAgo(Date.now() - m.lastValueAt) : 'none yet'),
+          'wattages: ' + JSON.stringify(m.profile) + ' defaults ' + JSON.stringify(m.defaults),
+          'readings: ' + (Object.entries(m.erds).map(([k, v]) => k + '=' + v).join(' ') || 'none'),
+          'raw power readings: ' + (Object.entries(m.rawPowerErds).map(([k, v]) => k + '=' + v).join(' ') || 'none'));
+      });
+      return lines.join('\n');
+    };
+    const renderDiagnostics = () => {
+      const s = statusResp && statusResp.found ? statusResp.status : null;
+      $('diagSummary').textContent = s
+        ? 'Plugin ' + (s.pluginVersion || '') + ', status updated ' + fmtAgo((statusResp.readAt || Date.now()) - s.writtenAt)
+        : 'No status file yet.';
+      $('diagMonitors').innerHTML = monitors().map((m) => {
+        const readings = Object.entries(m.erds).map(([k, v]) => '<tr><td><code>' + esc(k) + '</code></td><td><code>' + esc(v) + '</code></td></tr>').join('')
+          || '<tr><td colspan="2" class="text-muted">No readings yet</td></tr>';
+        const raw = Object.entries(m.rawPowerErds).map(([k, v]) => '<code>' + esc(k) + '=' + esc(v) + '</code>').join(' ');
+        const changed = Object.keys(m.profile).filter((p) => m.profile[p] !== m.defaults[p]);
+        return '<div class="card mb-3"><div class="card-body p-3">'
+          + '<div class="d-flex justify-content-between"><strong>' + esc(m.name) + ' - ' + esc(m.label) + '</strong>' + protocolBadge(m) + '</div>'
+          + (m.fallbackReason ? '<div class="small text-fallback mt-1">Matter unavailable: ' + esc(m.fallbackReason) + '</div>' : '')
+          + '<div class="small mt-1">Now ' + fmtW(m.watts) + (m.description ? ', ' + esc(m.description) : '') + '. Total ' + fmtKwh(m.totalKwh) + '. Last reading '
+          + (m.lastValueAt ? fmtAgo(Date.now() - m.lastValueAt) : 'not yet') + '.</div>'
+          + '<div class="small">Wattages ' + Object.entries(m.profile).map(([p, w]) => esc(p.replace('Watts', '')) + ' ' + w + (changed.includes(p) ? ' (default ' + m.defaults[p] + ')' : '')).join(', ') + '</div>'
+          + '<table class="table table-sm mt-2 mb-1"><thead><tr><th scope="col">Reading</th><th scope="col">Value</th></tr></thead><tbody>' + readings + '</tbody></table>'
+          + '<div class="small">Possible real power readings: ' + (raw || 'none reported') + '</div>'
+          + '</div></div>';
+      }).join('') || '<p class="small text-muted">Nothing to show until an appliance has energy turned on.</p>';
+    };
+    const copyDiagnostics = async () => {
+      const text = diagnosticsText();
+      try {
+        await navigator.clipboard.writeText(text);
+        homebridge.toast.success('Paste it into your bug report or message.', 'Copied');
+      } catch {
+        // The settings page runs in an iframe that may not allow the
+        // clipboard API, so fall back to a selected text area
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'absolute';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        const ok = document.execCommand('copy');
+        ta.remove();
+        if (ok) homebridge.toast.success('Paste it into your bug report or message.', 'Copied');
+        else homebridge.toast.error('Your browser blocked copying. Select the text below and copy it instead.', 'Not copied');
+      }
+    };
+
+    // --- Navigation -----------------------------------------------------
+    const renderTab = async () => {
+      updateNotice();
+      if (currentTab === 'overview') await renderOverview();
+      if (currentTab === 'devices') await renderDevices();
+      if (currentTab === 'calibrate') renderCalibrate();
+      if (currentTab === 'diagnostics') renderDiagnostics();
+    };
+    const selectTab = async (tab) => {
+      currentTab = tab;
+      document.querySelectorAll('[data-energy-tab]').forEach((b) => {
+        b.classList.toggle('btn-elegant', b.dataset.energyTab === tab);
+        b.classList.toggle('btn-primary', b.dataset.energyTab !== tab);
+      });
+      document.querySelectorAll('[data-energy-section]').forEach((s) => { s.style.display = s.dataset.energySection === tab ? 'block' : 'none'; });
+      try {
+        // Fresh figures on every switch, rather than waiting for the next poll
+        await loadStatus();
+        await renderTab();
+      } catch (err) {
+        homebridge.toast.error(err.message, 'Error');
+      }
+    };
+    const poll = async () => {
+      await loadStatus();
+      // The Devices and Calibrate tabs hold the owner's unsaved input, so a
+      // poll only refreshes the read-only views
+      if (currentTab === 'overview' || currentTab === 'diagnostics') {
+        try {
+          await renderTab();
+        } catch {
+          // a failed refresh keeps the last view; the next poll tries again
+        }
+      } else {
+        updateNotice();
+      }
+    };
+    const showEnergy = async () => {
+      homebridge.showSpinner();
+      try {
+        homebridge.hideSchemaForm();
+        ['menuSettings', 'menuDevices', 'menuHome'].forEach((id) => {
+          $(id).classList.remove('btn-elegant');
+          $(id).classList.add('btn-primary');
+        });
+        $('menuEnergy').classList.add('btn-elegant');
+        $('menuEnergy').classList.remove('btn-primary');
+        $('pageDevices').style.display = 'none';
+        $('pageSupport').style.display = 'none';
+        $('pageEnergy').style.display = 'block';
+        await Promise.all([loadModels(), loadStatus()]);
+        await selectTab(currentTab);
+        clearInterval(pollTimer);
+        pollTimer = setInterval(poll, POLL_MS);
+      } catch (err) {
+        homebridge.toast.error(err.message, 'Error');
+      } finally {
+        homebridge.hideSpinner();
+      }
+    };
+    const hideEnergy = () => {
+      clearInterval(pollTimer);
+      pollTimer = null;
+      $('pageEnergy').style.display = 'none';
+      $('menuEnergy').classList.remove('btn-elegant');
+      $('menuEnergy').classList.add('btn-primary');
+    };
+
+    $('menuEnergy').addEventListener('click', showEnergy);
+    ['menuSettings', 'menuDevices', 'menuHome'].forEach((id) => $(id).addEventListener('click', hideEnergy));
+    document.querySelectorAll('[data-energy-tab]').forEach((b) => b.addEventListener('click', () => selectTab(b.dataset.energyTab)));
+    $('energySaveDevices').addEventListener('click', saveDevices);
+    $('calAppliance').addEventListener('change', renderCalCycles);
+    $('calCycle').addEventListener('change', () => { $('calEstimated').value = $('calCycle').value; renderCalResult(); });
+    $('calEstimated').addEventListener('input', renderCalResult);
+    $('calMeasured').addEventListener('input', renderCalResult);
+    $('calApply').addEventListener('click', applyCalibration);
+    $('diagCopy').addEventListener('click', copyDiagnostics);
+    // ===== End energy dashboard =====
   })();
 </script>

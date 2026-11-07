@@ -293,6 +293,88 @@
               "default": false,
               "description": "Washers, dryers, and combination washer/dryers only: expose a read-only switch that shows whether the machine is running."
             },
+            "showEnergy": {
+              "title": "Show Estimated Energy Use",
+              "type": "boolean",
+              "default": false,
+              "description": "Any appliance: add a tile showing ESTIMATED power (W) and total energy (kWh). SmartHQ reports no real power readings, so the plugin works them out from what the appliance does report - cycle phase, mode, setting and temperatures. On washers and dryers this tile replaces the Show Running Switch tile, so re-select it in any automations. Coffee makers, microwaves, Advantium ovens, beverage centres and water softeners show a fixed average until the plugin reads their state."
+            },
+            "energyProtocol": {
+              "title": "Energy Tile Protocol",
+              "type": "string",
+              "default": "hap",
+              "description": "Matter only (recommended on iOS/iPadOS 27 or later): the tile is a Matter outlet (always On for always-on appliances like fridges and filters) with power and energy measurement. Apple Home shows the watts on the tile and in its Energy view. Needs Homebridge 2.2.1 or later with Matter enabled for this bridge, and the bridge's Matter QR code added to Apple Home. The appliance's other tiles stay as they are. If Matter is unavailable the plugin falls back to HAP and logs why. HAP: an outlet with Eve power characteristics. Apple Home shows only On/Off; the Eve, Controller for HomeKit and Home+ apps show the watts and kWh.",
+              "oneOf": [
+                {
+                  "title": "HAP (Eve app shows watts)",
+                  "enum": [
+                    "hap"
+                  ]
+                },
+                {
+                  "title": "Matter only (Apple Home shows watts, iOS 27+)",
+                  "enum": [
+                    "matter"
+                  ]
+                }
+              ],
+              "condition": {
+                "functionBody": "return (model.devices && model.devices[arrayIndices] && model.devices[arrayIndices].showEnergy === true);"
+              }
+            },
+            "showEnergyInHome": {
+              "title": "Show Watts In Apple Home",
+              "type": "boolean",
+              "default": false,
+              "description": "HAP only. Apple Home cannot display HAP power readings, so this adds a light sensor linked to the running tile whose lux reading is the estimated watts (e.g. 1230 lx = 1230 W). Turn on \"Show as Single Tile\" for the accessory in the Home app to keep it with the running tile. Not needed with Matter.",
+              "condition": {
+                "functionBody": "return (model.devices && model.devices[arrayIndices] && model.devices[arrayIndices].showEnergy === true && model.devices[arrayIndices].energyProtocol !== 'matter');"
+              }
+            },
+            "energyStandbyWatts": {
+              "title": "Standby / Average Power (W)",
+              "type": "number",
+              "minimum": 0,
+              "maximum": 10000,
+              "placeholder": "default",
+              "description": "Idle draw. For always-on appliances (fridge, beverage centre, filter, softener) the average over a day. Leave blank for the appliance default - see the README for each appliance's defaults.",
+              "condition": {
+                "functionBody": "return (model.devices && model.devices[arrayIndices] && model.devices[arrayIndices].showEnergy === true);"
+              }
+            },
+            "energyMotorWatts": {
+              "title": "Motor / Fan / Pump Power (W)",
+              "type": "number",
+              "minimum": 0,
+              "maximum": 10000,
+              "placeholder": "default",
+              "description": "Drum motor (laundry), wash pump (dishwasher), fan (hood, AC, ice maker), turbo boost (fridge), or the lower cavity element (double oven). Leave blank for the default.",
+              "condition": {
+                "functionBody": "return (model.devices && model.devices[arrayIndices] && model.devices[arrayIndices].showEnergy === true);"
+              }
+            },
+            "energySpinWatts": {
+              "title": "Spin Power (W)",
+              "type": "number",
+              "minimum": 0,
+              "maximum": 10000,
+              "placeholder": "default",
+              "description": "Washers and washer/dryers only: draw during high-speed spin. Default 400.",
+              "condition": {
+                "functionBody": "return (model.devices && model.devices[arrayIndices] && model.devices[arrayIndices].showEnergy === true);"
+              }
+            },
+            "energyHeaterWatts": {
+              "title": "Heater / Main Load Power (W)",
+              "type": "number",
+              "minimum": 0,
+              "maximum": 10000,
+              "placeholder": "default",
+              "description": "The main load at full output: water heater (washer 1800, dishwasher 1200), dryer element (2400; heat pump dryer about 700, gas 0), oven element (3500), induction burner (2200), AC or ice maker compressor (900 / 120), water heater (550 heat pump; 4500 for an element tank), Keurig tank (700). Use 0 for a hot-fed top-loading washer.",
+              "condition": {
+                "functionBody": "return (model.devices && model.devices[arrayIndices] && model.devices[arrayIndices].showEnergy === true);"
+              }
+            },
             "showFilterBattery": {
               "title": "Show Filter Life As Battery",
               "type": "boolean",
@@ -389,6 +471,21 @@
             "type": "boolean",
             "default": false,
             "description": "Keep accessory names exactly as the provider reports them. Without this, characters HomeKit does not accept are stripped out and the change is reported in the log."
+          },
+          "energyCostPerKwh": {
+            "title": "Electricity Rate (per kWh)",
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100,
+            "placeholder": 0.31,
+            "description": "What you pay per kWh, used for the estimated cost on the Energy dashboard. Leave blank to hide costs."
+          },
+          "energyCurrency": {
+            "title": "Currency Symbol",
+            "type": "string",
+            "maxLength": 4,
+            "placeholder": "$",
+            "description": "Shown before costs on the Energy dashboard, e.g. $, £ or €."
           }
         }
       }
@@ -444,6 +541,13 @@
             "devices[].showAirFrySwitch",
             "devices[].cookModeCavity",
             "devices[].showRunningSwitch",
+            "devices[].showEnergy",
+            "devices[].energyProtocol",
+            "devices[].showEnergyInHome",
+            "devices[].energyStandbyWatts",
+            "devices[].energyMotorWatts",
+            "devices[].energySpinWatts",
+            "devices[].energyHeaterWatts",
             "devices[].showFilterBattery",
             "devices[].firmware",
             "devices[].refreshRate",
@@ -483,7 +587,13 @@
           "key": "options.region",
           "notitle": true
         },
-        "options.allowInvalidCharacters"
+        "options.allowInvalidCharacters",
+        {
+          "type": "help",
+          "helpvalue": "<h5>Energy Dashboard</h5><em class='primary-text'>Your electricity rate and currency, for the estimated costs on the Energy tab.</em>"
+        },
+        "options.energyCostPerKwh",
+        "options.energyCurrency"
       ]
     }
   ]

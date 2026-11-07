@@ -71,6 +71,20 @@ export interface devicesConfig {
   showAirFrySwitch?: boolean
   cookModeCavity?: 'upper' | 'lower' // which cavity the mode switches drive on a double oven
   showRunningSwitch?: boolean // laundry only: expose a read-only switch that mirrors whether the machine is running
+  // Any appliance: add a tile carrying ESTIMATED watts and kWh, worked out from
+  // what the appliance reports (cycle phase, mode, temperatures) since SmartHQ
+  // reports no power readings. Laundry: replaces the running switch. See devices/energy.
+  showEnergy?: boolean
+  // 'hap' (default): Eve W/kWh on a HAP outlet. 'matter': a Matter outlet
+  // with power/energy measurement (always On for always-on appliances),
+  // which Apple Home shows on iOS 27+ (Homebridge 2.2.1+, Matter enabled)
+  energyProtocol?: 'hap' | 'matter'
+  showEnergyInHome?: boolean // HAP only: also expose the watts as a light sensor (lux = W)
+  // Wattage overrides; each appliance's meaning is documented in devices/energy/models.ts
+  energyStandbyWatts?: number
+  energyMotorWatts?: number
+  energySpinWatts?: number
+  energyHeaterWatts?: number
   showFilterBattery?: boolean // water filter only: expose the filter life as a battery so the percentage is glanceable in HomeKit
   keurig?: boolean // Override auto-detect for the built-in Keurig K-Cup brewer (e.g. PYE22PYNHFS)
   keurigOnly?: boolean // Skip the main Refrigerator accessory; only publish the Keurig sub-accessory
@@ -106,6 +120,8 @@ export interface options {
   refreshRate?: number
   logging?: string
   homekitControllerNotificationsSecret?: string
+  energyCostPerKwh?: number // Energy dashboard: what the owner pays per kWh, for estimated costs
+  energyCurrency?: string // Energy dashboard: symbol shown before costs, e.g. '$'
 }
 
 interface OpalOptions {
@@ -389,6 +405,10 @@ export const ERD_TYPES = {
   LAUNDRY_DOOR: '0x2012' as const,
   LAUNDRY_DOOR_LOCK: '0x2013' as const,
   LAUNDRY_REMOTE_STATUS: '0x2039' as const,
+  LAUNDRY_WASHER_WASHTEMP_LEVEL: '0x2016' as const,
+  LAUNDRY_DRYER_TEMPERATURE_OPTION: '0x2019' as const,
+  LAUNDRY_DRYER_TEMPERATURENEW_OPTION: '0x2050' as const,
+  LAUNDRY_WASHER_LINE_CURRENT: '0x3227' as const, // undecoded; logged in debug to help map real power readings
 
   // Air Conditioner
   AIR_CONDITIONER_AMBIENT_TEMPERATURE: '0x7A02' as const,
