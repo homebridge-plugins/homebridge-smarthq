@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { ERD_CODES, ERD_TYPES, lookupErdName, normaliseErd } from './settings.js'
+import { ERD_CODES, ERD_TYPES, lookupErdName, normaliseErd, wantsWholeDeviceMatter } from './settings.js'
 
 describe('eRD_TYPES', () => {
   it('should have correct values', () => {
@@ -53,5 +53,20 @@ describe('lookupErdName', () => {
     // dropped the update - exactly what a debug log showed for 0x116D
     expect(ERD_CODES['0x116E']).toBeUndefined()
     expect(lookupErdName('0x116E')).toBeDefined()
+  })
+})
+
+describe('wantsWholeDeviceMatter', () => {
+  it('uses Matter for a whole appliance only when its config asks for it', () => {
+    expect(wantsWholeDeviceMatter(true, true, true)).toBe(true)
+    // Unset must mean HAP: enabling Matter on the bridge for the energy tiles
+    // used to pull every appliance off HAP
+    expect(wantsWholeDeviceMatter(true, true, undefined)).toBe(false)
+    expect(wantsWholeDeviceMatter(true, true, false)).toBe(false)
+  })
+
+  it('never uses Matter when Homebridge cannot', () => {
+    expect(wantsWholeDeviceMatter(false, true, true)).toBe(false)
+    expect(wantsWholeDeviceMatter(true, false, true)).toBe(false)
   })
 })
