@@ -36,7 +36,7 @@ import { SmartHQWaterFilter } from './devices/waterFilter.js'
 import { SmartHQWaterHeater } from './devices/waterHeater.js'
 import { SmartHQWaterSoftener } from './devices/waterSoftener.js'
 import getAccessToken, { refreshAccessToken } from './getAccessToken.js'
-import { API_TIMEOUT_MS, API_URL, ERD_TYPES, KEEPALIVE_TIMEOUT, lookupErdName, MAX_TIMER_MS, normaliseErd, PLATFORM_NAME, PLUGIN_NAME, WS_ROUTINE_HOLD_MS } from './settings.js'
+import { API_TIMEOUT_MS, API_URL, ERD_TYPES, KEEPALIVE_TIMEOUT, lookupErdName, MAX_TIMER_MS, normaliseErd, PLATFORM_NAME, PLUGIN_NAME, wantsWholeDeviceMatter, WS_ROUTINE_HOLD_MS } from './settings.js'
 import { SmartHQV2 } from './smarthqV2.js'
 
 const { find, keyBy } = pkg
@@ -2287,18 +2287,8 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
    * Determine if a device should use Matter based on platform and device config
    */
   shouldUseMatter(device: devicesConfig): boolean {
-    // If Matter isn't available or enabled, use HAP
-    if (!this.matterAvailable || !this.matterEnabled) {
-      return false
-    }
-
-    // Check per-device preference (if specified in config)
-    if (device.useMatter !== undefined) {
-      return device.useMatter
-    }
-
-    // Default: use Matter when available
-    return true
+    // Only on request: see wantsWholeDeviceMatter for why this is not the default
+    return wantsWholeDeviceMatter(this.matterAvailable, this.matterEnabled, device.useMatter)
   }
 
   /**

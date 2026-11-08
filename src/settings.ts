@@ -471,3 +471,17 @@ export function safeTimerMs(ms: number): number {
   }
   return Math.min(Math.floor(ms), MAX_TIMER_MS)
 }
+
+/**
+ * Whether an appliance should be published as a whole over Matter.
+ *
+ * ⚠️ Only when its config asks for it (useMatter: true). This used to default
+ * to true whenever the bridge had Matter enabled, while the settings page
+ * documents the option as off by default and unavailable. Enabling Matter on
+ * the bridge - which the Matter energy tiles need - then removed every
+ * appliance from HAP on one restart and, with no Matter device type to replace
+ * it, left it unpublished until the next restart re-added it as new.
+ */
+export function wantsWholeDeviceMatter(matterAvailable: boolean, matterEnabled: boolean, useMatter: boolean | undefined): boolean {
+  return matterAvailable && matterEnabled && useMatter === true
+}
