@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file. This projec
 - ci: update github actions to their latest versions (#138)
 - feat: list what the v2 api reports for each appliance at the debug logging level (#135)
 - docs: list the supported appliances in the readme
+- chore: leave CLAUDE.md out of the published package
 
 ## v0.9.0 (2026-10-18)
 
