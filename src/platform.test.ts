@@ -170,7 +170,9 @@ describe('smartHQPlatform Per-Device Config Merge', () => {
     const mockGet = vi.mocked(axios.get)
     mockGet.mockImplementation((url: string) => {
       if (url === '/appliance') {
-        return Promise.resolve({ data: { userId: 'user-1', items: apiDevices } })
+        return Promise.resolve({
+          data: { userId: 'user-1', items: apiDevices },
+        })
       }
       // Mock the per-device detail + feature endpoints so the discovery
       // loop proceeds past Promise.all and actually exercises the
@@ -197,9 +199,21 @@ describe('smartHQPlatform live ERD cache', () => {
   let mockConfig: PlatformConfig
 
   beforeEach(() => {
-    mockLog = { prefix: 'SmartHQ', info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logging
+    mockLog = {
+      prefix: 'SmartHQ',
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      debug: vi.fn(),
+    } as unknown as Logging
     mockApi = {
-      hap: { Service: {}, Characteristic: {}, uuid: { generate: vi.fn().mockReturnValue('test-uuid') } },
+      hap: {
+        Service: {},
+        Characteristic: {},
+        uuid: {
+          generate: vi.fn().mockReturnValue('test-uuid'),
+        },
+      },
       on: vi.fn(),
       registerPlatformAccessories: vi.fn(),
       unregisterPlatformAccessories: vi.fn(),
@@ -332,7 +346,13 @@ describe('smartHQPlatform appliance type dispatch', () => {
     } as unknown as Logging
 
     mockApi = {
-      hap: { Service: {}, Characteristic: {}, uuid: { generate: vi.fn().mockReturnValue('test-uuid') } },
+      hap: {
+        Service: {},
+        Characteristic: {},
+        uuid: {
+          generate: vi.fn().mockReturnValue('test-uuid'),
+        },
+      },
       on: vi.fn(),
       registerPlatformAccessories: vi.fn(),
       unregisterPlatformAccessories: vi.fn(),
@@ -353,7 +373,12 @@ describe('smartHQPlatform appliance type dispatch', () => {
     const axios = (await import('axios')).default
     vi.mocked(axios.get).mockImplementation((url: string) => {
       if (url === '/appliance') {
-        return Promise.resolve({ data: { userId: 'user-1', items: [device] } })
+        return Promise.resolve({
+          data: {
+            userId: 'user-1',
+            items: [device],
+          },
+        })
       }
       if (url.startsWith('/appliance/')) {
         return Promise.resolve({ data: {} })
@@ -397,7 +422,12 @@ describe('smartHQPlatform appliance type dispatch', () => {
   // itself fetches every erd the appliance reports and puts them in the debug
   // log - the one paste an owner can give that is enough to add support (#125)
   it('reads every erd of an appliance it does not recognise', async () => {
-    await discoverOne({ applianceId: 'a-4', type: 'Bread Maker', nickname: 'Bread Maker', model: 'BM100' })
+    await discoverOne({
+      applianceId: 'a-4',
+      type: 'Bread Maker',
+      nickname: 'Bread Maker',
+      model: 'BM100',
+    })
 
     const axios = (await import('axios')).default
     expect(vi.mocked(axios.get)).toHaveBeenCalledWith('/appliance/a-4/erd')
@@ -415,13 +445,25 @@ describe('smartHQPlatform appliance type dispatch', () => {
     const axios = (await import('axios')).default
     vi.mocked(axios.get).mockImplementation((url: string) => {
       if (url === '/appliance') {
-        return Promise.resolve({ data: { userId: 'user-1', items: [{ applianceId: 'a-5', type: 'Dishwasher', nickname: 'Dishwasher' }] } })
+        return Promise.resolve({
+          data: {
+            userId: 'user-1',
+            items: [
+              { applianceId: 'a-5', type: 'Dishwasher', nickname: 'Dishwasher' },
+            ],
+          },
+        })
       }
       // details without a firmware field this time round
       return Promise.resolve({ data: {} })
     })
     const platform = new SmartHQPlatform(mockLog, config, mockApi)
-    ;(platform as any).accessories.push({ UUID: 'other', context: { device: { applianceId: 'a-5', firmware: '2.1.0' } } })
+    ;(platform as any).accessories.push({
+      UUID: 'other',
+      context: {
+        device: { applianceId: 'a-5', firmware: '2.1.0' },
+      },
+    })
     const dishwasher = vi.spyOn(platform as any, 'createSmartHQDishWasher').mockResolvedValue(undefined)
 
     await platform.discoverDevices()
@@ -432,7 +474,12 @@ describe('smartHQPlatform appliance type dispatch', () => {
   })
 
   it('names the type and model when it does not recognise an appliance', async () => {
-    await discoverOne({ applianceId: 'a-3', type: 'Toaster Oven', nickname: 'Toaster', model: 'TO123' })
+    await discoverOne({
+      applianceId: 'a-3',
+      type: 'Toaster Oven',
+      nickname: 'Toaster',
+      model: 'TO123',
+    })
 
     // Quoted, and with the model, so one pasted line is enough to add support
     expect(mockLog.warn).toHaveBeenCalledWith(expect.stringContaining('"Toaster Oven"'))
@@ -449,9 +496,21 @@ describe('smartHQPlatform shutdown', () => {
   let platform: SmartHQPlatform
 
   beforeEach(() => {
-    const mockLog = { prefix: 'SmartHQ', info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logging
+    const mockLog = {
+      prefix: 'SmartHQ',
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      debug: vi.fn(),
+    } as unknown as Logging
     const mockApi = {
-      hap: { Service: {}, Characteristic: {}, uuid: { generate: vi.fn().mockReturnValue('test-uuid') } },
+      hap: {
+        Service: {},
+        Characteristic: {},
+        uuid: {
+          generate: vi.fn().mockReturnValue('test-uuid'),
+        },
+      },
       on: vi.fn(),
       registerPlatformAccessories: vi.fn(),
       unregisterPlatformAccessories: vi.fn(),
@@ -475,9 +534,11 @@ describe('smartHQPlatform shutdown', () => {
   })
 
   it('survives a disconnect that rejects on the way out', async () => {
-    ;(platform as any).v2Transport = { disconnect: vi.fn(async () => {
-      throw new Error('socket already gone')
-    }) }
+    ;(platform as any).v2Transport = {
+      disconnect: vi.fn(async () => {
+        throw new Error('socket already gone')
+      }),
+    }
 
     expect(() => (platform as any).shutdown()).not.toThrow()
     await new Promise(resolve => setTimeout(resolve, 0))
@@ -485,7 +546,11 @@ describe('smartHQPlatform shutdown', () => {
 
   it('tells each accessory to shut down too', () => {
     const shutdown = vi.fn()
-    ;(platform as any).accessories = [{ control: { shutdown } }]
+    ;(platform as any).accessories = [
+      {
+        control: { shutdown },
+      },
+    ]
 
     ;(platform as any).shutdown()
 
@@ -515,12 +580,24 @@ describe('websocket drop logging', () => {
       debug: vi.fn(),
     } as unknown as Logging
     const mockApi = {
-      hap: { Service: {}, Characteristic: {}, uuid: { generate: vi.fn().mockReturnValue('test-uuid') } },
+      hap: {
+        Service: {},
+        Characteristic: {},
+        uuid: {
+          generate: vi.fn().mockReturnValue('test-uuid'),
+        },
+      },
       on: vi.fn(),
     } as unknown as API
-    platform = new SmartHQPlatform(mockLog, { platform: 'SmartHQ', name: 'SmartHQ', credentials: { username: 'u', password: 'p' } } as PlatformConfig, mockApi)
+    platform = new SmartHQPlatform(mockLog, {
+      platform: 'SmartHQ',
+      name: 'SmartHQ',
+      credentials: { username: 'u', password: 'p' },
+    } as PlatformConfig, mockApi)
     const axios = (await import('axios')).default
-    vi.mocked(axios.get).mockResolvedValue({ data: { endpoint: 'wss://example.invalid' } })
+    vi.mocked(axios.get).mockResolvedValue({
+      data: { endpoint: 'wss://example.invalid' },
+    })
   })
 
   afterEach(() => {

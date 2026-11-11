@@ -46,7 +46,11 @@ export function cooktopBurners(status: string | undefined): CooktopBurner[] {
   const burners: CooktopBurner[] = []
   for (let slot = 0; slot < 6; slot++) {
     const flags = b.readUint8(1 + slot * 2)
-    burners.push({ slot: slot + 1, on: (flags & BURNER_ON_FLAG) !== 0, power: b.readUint8(2 + slot * 2) })
+    burners.push({
+      slot: slot + 1,
+      on: (flags & BURNER_ON_FLAG) !== 0,
+      power: b.readUint8(2 + slot * 2),
+    })
   }
   return burners
 }
@@ -102,6 +106,10 @@ export class SmartHQCooktop extends deviceBase {
     }
     this.sensor.updateCharacteristic(this.platform.Characteristic.ContactSensorState, this.stateFor(value))
     const lit = cooktopBurners(value).filter(burner => burner.on)
-    this.debugLog(`Cooktop ${cooktopIsOn(value) ? 'on' : 'off'}${lit.length ? ` - burners ${lit.map(burner => `${burner.slot}@${burner.power}`).join(', ')}` : ''}`)
+    this.debugLog(`Cooktop ${cooktopIsOn(value)
+      ? 'on'
+      : 'off'}${lit.length
+      ? ` - burners ${lit.map(burner => `${burner.slot}@${burner.power}`).join(', ')}`
+      : ''}`)
   }
 }

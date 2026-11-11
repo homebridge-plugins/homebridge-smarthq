@@ -110,7 +110,9 @@ export class SmartHQWaterHeater extends deviceBase {
       UUID: this.matterUuid,
       displayName: this.device.nickname || 'SmartHQ Water Heater',
       serialNumber,
-      manufacturer: this.device.brand && this.device.brand !== 'Unknown' ? this.device.brand : 'GE Appliances',
+      manufacturer: this.device.brand && this.device.brand !== 'Unknown'
+        ? this.device.brand
+        : 'GE Appliances',
       model: this.device.model || 'SmartHQ',
       firmwareRevision: this.deviceFirmwareVersion,
       hardwareRevision: this.deviceFirmwareVersion,
@@ -195,7 +197,9 @@ export class SmartHQWaterHeater extends deviceBase {
             ? WATER_HEATER_MODES.VACATION
             : WATER_HEATER_MODES.NORMAL
           await this.writeErd(ERD_TYPES.WATER_HEATER_MODE, mode)
-          this.debugLog(`Water Heater set to: ${mode === WATER_HEATER_MODES.VACATION ? 'vacation' : 'normal'}`)
+          this.debugLog(`Water Heater set to: ${mode === WATER_HEATER_MODES.VACATION
+            ? 'vacation'
+            : 'normal'}`)
         } catch (error: any) {
           this.warnLog?.(`Water Heater Target State set error: ${error?.message ?? error}`)
         }

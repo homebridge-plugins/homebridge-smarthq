@@ -11,12 +11,26 @@ describe('an air conditioner with no filter status', () => {
   function acWithFilterErd(value: string | undefined) {
     const ac = Object.create(SmartHQAirConditioner.prototype)
     ac.filterStatusSupported = true
-    ac.accessory = { displayName: 'Air Conditioner', context: { device: {} } }
+    ac.accessory = {
+      displayName: 'Air Conditioner',
+      context: { device: {} },
+    }
     ac.readErd = vi.fn(async () => value)
     ac.platform = {
-      log: { info: vi.fn(), error: vi.fn(), debug: vi.fn() },
-      Characteristic: { FilterChangeIndication: { FILTER_OK: 0, CHANGE_FILTER: 1 } },
-      api: { hap: { HapStatusError: class extends Error {}, HAPStatus: { SERVICE_COMMUNICATION_FAILURE: -70402 } } },
+      log: {
+        info: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+      },
+      Characteristic: {
+        FilterChangeIndication: { FILTER_OK: 0, CHANGE_FILTER: 1 },
+      },
+      api: {
+        hap: {
+          HapStatusError: class extends Error {},
+          HAPStatus: { SERVICE_COMMUNICATION_FAILURE: -70402 },
+        },
+      },
     }
     return ac
   }

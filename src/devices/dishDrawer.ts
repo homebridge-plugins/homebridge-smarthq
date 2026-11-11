@@ -109,7 +109,9 @@ export function dishDrawerCycleStatusByte(raw: string | undefined): number | und
     return undefined
   }
   const byte = Number.parseInt(raw.slice(2, 4), 16)
-  return Number.isNaN(byte) ? undefined : byte
+  return Number.isNaN(byte)
+    ? undefined
+    : byte
 }
 
 /** Whether a cycle-status byte is one the appliance has been observed sending. */

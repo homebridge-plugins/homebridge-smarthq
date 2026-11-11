@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file. This projec
 - chore: leave CLAUDE.md out of the published package
 - feat: estimate each appliance's power and energy, with an energy tab in the settings (@Wazza151)
 - fix(matter): publish an appliance over matter only when its config asks for it (@Wazza151)
+- chore(deps): dependency updates
 
 ## v0.9.0 (2026-10-18)
 

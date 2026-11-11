@@ -104,7 +104,9 @@ export class SmartHQDishWasher extends deviceBase {
       UUID: this.matterUuid,
       displayName: this.device.nickname || 'SmartHQ Dishwasher',
       serialNumber,
-      manufacturer: this.device.brand && this.device.brand !== 'Unknown' ? this.device.brand : 'GE Appliances',
+      manufacturer: this.device.brand && this.device.brand !== 'Unknown'
+        ? this.device.brand
+        : 'GE Appliances',
       model: this.device.model || 'SmartHQ',
       firmwareRevision: this.deviceFirmwareVersion,
       hardwareRevision: this.deviceFirmwareVersion,

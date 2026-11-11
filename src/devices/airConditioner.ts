@@ -178,7 +178,13 @@ export class SmartHQAirConditioner extends deviceBase {
         wantedSuffixes.add('DRY')
       }
     }
-    for (const suffix of ['COOL', 'FAN_ONLY', 'ENERGY_SAVER', 'HEAT', 'DRY']) {
+    for (const suffix of [
+      'COOL',
+      'FAN_ONLY',
+      'ENERGY_SAVER',
+      'HEAT',
+      'DRY',
+    ]) {
       if (!wantedSuffixes.has(suffix)) {
         const existing = this.accessory.getService(`${this.MODE_SWITCH_SVC_PREFIX}_${suffix}`)
         if (existing) {
@@ -330,7 +336,9 @@ export class SmartHQAirConditioner extends deviceBase {
       throw new Error(
         axios.isAxiosError(cause) && cause.response
           ? `Failed to set ERD ${erd}=${value}: ${cause.response.data.message}`
-          : `Failed to set ERD ${erd}=${value}: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`,
+          : `Failed to set ERD ${erd}=${value}: ${cause instanceof Error
+            ? cause.message
+            : 'An unknown error occurred'}`,
         { cause },
       )
     }
@@ -355,7 +363,9 @@ export class SmartHQAirConditioner extends deviceBase {
 
       return this.fahrenheitToCelsius(temperatureInFahrenheit) // homekit expects Celsius
     } catch (cause) {
-      throw new Error(`Failed to get current temperature: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`, { cause })
+      throw new Error(`Failed to get current temperature: ${cause instanceof Error
+        ? cause.message
+        : 'An unknown error occurred'}`, { cause })
     }
   }
 
@@ -366,7 +376,9 @@ export class SmartHQAirConditioner extends deviceBase {
 
       return this.fahrenheitToCelsius(temperatureInFahrenheit) // homekit expects Celsius
     } catch (cause) {
-      throw new Error(`Failed to get target temperature: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`, { cause })
+      throw new Error(`Failed to get target temperature: ${cause instanceof Error
+        ? cause.message
+        : 'An unknown error occurred'}`, { cause })
     }
   }
 
@@ -379,7 +391,9 @@ export class SmartHQAirConditioner extends deviceBase {
 
       this.platform.log.debug(`[${this.accessory.displayName}] Set temperature to ${value}°C (${temperatureInFahrenheit}°F)`)
     } catch (cause) {
-      throw new Error(`Failed to set target temperature: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`, { cause })
+      throw new Error(`Failed to set target temperature: ${cause instanceof Error
+        ? cause.message
+        : 'An unknown error occurred'}`, { cause })
     }
   }
 
@@ -389,7 +403,9 @@ export class SmartHQAirConditioner extends deviceBase {
 
       return value as TemperatureUnit
     } catch (cause) {
-      throw new Error(`Failed to get temperature display units: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`, { cause })
+      throw new Error(`Failed to get temperature display units: ${cause instanceof Error
+        ? cause.message
+        : 'An unknown error occurred'}`, { cause })
     }
   }
 
@@ -399,7 +415,9 @@ export class SmartHQAirConditioner extends deviceBase {
 
       this.platform.log.debug(`[${this.accessory.displayName}] Set temperature display units to ${value}`)
     } catch (cause) {
-      throw new Error(`Failed to set temperature display units: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`, { cause })
+      throw new Error(`Failed to set temperature display units: ${cause instanceof Error
+        ? cause.message
+        : 'An unknown error occurred'}`, { cause })
     }
   }
 
@@ -409,7 +427,9 @@ export class SmartHQAirConditioner extends deviceBase {
 
       return value as OperationMode
     } catch (cause) {
-      throw new Error(`Failed to get operation mode: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`, { cause })
+      throw new Error(`Failed to get operation mode: ${cause instanceof Error
+        ? cause.message
+        : 'An unknown error occurred'}`, { cause })
     }
   }
 
@@ -419,7 +439,9 @@ export class SmartHQAirConditioner extends deviceBase {
 
       this.platform.log.debug(`[${this.accessory.displayName}] Set operation mode to ${value}`)
     } catch (cause) {
-      throw new Error(`Failed to set operation mode: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`, { cause })
+      throw new Error(`Failed to set operation mode: ${cause instanceof Error
+        ? cause.message
+        : 'An unknown error occurred'}`, { cause })
     }
   }
 
@@ -429,7 +451,9 @@ export class SmartHQAirConditioner extends deviceBase {
 
       return value as FanSetting
     } catch (cause) {
-      throw new Error(`Failed to get fan setting: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`, { cause })
+      throw new Error(`Failed to get fan setting: ${cause instanceof Error
+        ? cause.message
+        : 'An unknown error occurred'}`, { cause })
     }
   }
 
@@ -439,7 +463,9 @@ export class SmartHQAirConditioner extends deviceBase {
 
       this.platform.log.debug(`[${this.accessory.displayName}] Set fan setting to ${value}`)
     } catch (cause) {
-      throw new Error(`Failed to set fan setting: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`, { cause })
+      throw new Error(`Failed to set fan setting: ${cause instanceof Error
+        ? cause.message
+        : 'An unknown error occurred'}`, { cause })
     }
   }
 
@@ -449,7 +475,9 @@ export class SmartHQAirConditioner extends deviceBase {
 
       return value as FilterStatus
     } catch (cause) {
-      throw new Error(`Failed to get filter status: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`, { cause })
+      throw new Error(`Failed to get filter status: ${cause instanceof Error
+        ? cause.message
+        : 'An unknown error occurred'}`, { cause })
     }
   }
 
@@ -460,13 +488,17 @@ export class SmartHQAirConditioner extends deviceBase {
       return value as AcSwingMode
     } catch (cause) {
       // Some devices (e.g. PHNT10CC) do not support the swing mode ERD and return a 400 error
-      const axiosCause = cause instanceof Error ? cause.cause : null
+      const axiosCause = cause instanceof Error
+        ? cause.cause
+        : null
       if (axios.isAxiosError(axiosCause) && axiosCause.response?.status === 400) {
         this.platform.log.debug(`[${this.accessory.displayName}] Swing mode not supported by this device, defaulting to disabled`)
         return AcSwingMode.DISABLED
       }
 
-      throw new Error(`Failed to get swing mode: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`, { cause })
+      throw new Error(`Failed to get swing mode: ${cause instanceof Error
+        ? cause.message
+        : 'An unknown error occurred'}`, { cause })
     }
   }
 
@@ -476,7 +508,9 @@ export class SmartHQAirConditioner extends deviceBase {
 
       this.platform.log.debug(`[${this.accessory.displayName}] Set swing mode to ${value}`)
     } catch (cause) {
-      throw new Error(`Failed to set swing mode: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`, { cause })
+      throw new Error(`Failed to set swing mode: ${cause instanceof Error
+        ? cause.message
+        : 'An unknown error occurred'}`, { cause })
     }
   }
 
@@ -492,7 +526,9 @@ export class SmartHQAirConditioner extends deviceBase {
         ? this.platform.Characteristic.Active.ACTIVE
         : this.platform.Characteristic.Active.INACTIVE
     } catch (cause) {
-      const error = new Error(`Failed to handle get active: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`, { cause })
+      const error = new Error(`Failed to handle get active: ${cause instanceof Error
+        ? cause.message
+        : 'An unknown error occurred'}`, { cause })
       this.platform.log.error(`[${this.accessory.displayName}] ${error.message}`)
 
       throw new this.platform.api.hap.HapStatusError(this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE)
@@ -568,7 +604,9 @@ export class SmartHQAirConditioner extends deviceBase {
         this.platform.Characteristic.Active.INACTIVE,
       )
     } catch (cause) {
-      const error = new Error(`Failed to handle set active: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`, { cause })
+      const error = new Error(`Failed to handle set active: ${cause instanceof Error
+        ? cause.message
+        : 'An unknown error occurred'}`, { cause })
       this.platform.log.error(`[${this.accessory.displayName}] ${error.message}`)
 
       throw error
@@ -614,7 +652,9 @@ export class SmartHQAirConditioner extends deviceBase {
 
       return this.platform.Characteristic.CurrentHeaterCoolerState.COOLING
     } catch (cause) {
-      const error = new Error(`Failed to handle get current heater cooler state: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`, { cause })
+      const error = new Error(`Failed to handle get current heater cooler state: ${cause instanceof Error
+        ? cause.message
+        : 'An unknown error occurred'}`, { cause })
       this.platform.log.error(`[${this.accessory.displayName}] ${error.message}`)
 
       throw new this.platform.api.hap.HapStatusError(this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE)
@@ -629,7 +669,9 @@ export class SmartHQAirConditioner extends deviceBase {
         ? this.platform.Characteristic.TargetHeaterCoolerState.HEAT
         : this.platform.Characteristic.TargetHeaterCoolerState.COOL
     } catch (cause) {
-      const error = new Error(`Failed to handle get target heater cooler state: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`, { cause })
+      const error = new Error(`Failed to handle get target heater cooler state: ${cause instanceof Error
+        ? cause.message
+        : 'An unknown error occurred'}`, { cause })
       this.platform.log.error(`[${this.accessory.displayName}] ${error.message}`)
 
       throw new this.platform.api.hap.HapStatusError(this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE)
@@ -684,7 +726,9 @@ export class SmartHQAirConditioner extends deviceBase {
         }
       }
     } catch (cause) {
-      const error = new Error(`Failed to handle set target heater cooler state: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`, { cause })
+      const error = new Error(`Failed to handle set target heater cooler state: ${cause instanceof Error
+        ? cause.message
+        : 'An unknown error occurred'}`, { cause })
       this.platform.log.error(`[${this.accessory.displayName}] ${error.message}`)
 
       throw error
@@ -697,7 +741,9 @@ export class SmartHQAirConditioner extends deviceBase {
 
       return value
     } catch (cause) {
-      const error = new Error(`Failed to handle get current temperature: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`, { cause })
+      const error = new Error(`Failed to handle get current temperature: ${cause instanceof Error
+        ? cause.message
+        : 'An unknown error occurred'}`, { cause })
       this.platform.log.error(`[${this.accessory.displayName}] ${error.message}`)
 
       throw new this.platform.api.hap.HapStatusError(this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE)
@@ -710,7 +756,9 @@ export class SmartHQAirConditioner extends deviceBase {
 
       return value
     } catch (cause) {
-      const error = new Error(`Failed to handle get cooling threshold temperature: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`, { cause })
+      const error = new Error(`Failed to handle get cooling threshold temperature: ${cause instanceof Error
+        ? cause.message
+        : 'An unknown error occurred'}`, { cause })
       this.platform.log.error(`[${this.accessory.displayName}] ${error.message}`)
 
       throw new this.platform.api.hap.HapStatusError(this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE)
@@ -723,7 +771,9 @@ export class SmartHQAirConditioner extends deviceBase {
 
       await this.setTemperature(targetTemperature)
     } catch (cause) {
-      const error = new Error(`Failed to handle set cooling threshold temperature: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`, { cause })
+      const error = new Error(`Failed to handle set cooling threshold temperature: ${cause instanceof Error
+        ? cause.message
+        : 'An unknown error occurred'}`, { cause })
       this.platform.log.error(`[${this.accessory.displayName}] ${error.message}`)
 
       throw error
@@ -736,7 +786,9 @@ export class SmartHQAirConditioner extends deviceBase {
 
       return value
     } catch (cause) {
-      const error = new Error(`Failed to handle get heating threshold temperature: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`, { cause })
+      const error = new Error(`Failed to handle get heating threshold temperature: ${cause instanceof Error
+        ? cause.message
+        : 'An unknown error occurred'}`, { cause })
       this.platform.log.error(`[${this.accessory.displayName}] ${error.message}`)
 
       throw new this.platform.api.hap.HapStatusError(this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE)
@@ -749,7 +801,9 @@ export class SmartHQAirConditioner extends deviceBase {
 
       await this.setTemperature(targetTemperature)
     } catch (cause) {
-      const error = new Error(`Failed to handle set heating threshold temperature: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`, { cause })
+      const error = new Error(`Failed to handle set heating threshold temperature: ${cause instanceof Error
+        ? cause.message
+        : 'An unknown error occurred'}`, { cause })
       this.platform.log.error(`[${this.accessory.displayName}] ${error.message}`)
 
       throw error
@@ -773,7 +827,9 @@ export class SmartHQAirConditioner extends deviceBase {
           throw new Error(`Unknown fan setting: ${value}`)
       }
     } catch (cause) {
-      const error = new Error(`Failed to handle get fan setting: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`, { cause })
+      const error = new Error(`Failed to handle get fan setting: ${cause instanceof Error
+        ? cause.message
+        : 'An unknown error occurred'}`, { cause })
       this.platform.log.error(`[${this.accessory.displayName}] ${error.message}`)
 
       throw new this.platform.api.hap.HapStatusError(this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE)
@@ -788,7 +844,9 @@ export class SmartHQAirConditioner extends deviceBase {
         ? this.platform.Characteristic.Active.INACTIVE
         : this.platform.Characteristic.Active.ACTIVE
     } catch (cause) {
-      const error = new Error(`Failed to handle get fan active: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`, { cause })
+      const error = new Error(`Failed to handle get fan active: ${cause instanceof Error
+        ? cause.message
+        : 'An unknown error occurred'}`, { cause })
       this.platform.log.error(`[${this.accessory.displayName}] ${error.message}`)
 
       throw new this.platform.api.hap.HapStatusError(this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE)
@@ -841,7 +899,9 @@ export class SmartHQAirConditioner extends deviceBase {
         0,
       )
     } catch (cause) {
-      const error = new Error(`Failed to handle set fan active: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`, { cause })
+      const error = new Error(`Failed to handle set fan active: ${cause instanceof Error
+        ? cause.message
+        : 'An unknown error occurred'}`, { cause })
       this.platform.log.error(`[${this.accessory.displayName}] ${error.message}`)
 
       throw error
@@ -884,7 +944,9 @@ export class SmartHQAirConditioner extends deviceBase {
           : this.platform.Characteristic.Active.ACTIVE,
       )
     } catch (cause) {
-      const error = new Error(`Failed to handle set fan setting: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`, { cause })
+      const error = new Error(`Failed to handle set fan setting: ${cause instanceof Error
+        ? cause.message
+        : 'An unknown error occurred'}`, { cause })
       this.platform.log.error(`[${this.accessory.displayName}] ${error.message}`)
 
       throw error
@@ -899,7 +961,9 @@ export class SmartHQAirConditioner extends deviceBase {
         ? this.platform.Characteristic.TemperatureDisplayUnits.FAHRENHEIT
         : this.platform.Characteristic.TemperatureDisplayUnits.CELSIUS
     } catch (cause) {
-      const error = new Error(`Failed to handle get temperature display units: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`, { cause })
+      const error = new Error(`Failed to handle get temperature display units: ${cause instanceof Error
+        ? cause.message
+        : 'An unknown error occurred'}`, { cause })
       this.platform.log.error(`[${this.accessory.displayName}] ${error.message}`)
 
       throw new this.platform.api.hap.HapStatusError(this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE)
@@ -914,7 +978,9 @@ export class SmartHQAirConditioner extends deviceBase {
 
       await this.setTemperatureDisplayUnits(temperatureUnit)
     } catch (cause) {
-      const error = new Error(`Failed to handle set temperature display units: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`, { cause })
+      const error = new Error(`Failed to handle set temperature display units: ${cause instanceof Error
+        ? cause.message
+        : 'An unknown error occurred'}`, { cause })
       this.platform.log.error(`[${this.accessory.displayName}] ${error.message}`)
 
       throw error
@@ -941,7 +1007,9 @@ export class SmartHQAirConditioner extends deviceBase {
         this.platform.log.info(`[${this.accessory.displayName}] Filter status is not reported by this model, so it will not be shown as needing a change`)
         return this.platform.Characteristic.FilterChangeIndication.FILTER_OK
       }
-      const error = new Error(`Failed to handle get filter change indication: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`, { cause })
+      const error = new Error(`Failed to handle get filter change indication: ${cause instanceof Error
+        ? cause.message
+        : 'An unknown error occurred'}`, { cause })
       this.platform.log.error(`[${this.accessory.displayName}] ${error.message}`)
 
       throw new this.platform.api.hap.HapStatusError(this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE)
@@ -966,7 +1034,9 @@ export class SmartHQAirConditioner extends deviceBase {
         this.platform.log.info(`[${this.accessory.displayName}] Swing mode is not supported by this model, disabling`)
         return this.platform.Characteristic.SwingMode.SWING_DISABLED
       }
-      const error = new Error(`Failed to handle get swing mode: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`, { cause })
+      const error = new Error(`Failed to handle get swing mode: ${cause instanceof Error
+        ? cause.message
+        : 'An unknown error occurred'}`, { cause })
       this.platform.log.error(`[${this.accessory.displayName}] ${error.message}`)
 
       throw new this.platform.api.hap.HapStatusError(this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE)
@@ -984,7 +1054,9 @@ export class SmartHQAirConditioner extends deviceBase {
 
       await this.setSwingMode(swingMode)
     } catch (cause) {
-      const error = new Error(`Failed to handle set swing mode: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`, { cause })
+      const error = new Error(`Failed to handle set swing mode: ${cause instanceof Error
+        ? cause.message
+        : 'An unknown error occurred'}`, { cause })
       this.platform.log.error(`[${this.accessory.displayName}] ${error.message}`)
 
       throw error
@@ -1006,7 +1078,9 @@ export class SmartHQAirConditioner extends deviceBase {
       return currentOperationMode === mode
     } catch (cause) {
       const error = new Error(
-        `Failed to handle get operation mode ${mode}: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`,
+        `Failed to handle get operation mode ${mode}: ${cause instanceof Error
+          ? cause.message
+          : 'An unknown error occurred'}`,
         { cause },
       )
       this.platform.log.error(`[${this.accessory.displayName}] ${error.message}`)
@@ -1077,7 +1151,9 @@ export class SmartHQAirConditioner extends deviceBase {
       }
     } catch (cause) {
       const error = new Error(
-        `Failed to handle set operation mode ${mode}: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`,
+        `Failed to handle set operation mode ${mode}: ${cause instanceof Error
+          ? cause.message
+          : 'An unknown error occurred'}`,
         { cause },
       )
       this.platform.log.error(`[${this.accessory.displayName}] ${error.message}`)
@@ -1103,7 +1179,9 @@ export class SmartHQAirConditioner extends deviceBase {
           throw new Error(`Unknown operation mode: ${mode}`)
       }
     } catch (cause) {
-      const error = new Error(`Failed to handle get operation mode name for ${mode}: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`, { cause })
+      const error = new Error(`Failed to handle get operation mode name for ${mode}: ${cause instanceof Error
+        ? cause.message
+        : 'An unknown error occurred'}`, { cause })
       this.platform.log.error(`[${this.accessory.displayName}] ${error.message}`)
 
       throw error
@@ -1194,7 +1272,9 @@ export class SmartHQAirConditioner extends deviceBase {
 
       this.platform.log.debug(`[${this.accessory.displayName}] Refreshed state`)
     } catch (cause) {
-      const error = new Error(`Failed to refresh state for ${this.accessory.displayName}: ${cause instanceof Error ? cause.message : 'An unknown error occurred'}`, { cause })
+      const error = new Error(`Failed to refresh state for ${this.accessory.displayName}: ${cause instanceof Error
+        ? cause.message
+        : 'An unknown error occurred'}`, { cause })
       this.platform.log.error(`[${this.accessory.displayName}] ${error.message}`)
     }
   }

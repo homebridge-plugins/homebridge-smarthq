@@ -175,7 +175,10 @@ export default async function getAccessToken(username: string, password: string,
           // Follow redirect manually if provided
           if (loc) {
             const resolved = new URL(loc, LOGIN_URL).toString()
-            const redirectResp = await aclient.get(resolved, { maxRedirects: 0, validateStatus: () => true })
+            const redirectResp = await aclient.get(resolved, {
+              maxRedirects: 0,
+              validateStatus: () => true,
+            })
             const finalLoc = redirectResp.headers.location
             const finalCode = tryExtractCodeFromLocation(finalLoc)
             if (finalCode) {
@@ -246,7 +249,10 @@ export default async function getAccessToken(username: string, password: string,
             }
             if (loc) {
               const resolved = new URL(loc, LOGIN_URL).toString()
-              const redirectResp = await aclient.get(resolved, { maxRedirects: 0, validateStatus: () => true })
+              const redirectResp = await aclient.get(resolved, {
+                maxRedirects: 0,
+                validateStatus: () => true,
+              })
               const finalCode = tryExtractCodeFromLocation(redirectResp.headers.location)
               if (finalCode) {
                 return finalCode
@@ -302,7 +308,10 @@ export default async function getAccessToken(username: string, password: string,
           }
           if (loc) {
             const resolved = new URL(loc, LOGIN_URL).toString()
-            const redirectResp = await aclient.get(resolved, { maxRedirects: 0, validateStatus: () => true })
+            const redirectResp = await aclient.get(resolved, {
+              maxRedirects: 0,
+              validateStatus: () => true,
+            })
             const finalCode = tryExtractCodeFromLocation(redirectResp.headers.location)
             if (finalCode) {
               return finalCode
@@ -342,7 +351,13 @@ export default async function getAccessToken(username: string, password: string,
             }
             const input = $(inputEl)
             const type = (input.attr('type') ?? 'text').toLowerCase()
-            if (['hidden', 'submit', 'checkbox', 'password', 'email'].includes(type)) {
+            if ([
+              'hidden',
+              'submit',
+              'checkbox',
+              'password',
+              'email',
+            ].includes(type)) {
               return
             }
             const nameAndId = `${input.attr('name') ?? ''} ${input.attr('id') ?? ''}`
@@ -418,8 +433,17 @@ export default async function getAccessToken(username: string, password: string,
       const $unknown = cheerio.load(respText)
       const pageTitle = $unknown('title').text().trim()
       const pageForms = $unknown('form').map((i, el) => $unknown(el).attr('id') || $unknown(el).attr('name') || $unknown(el).attr('action') || 'unnamed').get().join(', ')
-      const pageDetails = [pageTitle ? `page title: "${pageTitle}"` : '', pageForms ? `forms: ${pageForms}` : ''].filter(Boolean).join('; ')
-      throw new Error(`Authentication failed: No authorization code received and no known intermediate page detected${pageDetails ? ` (${pageDetails})` : ''}`)
+      const pageDetails = [
+        pageTitle
+          ? `page title: "${pageTitle}"`
+          : '',
+        pageForms
+          ? `forms: ${pageForms}`
+          : '',
+      ].filter(Boolean).join('; ')
+      throw new Error(`Authentication failed: No authorization code received and no known intermediate page detected${pageDetails
+        ? ` (${pageDetails})`
+        : ''}`)
     }
 
     // If we have HTML in the response, try to handle it
