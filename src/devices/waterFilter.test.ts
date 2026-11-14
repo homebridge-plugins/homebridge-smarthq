@@ -71,7 +71,9 @@ function makeAccessory() {
   return {
     UUID: 'test-uuid',
     displayName: 'Water Filter',
-    context: { device: { features: [] } },
+    context: {
+      device: { features: [] },
+    },
     getService: (name: string) => services.get(name),
     addService(_type: string, name: string) {
       const service = makeService(name)
@@ -86,10 +88,20 @@ function makeAccessory() {
 }
 
 function makePlatform() {
-  const proxy = new Proxy({}, { get: (_target, prop) => prop }) as any
+  const proxy = new Proxy({}, {
+    get: (_target, prop) => prop,
+  }) as any
   return {
-    api: { hap: { Characteristic: proxy, Service: proxy } },
-    log: Object.assign(vi.fn(), { warn: vi.fn(), error: vi.fn(), info: vi.fn(), debug: vi.fn(), success: vi.fn() }),
+    api: {
+      hap: { Characteristic: proxy, Service: proxy },
+    },
+    log: Object.assign(vi.fn(), {
+      warn: vi.fn(),
+      error: vi.fn(),
+      info: vi.fn(),
+      debug: vi.fn(),
+      success: vi.fn(),
+    }),
     config: { devices: [] },
     Characteristic: proxy,
     Service: proxy,

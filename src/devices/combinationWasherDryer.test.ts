@@ -41,7 +41,15 @@ describe('combinationSubCycleName', () => {
 describe('isLaundryRunningState', () => {
   it('treats genuinely active states as running', () => {
     // 2 run, 3 pause, 5/6 delay run, 7 delay pause, 8 drain timeout, 10 (0x0a) bulk flush
-    for (const hex of ['02', '03', '05', '06', '07', '08', '0a']) {
+    for (const hex of [
+      '02',
+      '03',
+      '05',
+      '06',
+      '07',
+      '08',
+      '0a',
+    ]) {
       expect(isLaundryRunningState(hex)).toBe(true)
     }
   })

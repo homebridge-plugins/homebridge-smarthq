@@ -17,7 +17,10 @@ function makeHost(v2: Record<string, unknown>) {
   host.log = log
   host.platformLogging = 'debug'
   host.v2Transport = v2
-  return { host, lines: () => (log.info as any).mock.calls.map((call: unknown[]) => call.join(' ')) }
+  return {
+    host,
+    lines: () => (log.info as any).mock.calls.map((call: unknown[]) => call.join(' ')),
+  }
 }
 
 const washer = { type: 'Washer', applianceId: 'D828C9AB1234' }
@@ -27,8 +30,17 @@ describe('listing an appliance\'s v2 services', () => {
     const { host, lines } = makeHost({
       resolveDeviceId: async () => 'v2-washer',
       getServices: async () => [
-        { serviceType: 'cloud.smarthq.service.meter', domainType: 'cloud.smarthq.domain.energy', serviceDeviceType: 'cloud.smarthq.device.washer', state: { meterValue: 1.25 } },
-        { serviceType: 'cloud.smarthq.service.toggle', domainType: 'cloud.smarthq.domain.power', state: { on: true } },
+        {
+          serviceType: 'cloud.smarthq.service.meter',
+          domainType: 'cloud.smarthq.domain.energy',
+          serviceDeviceType: 'cloud.smarthq.device.washer',
+          state: { meterValue: 1.25 },
+        },
+        {
+          serviceType: 'cloud.smarthq.service.toggle',
+          domainType: 'cloud.smarthq.domain.power',
+          state: { on: true },
+        },
       ],
     })
 
@@ -41,7 +53,9 @@ describe('listing an appliance\'s v2 services', () => {
   })
 
   it('says so when the appliance is not on the v2 API', async () => {
-    const { host, lines } = makeHost({ resolveDeviceId: async () => undefined })
+    const { host, lines } = makeHost({
+      resolveDeviceId: async () => undefined,
+    })
 
     await host.logV2Services(washer)
 

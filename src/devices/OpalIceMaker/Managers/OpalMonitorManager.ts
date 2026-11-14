@@ -25,7 +25,9 @@ export class OpalMonitorManager extends OpalDeviceBase {
   private getTimeUntilNextMinute(): number {
     const now = new Date()
     const remaining = (60 - now.getSeconds()) * 1000 - now.getMilliseconds()
-    return remaining > 0 ? remaining : 0
+    return remaining > 0
+      ? remaining
+      : 0
   }
 
   // Create a timer that aligns with the minute boundary and executes immediately at alignment

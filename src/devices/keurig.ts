@@ -56,15 +56,27 @@ export function parseHotWaterStatus(raw: string | undefined): HotWaterStatus {
   const moduleByte = hex.substring(10, 12)
   const podByte = hex.substring(12, 14)
 
-  const tankFull = tankByte === '01' ? true : tankByte === '00' ? false : null
-  const brewModulePresent = moduleByte === '01' ? true : moduleByte === '00' ? false : null
+  const tankFull = tankByte === '01'
+    ? true
+    : tankByte === '00'
+      ? false
+      : null
+  const brewModulePresent = moduleByte === '01'
+    ? true
+    : moduleByte === '00'
+      ? false
+      : null
   const podStatus = POD_STATUS_BYTE_MAP[podByte] ?? 'NA'
   const faulted = status === 'FAULT_NEED_CLEARED' || status === 'FAULT_LOCKED_OUT'
 
   return {
     status,
-    timeUntilReadyMinutes: Number.isNaN(time) ? null : time,
-    currentTempF: Number.isNaN(temp) ? null : temp,
+    timeUntilReadyMinutes: Number.isNaN(time)
+      ? null
+      : time,
+    currentTempF: Number.isNaN(temp)
+      ? null
+      : temp,
     tankFull,
     brewModulePresent,
     podStatus,
@@ -141,7 +153,9 @@ export class SmartHQKeurig extends deviceBase {
       .getCharacteristic(this.platform.Characteristic.OccupancyDetected)
       .onGet(async () => {
         const r = await this.readErd(ERD_TYPES.HOT_WATER_IN_USE)
-        const isUsing = r ? Number.parseInt(r, 16) !== 0 : false
+        const isUsing = r
+          ? Number.parseInt(r, 16) !== 0
+          : false
         return isUsing
           ? this.platform.Characteristic.OccupancyDetected.OCCUPANCY_DETECTED
           : this.platform.Characteristic.OccupancyDetected.OCCUPANCY_NOT_DETECTED

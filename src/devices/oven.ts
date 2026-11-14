@@ -106,10 +106,30 @@ export interface OvenCookMode {
 }
 
 export const OVEN_COOK_MODES: readonly OvenCookMode[] = [
-  { key: 'BAKE', label: 'Bake', mode: 0x01, configKey: 'showBakeSwitch' },
-  { key: 'CONV_BAKE_MULTI', label: 'Convection Bake Multi', mode: 0x1B, configKey: 'showConvBakeMultiSwitch' },
-  { key: 'CONV_ROAST', label: 'Convection Roast', mode: 0x24, configKey: 'showConvRoastSwitch' },
-  { key: 'AIR_FRY', label: 'Air Fry', mode: 0x9E, configKey: 'showAirFrySwitch' },
+  {
+    key: 'BAKE',
+    label: 'Bake',
+    mode: 0x01,
+    configKey: 'showBakeSwitch',
+  },
+  {
+    key: 'CONV_BAKE_MULTI',
+    label: 'Convection Bake Multi',
+    mode: 0x1B,
+    configKey: 'showConvBakeMultiSwitch',
+  },
+  {
+    key: 'CONV_ROAST',
+    label: 'Convection Roast',
+    mode: 0x24,
+    configKey: 'showConvRoastSwitch',
+  },
+  {
+    key: 'AIR_FRY',
+    label: 'Air Fry',
+    mode: 0x9E,
+    configKey: 'showAirFrySwitch',
+  },
 ]
 
 /**
@@ -272,7 +292,9 @@ export class SmartHQOven extends deviceBase {
       UUID: this.matterUuid,
       displayName: this.device.nickname || 'SmartHQ Oven',
       serialNumber,
-      manufacturer: this.device.brand && this.device.brand !== 'Unknown' ? this.device.brand : 'GE Appliances',
+      manufacturer: this.device.brand && this.device.brand !== 'Unknown'
+        ? this.device.brand
+        : 'GE Appliances',
       model: this.device.model || 'SmartHQ',
       firmwareRevision: this.deviceFirmwareVersion,
       hardwareRevision: this.deviceFirmwareVersion,
@@ -379,7 +401,9 @@ export class SmartHQOven extends deviceBase {
         .onGet(async () => {
           try {
             const r = await this.readErd(ERD_TYPES.UPPER_OVEN_LIGHT)
-            return r ? Number.parseInt(r) !== 0 : false
+            return r
+              ? Number.parseInt(r) !== 0
+              : false
           } catch (error: any) {
             this.warnLog?.(`Oven Light handleGetOn error: ${error?.message ?? error}`)
             return false
@@ -449,7 +473,9 @@ export class SmartHQOven extends deviceBase {
       })
     ovenThermostat
       .getCharacteristic(this.platform.Characteristic.CurrentHeatingCoolingState)
-      .setProps({ validValues: [0, 1] })
+      .setProps({
+        validValues: [0, 1],
+      })
       .onGet(async () => {
         return await this.isOvenRunning()
           ? this.platform.Characteristic.CurrentHeatingCoolingState.HEAT
@@ -457,7 +483,9 @@ export class SmartHQOven extends deviceBase {
       })
     ovenThermostat
       .getCharacteristic(this.platform.Characteristic.TargetHeatingCoolingState)
-      .setProps({ validValues: [0, 1] })
+      .setProps({
+        validValues: [0, 1],
+      })
       .onGet(async () => {
         const cookMode = await this.readCookMode()
         return cookMode && cookMode.mode !== 0
@@ -665,7 +693,12 @@ export class SmartHQOven extends deviceBase {
 
     if (!isDoubleOven) {
       // Drop any lower-cavity tiles left behind by a cached accessory
-      ;['Lower Oven Light', 'Lower Oven Temperature', 'Lower Probe Temperature', 'Lower Cook Time'].forEach((name) => {
+      ;[
+        'Lower Oven Light',
+        'Lower Oven Temperature',
+        'Lower Probe Temperature',
+        'Lower Cook Time',
+      ].forEach((name) => {
         const stale = this.accessory!.getService(name)
         if (stale) {
           this.accessory!.removeService(stale)
@@ -689,7 +722,9 @@ export class SmartHQOven extends deviceBase {
         .onGet(async () => {
           try {
             const r = await this.readErd(ERD_TYPES.LOWER_OVEN_LIGHT)
-            return r ? Number.parseInt(r) !== 0 : false
+            return r
+              ? Number.parseInt(r) !== 0
+              : false
           } catch (error: any) {
             this.warnLog?.(`Lower Oven Light handleGetOn error: ${error?.message ?? error}`)
             return false
@@ -847,7 +882,9 @@ export class SmartHQOven extends deviceBase {
         })
       thermostat
         .getCharacteristic(this.platform.Characteristic.CurrentHeatingCoolingState)
-        .setProps({ validValues: [0, 1] })
+        .setProps({
+          validValues: [0, 1],
+        })
         .onGet(async () => {
           return await this.isLowerOvenRunning()
             ? this.platform.Characteristic.CurrentHeatingCoolingState.HEAT
@@ -855,7 +892,9 @@ export class SmartHQOven extends deviceBase {
         })
       thermostat
         .getCharacteristic(this.platform.Characteristic.TargetHeatingCoolingState)
-        .setProps({ validValues: [0, 1] })
+        .setProps({
+          validValues: [0, 1],
+        })
         .onGet(async () => {
           const current = await this.readCookMode(ERD_TYPES.LOWER_OVEN_COOK_MODE)
           return current && current.mode !== 0
@@ -1058,7 +1097,10 @@ export class SmartHQOven extends deviceBase {
       return undefined
     }
     const b = Buffer.from(r, 'hex')
-    return { mode: b.readUint8(0), tempF: b.readUint16BE(1) }
+    return {
+      mode: b.readUint8(0),
+      tempF: b.readUint16BE(1),
+    }
   }
 
   /**
@@ -1172,16 +1214,22 @@ export class SmartHQOven extends deviceBase {
    * which cavity offers which mode, so the owner says so in the config (#128).
    */
   private cookModeSwitchErd(): string {
-    return this.device?.cookModeCavity === 'lower' ? ERD_TYPES.LOWER_OVEN_COOK_MODE : ERD_TYPES.UPPER_OVEN_COOK_MODE
+    return this.device?.cookModeCavity === 'lower'
+      ? ERD_TYPES.LOWER_OVEN_COOK_MODE
+      : ERD_TYPES.UPPER_OVEN_COOK_MODE
   }
 
   /** The target temperature the mode switches start at, for their cavity. */
   private cookModeSwitchTempF(): number {
-    return this.device?.cookModeCavity === 'lower' ? this.lastLowerTargetTempF : this.lastTargetTempF
+    return this.device?.cookModeCavity === 'lower'
+      ? this.lastLowerTargetTempF
+      : this.lastTargetTempF
   }
 
   private async startCookModeSwitch(cookMode: { label: string, mode: number }): Promise<void> {
-    const cavity = this.device?.cookModeCavity === 'lower' ? 'the lower oven' : 'the oven'
+    const cavity = this.device?.cookModeCavity === 'lower'
+      ? 'the lower oven'
+      : 'the oven'
     this.infoLog(`Starting ${cookMode.label} in ${cavity} at ${this.cookModeSwitchTempF()}F from HomeKit`)
     await this.writeCookMode(cookMode.mode, this.cookModeSwitchTempF(), this.cookModeSwitchErd())
   }
@@ -1360,7 +1408,9 @@ export class SmartHQOven extends deviceBase {
         }
         case ERD_TYPES.UPPER_OVEN_COOK_TIME_REMAINING: {
           const r = await this.try_get_erd_value(ERD_TYPES.UPPER_OVEN_COOK_TIME_REMAINING)
-          const minutes = r ? Number.parseInt(r, 16) : 0
+          const minutes = r
+            ? Number.parseInt(r, 16)
+            : 0
           this.cookTimeValve?.updateCharacteristic(this.platform.Characteristic.RemainingDuration, minutes * 60)
           break
         }
@@ -1394,7 +1444,9 @@ export class SmartHQOven extends deviceBase {
         }
         case ERD_TYPES.LOWER_OVEN_COOK_TIME_REMAINING: {
           const r = await this.try_get_erd_value(ERD_TYPES.LOWER_OVEN_COOK_TIME_REMAINING)
-          const minutes = r ? Number.parseInt(r, 16) : 0
+          const minutes = r
+            ? Number.parseInt(r, 16)
+            : 0
           this.lowerCookTimeValve?.updateCharacteristic(this.platform.Characteristic.RemainingDuration, minutes * 60)
           break
         }
@@ -1409,7 +1461,9 @@ export class SmartHQOven extends deviceBase {
             await this.syncLowerProbeSensor()
           }
           const r = await this.try_get_erd_value(ERD_TYPES.LOWER_OVEN_PROBE_DISPLAY_TEMP)
-          this.lowerProbeTempSensor?.updateCharacteristic(this.platform.Characteristic.CurrentTemperature, r ? fToC(Number.parseInt(r, 16)) : 0)
+          this.lowerProbeTempSensor?.updateCharacteristic(this.platform.Characteristic.CurrentTemperature, r
+            ? fToC(Number.parseInt(r, 16))
+            : 0)
           break
         }
         case ERD_TYPES.UPPER_OVEN_PROBE_PRESENT: {
@@ -1428,7 +1482,9 @@ export class SmartHQOven extends deviceBase {
         }
         case ERD_TYPES.UPPER_OVEN_PROBE_DISPLAY_TEMP: {
           const r = await this.try_get_erd_value(ERD_TYPES.UPPER_OVEN_PROBE_DISPLAY_TEMP)
-          this.probeTempSensor?.updateCharacteristic(this.platform.Characteristic.CurrentTemperature, r ? fToC(Number.parseInt(r, 16)) : 0)
+          this.probeTempSensor?.updateCharacteristic(this.platform.Characteristic.CurrentTemperature, r
+            ? fToC(Number.parseInt(r, 16))
+            : 0)
           break
         }
       }

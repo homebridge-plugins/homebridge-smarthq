@@ -191,18 +191,22 @@ export class SmartHQSmoker extends deviceBase {
     // appliance can never be in.
     thermostat
       .getCharacteristic(this.platform.Characteristic.CurrentHeatingCoolingState)
-      .setProps({ validValues: [
-        this.platform.Characteristic.CurrentHeatingCoolingState.OFF,
-        this.platform.Characteristic.CurrentHeatingCoolingState.HEAT,
-      ] })
+      .setProps({
+        validValues: [
+          this.platform.Characteristic.CurrentHeatingCoolingState.OFF,
+          this.platform.Characteristic.CurrentHeatingCoolingState.HEAT,
+        ],
+      })
       .onGet(() => this.heatingState())
 
     thermostat
       .getCharacteristic(this.platform.Characteristic.TargetHeatingCoolingState)
-      .setProps({ validValues: [
-        this.platform.Characteristic.TargetHeatingCoolingState.OFF,
-        this.platform.Characteristic.TargetHeatingCoolingState.HEAT,
-      ] })
+      .setProps({
+        validValues: [
+          this.platform.Characteristic.TargetHeatingCoolingState.OFF,
+          this.platform.Characteristic.TargetHeatingCoolingState.HEAT,
+        ],
+      })
       .onGet(() => this.heatingState())
       .onSet(() => this.revertWrite())
 
@@ -236,7 +240,12 @@ export class SmartHQSmoker extends deviceBase {
    * there is nothing else for it to pick.
    */
   private removeRetiredServices(): void {
-    for (const name of ['Cooking', 'Smoke Active', 'Grate Temperature', 'Probe Temperature']) {
+    for (const name of [
+      'Cooking',
+      'Smoke Active',
+      'Grate Temperature',
+      'Probe Temperature',
+    ]) {
       const retired = this.accessory!.getService(name)
       if (retired) {
         this.accessory!.removeService(retired)
@@ -396,7 +405,9 @@ export class SmartHQSmoker extends deviceBase {
   }
 
   private asFahrenheit(celsius: number | undefined): string {
-    return celsius === undefined ? 'unknown' : `${Math.round((celsius * 9) / 5 + 32)}F`
+    return celsius === undefined
+      ? 'unknown'
+      : `${Math.round((celsius * 9) / 5 + 32)}F`
   }
 
   /**

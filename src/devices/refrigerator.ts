@@ -53,9 +53,14 @@ export function decodeCompartmentBytes(raw: string): { fridge: number, freezer: 
   }
   const signed = (byte: string): number => {
     const v = Number.parseInt(byte, 16)
-    return v > 127 ? v - 256 : v
+    return v > 127
+      ? v - 256
+      : v
   }
-  return { fridge: signed(hex.slice(0, 2)), freezer: signed(hex.slice(2, 4)) }
+  return {
+    fridge: signed(hex.slice(0, 2)),
+    freezer: signed(hex.slice(2, 4)),
+  }
 }
 
 export function encodeCompartmentBytes(fridge: number, freezer: number): string {
@@ -77,7 +82,10 @@ export function decodeCompartmentCelsius(
   // Must precede JSON.parse: a pair like "2500" is also valid JSON and would otherwise decode as the number 2500.
   const bytes = decodeCompartmentBytes(raw)
   if (bytes) {
-    return { celsius: fahrenheitToCelsius(bytes[compartment]), via: 'bytes' }
+    return {
+      celsius: fahrenheitToCelsius(bytes[compartment]),
+      via: 'bytes',
+    }
   }
 
   try {
@@ -86,14 +94,20 @@ export function decodeCompartmentCelsius(
     if (parsed && typeof parsed === 'object' && parsed[compartment] !== undefined) {
       const num = Number(parsed[compartment])
       if (!Number.isNaN(num)) {
-        return { celsius: fahrenheitToCelsius(num), via: 'object' }
+        return {
+          celsius: fahrenheitToCelsius(num),
+          via: 'object',
+        }
       }
     }
 
     if (typeof parsed === 'number' || typeof parsed === 'string') {
       const num = Number(parsed)
       if (!Number.isNaN(num)) {
-        return { celsius: fahrenheitToCelsius(num), via: 'number' }
+        return {
+          celsius: fahrenheitToCelsius(num),
+          via: 'number',
+        }
       }
     }
   } catch {}
@@ -187,7 +201,9 @@ export class SmartHQRefrigerator extends deviceBase {
       this.parseSetpoint('fridge'),
     ])
 
-    const measured = (celsius: number | undefined): number | null => celsius === undefined ? null : toCentiCelsius(celsius)
+    const measured = (celsius: number | undefined): number | null => celsius === undefined
+      ? null
+      : toCentiCelsius(celsius)
     const setpoint = (celsius: number | undefined, fallbackF: number): number => toCentiCelsius(celsius ?? fahrenheitToCelsius(fallbackF))
 
     const measurableMin = toCentiCelsius(fahrenheitToCelsius(ERD_SIGNED_BYTE_RANGE_F.min))
@@ -198,7 +214,9 @@ export class SmartHQRefrigerator extends deviceBase {
       UUID: this.matterUuid,
       displayName: this.device.nickname || 'SmartHQ Refrigerator',
       serialNumber,
-      manufacturer: this.device.brand && this.device.brand !== 'Unknown' ? this.device.brand : 'GE Appliances',
+      manufacturer: this.device.brand && this.device.brand !== 'Unknown'
+        ? this.device.brand
+        : 'GE Appliances',
       model: this.device.model || 'SmartHQ',
       firmwareRevision: this.deviceFirmwareVersion,
       hardwareRevision: this.deviceFirmwareVersion,
@@ -398,7 +416,9 @@ export class SmartHQRefrigerator extends deviceBase {
       }
 
       try {
-        const nibbleValue = nibbleIndex === 0 ? r.charAt(0) : r.charAt(1)
+        const nibbleValue = nibbleIndex === 0
+          ? r.charAt(0)
+          : r.charAt(1)
         const status = Number.parseInt(nibbleValue, 16)
         this.debugLog(`Ice bucket nibble${nibbleIndex} value: ${nibbleValue} = ${status}`)
         return status >= 2
@@ -436,7 +456,9 @@ export class SmartHQRefrigerator extends deviceBase {
     fridgeThermostat.setCharacteristic(this.platform.Characteristic.TargetHeatingCoolingState, this.platform.Characteristic.TargetHeatingCoolingState.COOL)
     fridgeThermostat
       .getCharacteristic(this.platform.Characteristic.TargetHeatingCoolingState)
-      .setProps({ validValues: [this.platform.Characteristic.TargetHeatingCoolingState.COOL] })
+      .setProps({
+        validValues: [this.platform.Characteristic.TargetHeatingCoolingState.COOL],
+      })
 
     fridgeThermostat
       .getCharacteristic(this.platform.Characteristic.CurrentTemperature)
@@ -466,7 +488,9 @@ export class SmartHQRefrigerator extends deviceBase {
     freezerThermostat.setCharacteristic(this.platform.Characteristic.TargetHeatingCoolingState, this.platform.Characteristic.TargetHeatingCoolingState.COOL)
     freezerThermostat
       .getCharacteristic(this.platform.Characteristic.TargetHeatingCoolingState)
-      .setProps({ validValues: [this.platform.Characteristic.TargetHeatingCoolingState.COOL] })
+      .setProps({
+        validValues: [this.platform.Characteristic.TargetHeatingCoolingState.COOL],
+      })
 
     freezerThermostat
       .getCharacteristic(this.platform.Characteristic.CurrentTemperature)
@@ -510,7 +534,9 @@ export class SmartHQRefrigerator extends deviceBase {
       .getCharacteristic(this.platform.Characteristic.On)
       .onGet(async () => {
         const r = await this.readErd(ERD_TYPES.ICE_MAKER_CONTROL)
-        return r ? Number.parseInt(r) !== 0 : false
+        return r
+          ? Number.parseInt(r) !== 0
+          : false
       })
       .onSet(async (value) => {
         await this.writeErd(ERD_TYPES.ICE_MAKER_CONTROL, value as boolean)
@@ -523,7 +549,9 @@ export class SmartHQRefrigerator extends deviceBase {
       .getCharacteristic(this.platform.Characteristic.On)
       .onGet(async () => {
         const r = await this.readErd(ERD_TYPES.TURBO_COOL_STATUS)
-        return r ? Number.parseInt(r) !== 0 : false
+        return r
+          ? Number.parseInt(r) !== 0
+          : false
       })
       .onSet(async (value) => {
         await this.writeErd(ERD_TYPES.TURBO_COOL_STATUS, value as boolean)
@@ -536,7 +564,9 @@ export class SmartHQRefrigerator extends deviceBase {
       .getCharacteristic(this.platform.Characteristic.On)
       .onGet(async () => {
         const r = await this.readErd(ERD_TYPES.TURBO_FREEZE_STATUS)
-        return r ? Number.parseInt(r) !== 0 : false
+        return r
+          ? Number.parseInt(r) !== 0
+          : false
       })
       .onSet(async (value) => {
         await this.writeErd(ERD_TYPES.TURBO_FREEZE_STATUS, value as boolean)
@@ -604,7 +634,9 @@ export class SmartHQRefrigerator extends deviceBase {
   private async writeSetpoint(compartment: 'fridge' | 'freezer', temperature: number): Promise<void> {
     try {
       const current = await this.readErd(ERD_TYPES.TEMPERATURE_SETTING)
-      const bytes = current ? decodeCompartmentBytes(current) : undefined
+      const bytes = current
+        ? decodeCompartmentBytes(current)
+        : undefined
       if (!bytes) {
         await this.errorLog(`Refusing to write ${compartment} setpoint: TEMPERATURE_SETTING read back as ${current ?? 'undefined'}, not a byte pair`)
         return
@@ -644,7 +676,11 @@ export class SmartHQRefrigerator extends deviceBase {
   private async handleMatterModeChange(request: any): Promise<void> {
     try {
       const newMode = request.newMode as number
-      await this.infoLog(`Matter mode change to: ${newMode === 0 ? 'Normal' : newMode === 1 ? 'Rapid Cool' : 'Rapid Freeze'}`)
+      await this.infoLog(`Matter mode change to: ${newMode === 0
+        ? 'Normal'
+        : newMode === 1
+          ? 'Rapid Cool'
+          : 'Rapid Freeze'}`)
 
       // Map Matter modes to SmartHQ ERD codes
       if (newMode === 1) {
@@ -713,12 +749,16 @@ export class SmartHQRefrigerator extends deviceBase {
             await matterAPI.updateAccessoryState(
               this.matterUuid,
               matterAPI.clusterNames.Thermostat,
-              { localTemperature: Math.round(fridgeTemp * 100) },
+              {
+                localTemperature: Math.round(fridgeTemp * 100),
+              },
             )
             await matterAPI.updateAccessoryState(
               this.matterUuid,
               'temperatureMeasurement',
-              { measuredValue: Math.round(fridgeTemp * 100) },
+              {
+                measuredValue: Math.round(fridgeTemp * 100),
+              },
             )
           }
           // Update fridge setpoint
@@ -726,7 +766,9 @@ export class SmartHQRefrigerator extends deviceBase {
             await matterAPI.updateAccessoryState(
               this.matterUuid,
               matterAPI.clusterNames.Thermostat,
-              { occupiedCoolingSetpoint: Math.round(fridgeSetpoint * 100) },
+              {
+                occupiedCoolingSetpoint: Math.round(fridgeSetpoint * 100),
+              },
             )
           }
           // Update freezer values
@@ -734,7 +776,9 @@ export class SmartHQRefrigerator extends deviceBase {
             await matterAPI.updateAccessoryState(
               this.matterUuid,
               matterAPI.clusterNames.Thermostat,
-              { localTemperature: Math.round(freezerTemp * 100) },
+              {
+                localTemperature: Math.round(freezerTemp * 100),
+              },
             )
           }
           // Update freezer setpoint
@@ -742,7 +786,9 @@ export class SmartHQRefrigerator extends deviceBase {
             await matterAPI.updateAccessoryState(
               this.matterUuid,
               matterAPI.clusterNames.Thermostat,
-              { occupiedCoolingSetpoint: Math.round(freezerSetpoint * 100) },
+              {
+                occupiedCoolingSetpoint: Math.round(freezerSetpoint * 100),
+              },
             )
           }
 
@@ -782,7 +828,9 @@ export class SmartHQRefrigerator extends deviceBase {
             await matterAPI.updateAccessoryState(
               fridgeEndpointUuid,
               'temperatureMeasurement',
-              { measuredValue: Math.round(fridgeTemp * 100) },
+              {
+                measuredValue: Math.round(fridgeTemp * 100),
+              },
             )
           }
 
@@ -814,7 +862,9 @@ export class SmartHQRefrigerator extends deviceBase {
             await matterAPI.updateAccessoryState(
               freezerEndpointUuid,
               'temperatureMeasurement',
-              { measuredValue: Math.round(freezerTemp * 100) },
+              {
+                measuredValue: Math.round(freezerTemp * 100),
+              },
             )
           }
 
@@ -907,7 +957,9 @@ export class SmartHQRefrigerator extends deviceBase {
       set('Freezer Door', Characteristic.ContactSensorState, doorAt(2))
     }
 
-    const onOff = (value?: string) => value === undefined ? undefined : Number.parseInt(value) !== 0
+    const onOff = (value?: string) => value === undefined
+      ? undefined
+      : Number.parseInt(value) !== 0
     set('Ice Maker', Characteristic.On, onOff(readings.iceMakerStatus))
     set('Turbo Cool', Characteristic.On, onOff(readings.turboCoolStatus))
     set('Turbo Freeze', Characteristic.On, onOff(readings.turboFreezeStatus))

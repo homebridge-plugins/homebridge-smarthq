@@ -4,7 +4,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { decodeErdString, deviceBase, isTransientNetworkError } from './device.js'
 
 vi.mock('axios', () => ({
-  default: { get: vi.fn() },
+  default: {
+    get: vi.fn(),
+  },
 }))
 
 /**
@@ -35,7 +37,9 @@ function makeDevice() {
   const device = Object.create(deviceBase.prototype)
   device.unsupportedErds = new Set<string>()
   device.optionalErds = new Set<string>()
-  device.platform = { getLiveErd: () => undefined }
+  device.platform = {
+    getLiveErd: () => undefined,
+  }
   device.getApplianceId = () => 'appliance-1'
   device.debugLog = vi.fn(async () => {})
   device.warnLog = vi.fn(async () => {})
@@ -54,8 +58,13 @@ describe('isTransientNetworkError', () => {
 
   it('does not treat an answered request as a connection problem', () => {
     // The API replied - a 400 for an unsupported ERD must not be retried
-    expect(isTransientNetworkError({ response: { status: 400 }, code: 'ETIMEDOUT' })).toBe(false)
-    expect(isTransientNetworkError({ response: { status: 500 } })).toBe(false)
+    expect(isTransientNetworkError({
+      response: { status: 400 },
+      code: 'ETIMEDOUT',
+    })).toBe(false)
+    expect(isTransientNetworkError({
+      response: { status: 500 },
+    })).toBe(false)
   })
 
   it('ignores errors that are not connection failures', () => {
@@ -74,7 +83,9 @@ describe('readErd transient network handling', () => {
     const device = makeDevice()
     mockedGet
       .mockRejectedValueOnce(aggregateConnectError())
-      .mockResolvedValueOnce({ data: { value: '01' } } as any)
+      .mockResolvedValueOnce({
+        data: { value: '01' },
+      } as any)
 
     await expect(device.readErd('0x9106')).resolves.toBe('01')
     expect(mockedGet).toHaveBeenCalledTimes(2)
@@ -94,7 +105,9 @@ describe('readErd transient network handling', () => {
 
   it('does not retry an unsupported ERD, which the api has actually answered', async () => {
     const device = makeDevice()
-    mockedGet.mockRejectedValue({ response: { status: 400 } })
+    mockedGet.mockRejectedValue({
+      response: { status: 400 },
+    })
 
     await expect(device.readErd('0x9106')).resolves.toBeUndefined()
     expect(mockedGet).toHaveBeenCalledTimes(1)
@@ -138,7 +151,9 @@ describe('decodeErdString', () => {
 describe('resolveSerialNumber', () => {
   function makeAccessoryDevice(deviceContext: Record<string, unknown>) {
     const device = makeDevice()
-    device.accessory = { context: { device: deviceContext } }
+    device.accessory = {
+      context: { device: deviceContext },
+    }
     device.readErd = vi.fn(async () => undefined)
     return device
   }

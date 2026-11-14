@@ -97,7 +97,9 @@ export class OpalProgressSvcManager extends OpalDeviceBase {
 
       this.service?.updateCharacteristic(
         this.platform.Characteristic.Active,
-        productionValueMinutes > 0 ? 1 : 0,
+        productionValueMinutes > 0
+          ? 1
+          : 0,
       )
 
       return productionValueMinutes
@@ -117,7 +119,9 @@ export class OpalProgressSvcManager extends OpalDeviceBase {
       }
       const productionValueMinutes = Buffer.from(erdVal, 'hex').readUInt8(0)
 
-      const completionistMsg = productionValueMinutes > 100 ? `, Completion: ${productionValueMinutes}` : ''
+      const completionistMsg = productionValueMinutes > 100
+        ? `, Completion: ${productionValueMinutes}`
+        : ''
       this.platform.debugSuccessLog(`Production: ${productionValueMinutes}, Limit: ${this.platform.config.deviceOptions?.opal?.opalProductionLimit}${completionistMsg}`)
 
       const opalProductionLimit = this.platform.config.deviceOptions?.opal?.opalProductionLimit
