@@ -329,11 +329,80 @@ export default async function getAccessToken(username: string, password: string,
         }
       }
 
-      // 2FA verification challenge page — the account already has multi-factor
+      // SmartHQ's email 2FA, captured from a real account. Three pages:
+      // choose a method (#verifyOptionForm), ask for the email (#verifyTotp),
+      // then enter the code (#verifyTotp with #totpCode). Their forms have no
+      // action attribute because the page script sets it, so the targets are
+      // fixed here. A code emailed during one login is accepted by a later
+      // one, which lets the user restart with the code in the config.
+      const $verify = cheerio.load(respText)
+      const verifyOptionForm = $verify('#verifyOptionForm')
+      const verifyTotpForm = $verify('#verifyTotp')
+      if (verifyOptionForm.length > 0 || verifyTotpForm.length > 0) {
+        const csrf = ($verify('input[name="_csrf"]').first().val() as string | undefined) ?? $verify('meta[name="_csrf"]').attr('content')
+        const postVerify = async (path: string, fields: Record<string, string>) => {
+          const resp = await aclient({
+            method: 'POST',
+            url: new URL(path, LOGIN_URL).toString(),
+            data: new URLSearchParams(csrf
+              ? { ...fields, _csrf: csrf }
+              : fields),
+            headers: { 'content-type': 'application/x-www-form-urlencoded' },
+            maxRedirects: 0,
+            validateStatus: () => true,
+          })
+          let page = resp
+          if (resp.headers.location) {
+            const redirectResult = await followRedirectsForCode(resp.headers.location)
+            if (redirectResult.code) {
+              return { code: redirectResult.code, page: '' }
+            }
+            if (!redirectResult.response) {
+              throw new Error(`2FA verification failed: too many redirects after ${path}`)
+            }
+            page = redirectResult.response
+          }
+          if (page.status !== 200 || typeof page.data !== 'string') {
+            throw new Error(`2FA verification failed: unexpected status ${page.status} after ${path}`)
+          }
+          return { code: null, page: page.data as string }
+        }
+        const continueWith = async (result: { code: string | null, page: string }) => result.code ?? await asyncHandleOkResponse(result.page)
+        const codeEmailedError = () => new Error('Your SmartHQ account has two-factor authentication (2FA) turned on, and a verification code has been emailed to you. Enter it in the plugin\'s "2FA Verification Code" setting, then restart Homebridge. After one successful login the plugin saves a token and the setting can be cleared.')
+        const submitCode = async (code: string) => {
+          mfaAttempted = true
+          return continueWith(await postVerify('/account/active/security/verify/totpcode/process', { mfaType: 'email', totpCode: code }))
+        }
+
+        if (verifyOptionForm.length > 0) {
+          if ($verify('#email_btn').length === 0) {
+            throw new Error('2FA verification failed: email is not offered as a verification method, which is the only one this plugin supports')
+          }
+          return continueWith(await postVerify('/account/active/security/verify/sendtotp', { mfaType: 'email' }))
+        }
+
+        const onCodeEntryPage = $verify('#totpCode').length > 0
+        if (mfaAttempted) {
+          // The code entry page came back, so the code was rejected. Ask for a
+          // fresh one so the next restart does not resubmit the stale code
+          // without a new email ever being sent.
+          await postVerify('/account/active/security/send/email?emailType=MFA_VERIFICATION', { mfaType: 'email', resendFlag: 'true' })
+          throw new Error('2FA verification failed: the code in the "2FA Verification Code" setting was not accepted (wrong or expired). A new code has been emailed to you. Enter it in the setting, then restart Homebridge.')
+        }
+        if (mfaCode) {
+          return submitCode(mfaCode.trim())
+        }
+        if (!onCodeEntryPage) {
+          await postVerify('/account/active/security/verify/sendtotp/process?emailType=MFA_VERIFICATION', { mfaType: 'email' })
+        }
+        throw codeEmailedError()
+      }
+
+      // 2FA verification challenge page: the account already has multi-factor
       // authentication turned on (distinct from the enrollment page above,
-      // which offers to add it). This page has never been captured from a real
-      // account, so it is detected generically: a page that talks about a
-      // verification code, containing a form whose visible input looks like a
+      // which offers to add it). Fallback for challenge pages other than the
+      // SmartHQ email flow above, detected generically: a page that talks about
+      // a verification code, containing a form whose visible input looks like a
       // code field. Debug details are included in the errors so a failed guess
       // is reportable.
       if (/verification code|security code|multi-?factor|two-?factor|one-?time (?:pass)?code|enter (?:the |your )?code/i.test(respText)) {

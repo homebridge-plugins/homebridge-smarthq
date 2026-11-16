@@ -521,7 +521,8 @@
           "helpvalue": "<h5></h5><em class='primary-text'>This is for Manual Setup Only.</em>"
         },
         "credentials.username",
-        "credentials.password"
+        "credentials.password",
+        "credentials.mfaCode"
       ]
     },
     {
