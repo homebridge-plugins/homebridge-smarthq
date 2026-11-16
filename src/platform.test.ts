@@ -273,6 +273,37 @@ describe('smartHQPlatform live ERD cache', () => {
    * naming no appliance and suggesting the plugin be rerun. One owner's log had
    * 89 copies of it in a day (#120).
    */
+  it('should hand a push to every accessory of the appliance, not just the first', () => {
+    // a fridge and its Keurig sub-accessory share one appliance id
+    const fridge = {
+      onErdUpdate: vi.fn(),
+    }
+    const keurig = {
+      onErdUpdate: vi.fn(),
+    }
+    ;(platform as any).accessories = [
+      {
+        context: {
+          device: { applianceId: 'FRIDGE1' },
+        },
+        control: fridge,
+      },
+      {
+        context: {
+          device: { applianceId: 'FRIDGE1' },
+        },
+        control: keurig,
+      },
+    ]
+    ;(platform as any).handleErdPush({
+      kind: 'publish#erd',
+      item: { applianceId: 'FRIDGE1', erd: '0x1010', value: '020000BEFFFFFF' },
+    })
+
+    expect(fridge.onErdUpdate).toHaveBeenCalledWith('0x1010', '020000BEFFFFFF')
+    expect(keurig.onErdUpdate).toHaveBeenCalledWith('0x1010', '020000BEFFFFFF')
+  })
+
   it('should not log at info level for a push it has no accessory for', async () => {
     // 'standard' logging: debug lines are suppressed, info lines are not - so
     // anything reaching log.info here is noise a normal user would see.
@@ -616,6 +647,29 @@ describe('websocket drop logging', () => {
     await dropAfter(60 * 60 * 1000)
 
     expect(mockLog.warn).not.toHaveBeenCalledWith(expect.stringContaining('Websocket connection lost'))
+  })
+
+  it('reconnects when SmartHQ refuses the subscription, instead of sitting on a silent socket', async () => {
+    await (platform as any).connectWebSocket()
+    const socket = wsInstances.at(-1)
+    const close = vi.spyOn(socket, 'close')
+    socket.emit('open')
+    socket.emit('message', Buffer.from(JSON.stringify({ kind: 'websocket#subscribe', success: false, reason: 'Internal server error' })))
+    // warnLog is async
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(mockLog.warn).toHaveBeenCalledWith(expect.stringContaining('refused the live update subscription (Internal server error)'))
+    expect(close).toHaveBeenCalled()
+  })
+
+  it('keeps the socket when the subscription succeeds', async () => {
+    await (platform as any).connectWebSocket()
+    const socket = wsInstances.at(-1)
+    const close = vi.spyOn(socket, 'close')
+    socket.emit('open')
+    socket.emit('message', Buffer.from(JSON.stringify({ kind: 'websocket#subscribe', success: true })))
+
+    expect(close).not.toHaveBeenCalled()
   })
 
   it('still warns when the socket could not hold', async () => {

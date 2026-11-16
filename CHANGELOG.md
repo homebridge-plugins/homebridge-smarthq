@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. This project uses [Semantic Versioning](https://semver.org/).
 
+## v0.10.1 (Pending Release)
+
+### Changed
+
+- fix(keurig): heat plain hot water dispensers and update the sensors live (#150) (@tcollins590)
+
 ## v0.10.0 (2026-11-14)
 
 ### Changed

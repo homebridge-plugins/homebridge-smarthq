@@ -104,6 +104,21 @@
                 "functionBody": "return (model.devices && model.devices[arrayIndices].applianceId && !model.devices[arrayIndices].hide_device);"
               }
             },
+            "hotWaterTemp": {
+              "title": "Hot Water Temperature",
+              "type": "integer",
+              "description": "Temperature the K-Cup Hot Water switch heats to. Leave unset for 190°F on Keurig models and 185°F on fridges with a plain hot water dispenser, which do not heat at 190°F.",
+              "oneOf": [
+                { "title": "170°F (tea)", "enum": [170] },
+                { "title": "175°F", "enum": [175] },
+                { "title": "180°F", "enum": [180] },
+                { "title": "185°F", "enum": [185] },
+                { "title": "190°F (Keurig models only)", "enum": [190] }
+              ],
+              "condition": {
+                "functionBody": "return (model.devices && model.devices[arrayIndices].applianceId && !model.devices[arrayIndices].hide_device);"
+              }
+            },
             "keurigOnly": {
               "title": "Keurig Only (Hide Main Refrigerator)",
               "type": "boolean",
@@ -529,6 +544,7 @@
             "devices[].serialNumber",
             "devices[].keurig",
             "devices[].keurigOnly",
+            "devices[].hotWaterTemp",
             "devices[].hide_device",
             "devices[].defaultOperationMode",
             "devices[].createSeparateFanService",

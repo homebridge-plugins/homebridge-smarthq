@@ -88,6 +88,7 @@ export interface devicesConfig {
   showFilterBattery?: boolean // water filter only: expose the filter life as a battery so the percentage is glanceable in HomeKit
   keurig?: boolean // Override auto-detect for the built-in Keurig K-Cup brewer (e.g. PYE22PYNHFS)
   keurigOnly?: boolean // Skip the main Refrigerator accessory; only publish the Keurig sub-accessory
+  hotWaterTemp?: number // °F the K-Cup Hot Water switch heats to; unset = 190 on Keurig models, 185 on plain dispensers
 }
 
 // --- Keurig (in-fridge K-Cup brewer) types ---

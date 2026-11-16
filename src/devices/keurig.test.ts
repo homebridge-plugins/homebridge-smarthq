@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
-import { decideKeurigCapability, parseHotWaterStatus } from './keurig.js'
+import { decideKeurigCapability, hotWaterOnSetTemp, parseHotWaterStatus, SmartHQKeurig } from './keurig.js'
 
 describe('parseHotWaterStatus', () => {
   it('returns safe defaults for undefined', () => {
@@ -106,5 +106,181 @@ describe('decideKeurigCapability', () => {
 
   it('auto-detects false only on a completely NA frame (no hot-water dispenser)', () => {
     expect(decideKeurigCapability(undefined, naStatus)).toBe(false)
+  })
+})
+
+describe('hotWaterOnSetTemp', () => {
+  it('uses 190 °F (BE) on Keurig models that report a brew module', () => {
+    expect(hotWaterOnSetTemp('020000BE010301')).toBe('BE')
+    expect(hotWaterOnSetTemp('000000460101FF')).toBe('BE')
+  })
+
+  it('uses 185 °F (B9) on dispensers with no brew module (byte 6 = FF)', () => {
+    expect(hotWaterOnSetTemp('00000046FFFFFF')).toBe('B9')
+    expect(hotWaterOnSetTemp('0x0000004601ffff')).toBe('B9')
+  })
+
+  it('uses the configured temperature when one is set', () => {
+    expect(hotWaterOnSetTemp('00000046FFFFFF', 170)).toBe('AA')
+    expect(hotWaterOnSetTemp('020000BE010301', 175)).toBe('AF')
+    expect(hotWaterOnSetTemp(undefined, 185)).toBe('B9')
+  })
+
+  it('ignores a configured temperature that is not a sensible °F value', () => {
+    expect(hotWaterOnSetTemp('00000046FFFFFF', 0)).toBe('B9')
+    expect(hotWaterOnSetTemp('00000046FFFFFF', 172.5)).toBe('B9')
+    expect(hotWaterOnSetTemp('00000046FFFFFF', 400)).toBe('B9')
+  })
+
+  it('keeps the 190 °F default when status is missing or malformed', () => {
+    expect(hotWaterOnSetTemp(undefined)).toBe('BE')
+    expect(hotWaterOnSetTemp('')).toBe('BE')
+    expect(hotWaterOnSetTemp('0000')).toBe('BE')
+  })
+})
+
+describe('keurig live updates', () => {
+  const occupancy = { OCCUPANCY_DETECTED: 1, OCCUPANCY_NOT_DETECTED: 0 }
+  const Characteristic = new Proxy({}, {
+    get: (_target, prop) => prop === 'OccupancyDetected'
+      ? occupancy
+      : prop,
+  }) as any
+
+  function makeService() {
+    const values = new Map<unknown, unknown>()
+    const characteristic = (key: unknown) => ({
+      onGet() {
+        return this
+      },
+      onSet() {
+        return this
+      },
+      updateValue(next: unknown) {
+        values.set(key, next)
+        return this
+      },
+    })
+    return {
+      values,
+      getCharacteristic: (key: unknown) => characteristic(key),
+      setCharacteristic(key: unknown, value: unknown) {
+        values.set(key, value)
+        return this
+      },
+      updateCharacteristic(key: unknown, value: unknown) {
+        values.set(key, value)
+        return this
+      },
+      testCharacteristic: () => false,
+      addOptionalCharacteristic: (key: unknown) => characteristic(key),
+    }
+  }
+
+  function build() {
+    const services = new Map<string, ReturnType<typeof makeService>>()
+    services.set('AccessoryInformation', makeService())
+    const accessory = {
+      UUID: 'keurig-uuid',
+      displayName: 'Keurig',
+      context: {
+        device: { features: [] },
+      },
+      getService: (name: string) => services.get(name),
+      addService(_type: unknown, name: string) {
+        const service = makeService()
+        services.set(name, service)
+        return service
+      },
+      removeService: vi.fn(),
+    }
+    const device = { applianceId: 'A1' } as any
+    const platform = {
+      api: {
+        hap: { Characteristic, Service: Characteristic },
+      },
+      log: Object.assign(vi.fn(), {
+        warn: vi.fn(),
+        error: vi.fn(),
+        info: vi.fn(),
+        debug: vi.fn(),
+        success: vi.fn(),
+      }),
+      config: {
+        devices: [device],
+      },
+      Characteristic,
+      Service: Characteristic,
+    } as any
+    const keurig = new SmartHQKeurig(platform, accessory as any, device)
+    return { keurig, services }
+  }
+
+  it('marks Hot Water Ready as soon as the fridge pushes a READY status', () => {
+    const { keurig, services } = build()
+    keurig.onErdUpdate('0x1010', '020000BEFFFFFF')
+    expect(services.get('Hot Water Ready')!.values.get(occupancy)).toBe(1)
+
+    keurig.onErdUpdate('0x1010', '01000AA0FFFFFF')
+    expect(services.get('Hot Water Ready')!.values.get(occupancy)).toBe(0)
+  })
+
+  it('follows the dispensing flag', () => {
+    const { keurig, services } = build()
+    keurig.onErdUpdate('0x1018', '01')
+    expect(services.get('Hot Water Dispensing')!.values.get(occupancy)).toBe(1)
+    keurig.onErdUpdate('0x1018', '00')
+    expect(services.get('Hot Water Dispensing')!.values.get(occupancy)).toBe(0)
+  })
+
+  it('checks the hot water every 15 s while the switch is on, and stops when it goes off', async () => {
+    vi.useFakeTimers()
+    try {
+      const { keurig, services } = build()
+      const fresh: Record<string, string> = { '0x1010': '01000AA0FFFFFF', '0x1011': 'AA' }
+      const readErdFresh = vi.spyOn(keurig, 'readErdFresh').mockImplementation(async erd => fresh[erd])
+
+      keurig.onErdUpdate('0x1011', 'AA')
+      await vi.advanceTimersByTimeAsync(15_000)
+      expect(readErdFresh).toHaveBeenCalledWith('0x1010')
+      expect(services.get('Hot Water Ready')!.values.get(occupancy)).toBe(0)
+
+      // the push for READY never arrives; the check finds it
+      fresh['0x1010'] = '020000B601FFFF'
+      await vi.advanceTimersByTimeAsync(15_000)
+      expect(services.get('Hot Water Ready')!.values.get(occupancy)).toBe(1)
+
+      // the fridge turns the heater off; the check sees it and stops
+      fresh['0x1011'] = '00'
+      await vi.advanceTimersByTimeAsync(15_000)
+      expect(services.get('K-Cup Hot Water')!.values.get('On')).toBe(false)
+      const calls = readErdFresh.mock.calls.length
+      await vi.advanceTimersByTimeAsync(60_000)
+      expect(readErdFresh.mock.calls.length).toBe(calls)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('stops checking on shutdown', async () => {
+    vi.useFakeTimers()
+    try {
+      const { keurig } = build()
+      const readErdFresh = vi.spyOn(keurig, 'readErdFresh').mockResolvedValue(undefined)
+      keurig.onErdUpdate('0x1011', 'AA')
+      keurig.shutdown()
+      await vi.advanceTimersByTimeAsync(60_000)
+      expect(readErdFresh).not.toHaveBeenCalled()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('keeps the switch in step when the set temperature changes elsewhere', () => {
+    const { keurig, services } = build()
+    keurig.onErdUpdate('0x1011', 'AA')
+    expect(services.get('K-Cup Hot Water')!.values.get('On')).toBe(true)
+    keurig.onErdUpdate('0x1011', '00')
+    expect(services.get('K-Cup Hot Water')!.values.get('On')).toBe(false)
   })
 })

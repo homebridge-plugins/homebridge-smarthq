@@ -242,6 +242,15 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
     return this.v2Transport
   }
 
+  /**
+   * Replace a live value with one just read from the API. A device that checks
+   * an ERD directly (because a push may have gone missing) stores the answer
+   * here, so later reads stop returning the stale pushed value.
+   */
+  public storeFreshErd(applianceId: string, erd: string, value: string) {
+    this.setLiveErd(applianceId, erd, value)
+  }
+
   private setLiveErd(applianceId: string, erd: string, value: string) {
     const applianceErds = this.erdCache.get(applianceId) ?? new Map<string, string>()
     applianceErds.set(normaliseErd(erd), value)
@@ -437,6 +446,13 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
 
         if (obj.kind === 'publish#erd') {
           this.handleErdPush(obj)
+        } else if (obj.kind === 'websocket#subscribe' && obj.success === false) {
+          // SmartHQ sometimes answers the subscribe with "Internal server
+          // error" and keeps the socket open. Nothing is pushed on it after
+          // that, so live values go stale with no sign anything is wrong.
+          // Closing it reconnects with a fresh endpoint and subscribes again.
+          this.warnLog(`SmartHQ refused the live update subscription (${obj.reason ?? 'no reason given'}), reconnecting`)
+          connection.close()
         }
       })
 
@@ -605,16 +621,17 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
       this.debugLog(`obj>item>value: ${obj.item.value}`)
     }
 
-    // Let the device reflect the change in HomeKit straight away,
-    // rather than waiting to be asked (#10)
-    try {
-      accessory.control?.onErdUpdate(normaliseErd(obj.item.erd), liveValue)
-    } catch (error) {
-      this.debugLog(`onErdUpdate failed for ${obj.item.erd}: ${error}`)
-    }
-    // Every accessory of the appliance (a fridge and its Keurig share one id)
+    // Let every accessory of the appliance reflect the change in HomeKit
+    // straight away, rather than waiting to be asked (#10). A fridge and its
+    // Keurig sub-accessory share one appliance id, so handing the push to the
+    // first match only left the Keurig sensors stale.
     for (const a of this.accessories) {
       if (a.context?.device?.applianceId === obj.item.applianceId) {
+        try {
+          a.control?.onErdUpdate(normaliseErd(obj.item.erd), liveValue)
+        } catch (error) {
+          this.debugLog(`onErdUpdate failed for ${obj.item.erd}: ${error}`)
+        }
         try {
           a.control?.energy?.onErdUpdate(normaliseErd(obj.item.erd), liveValue)
         } catch (error) {

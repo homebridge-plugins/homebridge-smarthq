@@ -552,6 +552,27 @@ export abstract class deviceBase {
       return undefined
     }
 
+    return this.readErdFromApi(erd)
+  }
+
+  /**
+   * Read an ERD from the API even when a pushed value is held, and keep the
+   * answer as the live value. For state that must not go stale when a push is
+   * missed: SmartHQ keeps the websocket open but does not always deliver every
+   * change, and the pushed value is otherwise trusted until the socket drops.
+   */
+  async readErdFresh(erd: string): Promise<string | undefined> {
+    if (this.unsupportedErds.has(erd)) {
+      return undefined
+    }
+    const value = await this.readErdFromApi(erd)
+    if (value !== undefined) {
+      this.platform.storeFreshErd(this.getApplianceId(), erd, value)
+    }
+    return value
+  }
+
+  private async readErdFromApi(erd: string): Promise<string | undefined> {
     try {
       await this.debugLog(`Reading ERD ${erd}`)
       const d = await this.getErdWithRetry(erd)
@@ -620,7 +641,7 @@ export abstract class deviceBase {
       if (error?.response?.status === 400) {
         this.unsupportedErds.add(erd)
         if (!this.optionalErds.has(erd)) {
-          await this.debugLog(`ERD ${erd} write failed - not supported or invalid value (400) - will not retry`)
+          await this.warnLog(`ERD ${erd} write of ${value} failed - not supported or invalid value (400) - will not retry`)
         }
       } else {
         await this.warnLog(`writeErd ${erd} error: ${error?.message ?? error}`)
