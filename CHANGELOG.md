@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file. This projec
 
 - fix(keurig): heat plain hot water dispensers and update the sensors live (#150) (@tcollins590)
 - fix(auth): log in to accounts with email 2fa, and show the 2fa code setting (#151) (@kdim953)
+- chore(deps): dependency updates
 
 ## v0.10.0 (2026-11-14)
 

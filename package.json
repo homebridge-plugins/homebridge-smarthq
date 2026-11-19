@@ -65,7 +65,7 @@
     "@antfu/eslint-config": "^10.0.0",
     "@types/lodash": "^4.17.27",
     "@types/node": "^26.6.6",
-    "@vitest/coverage-v8": "^5.1.0",
+    "@vitest/coverage-v8": "^5.1.1",
     "homebridge": "^2.5.0",
     "nodemon": "^3.1.14",
     "rimraf": "^6.1.4",
@@ -73,7 +73,7 @@
     "tsc-alias": "^1.9.10",
     "typedoc": "^0.28.20",
     "typescript": "^6.0.3",
-    "vitest": "^5.1.0"
+    "vitest": "^5.1.1"
   },
   "allowScripts": {
     "fsevents": true
