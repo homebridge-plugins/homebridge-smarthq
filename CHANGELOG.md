@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. This project uses [Semantic Versioning](https://semver.org/).
 
+## v0.10.2 (Pending Release)
+
+### Changed
+
+- feat: support the café coffee brewer: brew switch, carafe, water and temperature (#144, #152)
+
 ## v0.10.1 (2026-11-19)
 
 ### Changed
@@ -143,7 +149,7 @@ All notable changes to this project will be documented in this file. This projec
 - chore(github): allow the codeql scan to be started manually
 - chore(github): stop concurrent release runs racing for the same version
 - chore: add the supports-matter keyword
-- feat: add Combination Washer Dryer support (#96)
+- feat: add Combination Washer Dryer support (#96) (#108) (@ericmullis)
 - chore(github): use the shared homebridge action to deprecate past pre-releases
 - feat: control the oven from homekit - start a bake, set the temperature and turn it off (#8)
 - fix: read the dishwasher's real state codes instead of fabricated ones, with live updates and time remaining (#22)

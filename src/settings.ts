@@ -268,6 +268,17 @@ export const ERD_TYPES = {
   OIM_POWER: '0x9107',
   OIM_PRODUCTION: '0x9108',
 
+  // Café coffee brewer (ERD map from simbaja/gehome, checked against a C7CDAASP3, #152)
+  CCM_IS_BREWING: '0x9000' as const,
+  CCM_BREW_TEMPERATURE: '0x9001' as const,
+  CCM_BREW_CUPS: '0x9006' as const,
+  CCM_BREW_STRENGTH: '0x9008' as const,
+  CCM_BREW_SETTINGS: '0x900b' as const,
+  CCM_CANCEL_BREWING: '0x900c' as const,
+  CCM_POT_PRESENT: '0x9012' as const,
+  CCM_OUT_OF_WATER: '0x9013' as const,
+  CCM_CURRENT_WATER_TEMPERATURE: '0x9014' as const,
+
   AIR_FILTER_STATUS: '0x101c' as const,
   DOOR_STATUS: '0x1016' as const,
   FRIDGE_MODEL_INFO: '0x101d' as const,

@@ -907,6 +907,7 @@ export class SmartHQPlatform implements DynamicPlatformPlugin {
               await this.createSmartHQMicrowave(userId, device, details, features)
               break
             case 'Coffee Maker':
+            case 'Coffee Brewer': // the Café brewers (C7CDAASP1/3) report this type (#144, #152)
             case 'Espresso Maker':
               await this.createSmartHQCoffeeMaker(userId, device, details, features)
               break

@@ -1048,6 +1048,7 @@ export const ENERGY_MODELS_BY_APPLIANCE_TYPE: Record<string, Array<keyof typeof 
   'Advantium': ['advantium'],
   'Microwave': ['microwave'],
   'Coffee Maker': ['coffeeMaker'],
+  'Coffee Brewer': ['coffeeMaker'],
   'Espresso Maker': ['coffeeMaker'],
   'Beverage Center': ['beverageCenter'],
   'Smoker': ['smoker'],

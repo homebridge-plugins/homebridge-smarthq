@@ -421,6 +421,7 @@ describe('smartHQPlatform appliance type dispatch', () => {
     const spies = {
       dishwasher: vi.spyOn(platform as any, 'createSmartHQDishWasher').mockResolvedValue(undefined),
       dishDrawer: vi.spyOn(platform as any, 'createSmartHQDishDrawer').mockResolvedValue(undefined),
+      coffeeMaker: vi.spyOn(platform as any, 'createSmartHQCoffeeMaker').mockResolvedValue(undefined),
     }
     await platform.discoverDevices()
     return spies
@@ -447,6 +448,19 @@ describe('smartHQPlatform appliance type dispatch', () => {
 
     expect(spies.dishwasher).toHaveBeenCalledTimes(1)
     expect(spies.dishDrawer).not.toHaveBeenCalled()
+  })
+
+  // The Café brewers announce 'Coffee Brewer', not 'Coffee Maker' (#144, #152)
+  it('sets up a Café Coffee Brewer with the coffee maker handler', async () => {
+    const spies = await discoverOne({
+      applianceId: 'a-6',
+      type: 'Coffee Brewer',
+      nickname: 'Coffee Brewer',
+      model: 'C7CDAASP3',
+    })
+
+    expect(spies.coffeeMaker).toHaveBeenCalledTimes(1)
+    expect(mockLog.warn).not.toHaveBeenCalledWith(expect.stringContaining('Not Supported'))
   })
 
   // With the type unknown there is no handler to read anything, so discovery
