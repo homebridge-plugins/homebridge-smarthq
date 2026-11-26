@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file. This projec
 ### Changed
 
 - feat: support the café coffee brewer: brew switch, carafe, water and temperature (#144, #152)
+- chore(deps): dependency updates
 
 ## v0.10.1 (2026-11-19)
 
